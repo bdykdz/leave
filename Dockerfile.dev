@@ -1,0 +1,43 @@
+# Development Dockerfile with cron support
+FROM node:20-alpine
+
+# Install cron and bash
+RUN apk add --no-cache dcron bash curl
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy application files
+COPY . .
+
+# Make scripts executable
+RUN chmod +x /app/*.sh
+
+# Create log directory
+RUN mkdir -p /var/log && touch /var/log/cron.log
+
+# Setup cron
+RUN crontab /app/config/crontab
+
+# Create startup script for development
+RUN echo '#!/bin/bash' > /app/start-dev.sh && \
+    echo 'echo "Starting cron daemon..."' >> /app/start-dev.sh && \
+    echo 'crond -b -l 2' >> /app/start-dev.sh && \
+    echo 'echo "Cron daemon started"' >> /app/start-dev.sh && \
+    echo 'echo "Running database setup..."' >> /app/start-dev.sh && \
+    echo 'npx prisma generate' >> /app/start-dev.sh && \
+    echo 'npx prisma db push' >> /app/start-dev.sh && \
+    echo 'echo "Starting Next.js development server..."' >> /app/start-dev.sh && \
+    echo 'npm run dev' >> /app/start-dev.sh && \
+    chmod +x /app/start-dev.sh
+
+# Expose port
+EXPOSE 3000
+
+# Start both cron and the development server
+CMD ["/bin/bash", "/app/start-dev.sh"]

@@ -1,0 +1,604 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  Calendar,
+  Users,
+  Plus,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Home,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  Shield,
+  TrendingUp,
+} from "lucide-react"
+import { LeaveRequestForm } from "@/components/leave-request-form"
+import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
+import { TeamCalendar } from "@/components/team-calendar"
+import { format } from "date-fns/format"
+import { addMonths } from "date-fns/addMonths"
+import { subMonths } from "date-fns/subMonths"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { LogOut, Settings, User } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { signOut } from "next-auth/react"
+import { ThemeToggle } from "@/components/theme-toggle"
+
+export default function EmployeeDashboard() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [showRequestForm, setShowRequestForm] = useState(false)
+  const [showRemoteForm, setShowWFHForm] = useState(false)
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const [wfhCurrentMonth, setWfhCurrentMonth] = useState(new Date()) // For WFH pagination
+  const [requestsCurrentPage, setRequestsCurrentPage] = useState(1) // For requests pagination
+  const [leaveBalances, setLeaveBalances] = useState<any[]>([])
+  const [loadingBalances, setLoadingBalances] = useState(true)
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(true)
+
+  useEffect(() => {
+    if (status === "loading") return
+    
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    // Only allow EMPLOYEE and ADMIN roles on this page
+    if (session.user.role !== "EMPLOYEE" && session.user.role !== "ADMIN") {
+      // Redirect to appropriate dashboard
+      switch (session.user.role) {
+        case "MANAGER":
+          router.push("/manager")
+          break
+        case "HR":
+          router.push("/hr")
+          break
+        case "EXECUTIVE":
+          router.push("/executive")
+          break
+        default:
+          router.push("/login")
+      }
+    } else {
+      // Fetch leave balances and requests
+      fetchLeaveBalances()
+      fetchLeaveRequests()
+    }
+  }, [session, status, router])
+
+  const fetchLeaveBalances = async () => {
+    try {
+      setLoadingBalances(true)
+      const response = await fetch('/api/employee/leave-balance')
+      if (response.ok) {
+        const data = await response.json()
+        setLeaveBalances(data.leaveBalances)
+      }
+    } catch (error) {
+      console.error('Error fetching leave balances:', error)
+    } finally {
+      setLoadingBalances(false)
+    }
+  }
+
+  const fetchLeaveRequests = async () => {
+    try {
+      setLoadingRequests(true)
+      // Fetch all requests without year filter to see all requests
+      const response = await fetch('/api/leave-requests?year=all')
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Fetched leave requests:', data.leaveRequests)
+        // Log the first request to debug the date issue
+        if (data.leaveRequests?.length > 0) {
+          console.log('First request details:', {
+            startDate: data.leaveRequests[0].startDate,
+            endDate: data.leaveRequests[0].endDate,
+            supportingDocuments: data.leaveRequests[0].supportingDocuments,
+            totalDays: data.leaveRequests[0].totalDays
+          })
+        }
+        setLeaveRequests(data.leaveRequests || [])
+      }
+    } catch (error) {
+      console.error('Error fetching leave requests:', error)
+    } finally {
+      setLoadingRequests(false)
+    }
+  }
+
+  if (status === "loading") {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  }
+
+  if (!session || (session.user.role !== "EMPLOYEE" && session.user.role !== "ADMIN")) {
+    return null
+  }
+
+  // Get specific leave types from balances
+  const normalLeave = leaveBalances.find(b => b.leaveTypeCode === 'AL' || b.leaveTypeCode === 'NL')
+  const sickLeave = leaveBalances.find(b => b.leaveTypeCode === 'SL')
+  const specialLeaves = leaveBalances.filter(b => !['AL', 'NL', 'SL'].includes(b.leaveTypeCode))
+
+  // Mock WFH data for different months
+  const wfhDataByMonth = {
+    "2024-11": { daysUsed: 4, workingDaysInMonth: 21, percentage: 19 },
+    "2024-12": { daysUsed: 3, workingDaysInMonth: 20, percentage: 15 },
+    "2025-01": { daysUsed: 6, workingDaysInMonth: 22, percentage: 27 },
+    "2025-02": { daysUsed: 0, workingDaysInMonth: 20, percentage: 0 }, // Future month
+    "2025-03": { daysUsed: 0, workingDaysInMonth: 21, percentage: 0 }, // Future month
+  }
+
+  // Get WFH stats for current selected month
+  const getWfhStatsForMonth = (date: Date) => {
+    const monthKey = format(date, "yyyy-MM")
+    return wfhDataByMonth[monthKey] || { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
+  }
+
+  const wfhStats = getWfhStatsForMonth(wfhCurrentMonth)
+
+  // Format request dates
+  const formatRequestDates = (request: any) => {
+    // Always format the dates ourselves to ensure consistency
+    const start = new Date(request.startDate)
+    const end = new Date(request.endDate)
+    
+    // Check if we have selected dates (non-consecutive days)
+    if (request.supportingDocuments?.selectedDates && Array.isArray(request.supportingDocuments.selectedDates)) {
+      const selectedDates = request.supportingDocuments.selectedDates.map((d: string) => new Date(d))
+      const sortedDates = selectedDates.sort((a: Date, b: Date) => a.getTime() - b.getTime())
+      
+      // Group consecutive dates
+      const groups: Date[][] = []
+      let currentGroup = [sortedDates[0]]
+      
+      for (let i = 1; i < sortedDates.length; i++) {
+        const prevDate = sortedDates[i - 1]
+        const currDate = sortedDates[i]
+        const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+        
+        if (dayDiff === 1) {
+          currentGroup.push(currDate)
+        } else {
+          groups.push(currentGroup)
+          currentGroup = [currDate]
+        }
+      }
+      groups.push(currentGroup)
+      
+      // Format each group
+      return groups.map(group => {
+        if (group.length === 1) {
+          return format(group[0], "MMM d")
+        } else {
+          return `${format(group[0], "MMM d")}-${format(group[group.length - 1], "d")}`
+        }
+      }).join(", ") + `, ${format(sortedDates[0], "yyyy")}`
+    }
+    
+    // Single day request
+    if (start.toDateString() === end.toDateString()) {
+      return format(start, "EEEE, MMMM d, yyyy")
+    }
+    
+    // Multi-day request in same month
+    if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+      return `${format(start, "MMMM d")} - ${format(end, "d, yyyy")}`
+    }
+    
+    // Multi-day request across months
+    return `${format(start, "MMM d, yyyy")} - ${format(end, "MMM d, yyyy")}`
+  }
+
+  // Pagination for requests
+  const requestsPerPage = 5
+  const totalPages = Math.max(1, Math.ceil(leaveRequests.length / requestsPerPage))
+  const startIndex = (requestsCurrentPage - 1) * requestsPerPage
+  const endIndex = startIndex + requestsPerPage
+  const currentRequests = leaveRequests.slice(startIndex, endIndex)
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toUpperCase()) {
+      case "APPROVED":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "REJECTED":
+      case "REJECTED":
+        return <XCircle className="h-4 w-4 text-red-500" />
+      case "PENDING":
+        return <AlertCircle className="h-4 w-4 text-yellow-500" />
+      default:
+        return null
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status.toUpperCase()) {
+      case "APPROVED":
+        return "bg-green-100 text-green-800"
+      case "REJECTED":
+      case "REJECTED":
+        return "bg-red-100 text-red-800"
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const formatStatus = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+  }
+
+  // WFH month navigation
+  const previousWfhMonth = () => {
+    setWfhCurrentMonth(subMonths(wfhCurrentMonth, 1))
+  }
+
+  const nextWfhMonth = () => {
+    setWfhCurrentMonth(addMonths(wfhCurrentMonth, 1))
+  }
+
+  // Requests pagination
+  const previousRequestsPage = () => {
+    setRequestsCurrentPage(Math.max(1, requestsCurrentPage - 1))
+  }
+
+  const nextRequestsPage = () => {
+    setRequestsCurrentPage(Math.min(totalPages, requestsCurrentPage + 1))
+  }
+
+  if (showRequestForm) {
+    return <LeaveRequestForm onBack={() => {
+      setShowRequestForm(false)
+      // Refresh data when returning from form
+      fetchLeaveBalances()
+      fetchLeaveRequests()
+    }} />
+  }
+
+  if (showRemoteForm) {
+    return <WorkRemoteRequestForm onBack={() => setShowWFHForm(false)} />
+  }
+
+  const userName = `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim() || session.user.email
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Leave Management</h1>
+              <p className="text-gray-600">Welcome back, {userName}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {session.user.role === "ADMIN" && (
+                <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Admin Dashboard
+                </Button>
+              )}
+              {session.user.role === "EXECUTIVE" && (
+                <Button onClick={() => router.push("/executive")} variant="outline" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Executive Dashboard
+                </Button>
+              )}
+              {session.user.role === "HR" && (
+                <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  HR Dashboard
+                </Button>
+              )}
+              <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                Request Remote Work
+              </Button>
+              <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Request Leave
+              </Button>
+
+              <ThemeToggle />
+
+              {/* Profile Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={session.user.image || undefined} />
+                      <AvatarFallback>{session.user.firstName?.[0]}{session.user.lastName?.[0]}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{userName}</p>
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">{session.user.email}</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex gap-4 mb-6">
+          <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
+            Dashboard
+          </Button>
+          <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
+            Team Calendar
+          </Button>
+        </div>
+
+        {activeTab === "dashboard" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Leave Balance Cards */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Normal Leave Card */}
+                {normalLeave && (
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">{normalLeave.leaveTypeName}</CardTitle>
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{normalLeave.available || 0}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {normalLeave.used || 0} used of {normalLeave.entitled || 0} days
+                      </p>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{ width: `${normalLeave.entitled > 0 ? ((normalLeave.used / normalLeave.entitled) * 100) : 0}%` }}
+                        ></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Sick Leave Card */}
+                {sickLeave && (
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">{sickLeave.leaveTypeName}</CardTitle>
+                      <Heart className="h-4 w-4 text-red-500" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{sickLeave.used || 0}</div>
+                      <p className="text-xs text-muted-foreground">Days used this year</p>
+                      <p className="text-xs text-gray-500 mt-2">No limit - tracked by HR</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Special Leave Summary Card */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Special Leave</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{specialLeaves.reduce((sum, leave) => sum + (leave.used || 0), 0)}</div>
+                    <p className="text-xs text-muted-foreground">Total special leave days used</p>
+                    <div className="text-xs text-gray-500 mt-2 space-y-1">
+                      {specialLeaves.filter(leave => leave.used > 0).map(leave => (
+                        <div key={leave.leaveTypeId}>{leave.leaveTypeName}: {leave.used} days</div>
+                      ))}
+                      {specialLeaves.filter(leave => leave.used > 0).length === 0 && (
+                        <div>No special leave taken</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* WFH Usage Card with Pagination */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm font-medium">
+                      Remote Work Usage - {format(wfhCurrentMonth, "MMMM yyyy")}
+                    </CardTitle>
+                    <Home className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={previousWfhMonth}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={nextWfhMonth}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} days</div>
+                  <p className="text-xs text-muted-foreground">
+                    {wfhStats.daysUsed} of {wfhStats.workingDaysInMonth} working days this month
+                  </p>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${wfhStats.percentage}%` }}></div>
+                  </div>
+                  <p className="text-sm font-medium text-blue-600 mt-2">{wfhStats.percentage}% WFH this month</p>
+                </CardContent>
+              </Card>
+
+              {/* Recent Requests with Pagination */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Recent Requests</CardTitle>
+                      <CardDescription>Your latest leave and WFH requests and their status</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">
+                        Page {requestsCurrentPage} of {totalPages}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={previousRequestsPage}
+                          disabled={requestsCurrentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={nextRequestsPage}
+                          disabled={requestsCurrentPage === totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingRequests ? (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-gray-500">Loading requests...</p>
+                    </div>
+                  ) : leaveRequests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No leave requests found</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-4">
+                        {currentRequests.map((request) => (
+                          <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              {getStatusIcon(request.status)}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{request.leaveType?.name || "Leave"}</p>
+                                  <span className="text-xs text-gray-500">• {request.totalDays} day{request.totalDays > 1 ? "s" : ""}</span>
+                                </div>
+                                <p className="text-sm text-gray-600">{formatRequestDates(request)}</p>
+                                <p className="text-xs text-gray-500">
+                                  Requested {format(new Date(request.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Badge className={getStatusColor(request.status)}>
+                                {formatStatus(request.status)}
+                              </Badge>
+                              {request.status === 'PENDING' && request.approvals && request.approvals.length > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Awaiting approval
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Pagination Footer */}
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <p className="text-sm text-gray-500">
+                          Showing {startIndex + 1}-{Math.min(endIndex, leaveRequests.length)} of {leaveRequests.length} requests
+                        </p>
+                        <div className="flex gap-2">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={page === requestsCurrentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setRequestsCurrentPage(page)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {page}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Upcoming Company Holidays */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming Holidays</CardTitle>
+                <CardDescription>Company-wide holidays</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">New Year's Day</p>
+                      <p className="text-sm text-gray-600">January 1, 2025</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Martin Luther King Jr. Day</p>
+                      <p className="text-sm text-gray-600">January 20, 2025</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Presidents' Day</p>
+                      <p className="text-sm text-gray-600">February 17, 2025</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Memorial Day</p>
+                      <p className="text-sm text-gray-600">May 26, 2025</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "calendar" && <TeamCalendar />}
+      </div>
+    </div>
+  )
+}
