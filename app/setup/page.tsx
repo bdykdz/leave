@@ -285,7 +285,7 @@ export default function SetupPage() {
                   disabled={loading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Default: admin123 (change this in production)
+                  Enter the setup password to access system configuration
                 </p>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
