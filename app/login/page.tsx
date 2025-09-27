@@ -29,7 +29,9 @@ function LoginContent() {
   const [selectedUserId, setSelectedUserId] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
-  const isDevelopment = process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'uat' || process.env.SHOW_DEV_LOGIN === 'true'
+  const isDevelopment = typeof window !== 'undefined' ? 
+    (window.location.hostname.includes('sslip.io') || window.location.hostname === 'localhost') :
+    (process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'uat')
 
   useEffect(() => {
     if (isDevelopment) {
