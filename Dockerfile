@@ -48,7 +48,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy start script
-COPY --from=builder /app/start-dev.sh ./start.sh
+COPY --from=builder /app/start.sh ./start.sh
 RUN chmod +x ./start.sh
 
 USER nextjs
