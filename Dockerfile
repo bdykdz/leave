@@ -47,10 +47,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Copy start script
-COPY --from=builder /app/start.sh ./start.sh
-RUN chmod +x ./start.sh
-
 USER nextjs
 
 EXPOSE 3000
@@ -62,4 +58,4 @@ ENV HOSTNAME "0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["./start.sh"]
+CMD ["node", "server.js"]
