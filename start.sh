@@ -3,9 +3,9 @@
 # Production startup script for Leave Management System
 echo "🚀 Starting Leave Management System..."
 
-# Run database migrations
-echo "📊 Running database migrations..."
-npx prisma migrate deploy
+# Push database schema (for initial setup)
+echo "📊 Pushing database schema..."
+npx prisma db push --accept-data-loss
 
 # Check if migrations succeeded
 if [ $? -eq 0 ]; then
