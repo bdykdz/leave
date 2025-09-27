@@ -29,7 +29,7 @@ function LoginContent() {
   const [selectedUserId, setSelectedUserId] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
-  const isDevelopment = process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'uat'
+  const isDevelopment = process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'uat' || process.env.SHOW_DEV_LOGIN === 'true'
 
   useEffect(() => {
     if (isDevelopment) {
