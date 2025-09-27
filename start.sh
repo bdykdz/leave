@@ -9,9 +9,20 @@ npx prisma db push --accept-data-loss
 
 # Check if migrations succeeded
 if [ $? -eq 0 ]; then
-    echo "✅ Database migrations completed successfully"
+    echo "✅ Database schema sync completed successfully"
 else
-    echo "❌ Database migrations failed"
+    echo "❌ Database schema sync failed"
+    exit 1
+fi
+
+# Regenerate Prisma client to fix WASM issues
+echo "🔄 Regenerating Prisma client..."
+npx prisma generate
+
+if [ $? -eq 0 ]; then
+    echo "✅ Prisma client generated successfully"
+else
+    echo "❌ Prisma client generation failed"
     exit 1
 fi
 
