@@ -1,0 +1,10 @@
+# Leave Management System Cron Jobs
+# Format: minute hour day month weekday command
+
+# Run escalation check daily at midnight
+0 0 * * * /app/scripts/escalation-cron.sh >> /var/log/cron.log 2>&1
+
+# Run escalation check every 6 hours (optional - comment out if not needed)
+# 0 */6 * * * /app/scripts/escalation-cron.sh >> /var/log/cron.log 2>&1
+
+# Keep a newline at the end of this file

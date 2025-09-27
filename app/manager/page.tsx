@@ -1,0 +1,1162 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Calendar,
+  Users,
+  CheckCircle,
+  XCircle,
+  Home,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  TrendingUp,
+  UserCheck,
+  UserX,
+  Plus,
+  Heart,
+  AlertTriangle,
+} from "lucide-react"
+import { TeamCalendar } from "@/components/team-calendar"
+import { LeaveRequestForm } from "@/components/leave-request-form"
+import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
+import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
+import { format, addMonths, subMonths } from "date-fns"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { LogOut, Settings, User } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { toast } from "sonner"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
+
+export default function ManagerDashboard() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const [pendingRequestsPage, setPendingRequestsPage] = useState(1)
+  const [teamStatsMonth, setTeamStatsMonth] = useState(new Date())
+  const [myRequestsPage, setMyRequestsPage] = useState(1)
+  const [showRequestForm, setShowRequestForm] = useState(false)
+  const [showRemoteForm, setShowWFHForm] = useState(false)
+  const [managerWfhMonth, setManagerWfhMonth] = useState(new Date())
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false)
+  const [approvalDetails, setApprovalDetails] = useState<{
+    action: "approve" | "deny"
+    request: {
+      id: string
+      employeeName: string
+      type: string
+      dates: string
+      days: number
+    }
+  } | null>(null)
+
+  // State for real data
+  const [loading, setLoading] = useState(true)
+  const [managerLeaveBalance, setManagerLeaveBalance] = useState({
+    vacation: { used: 0, total: 0 },
+    personal: { used: 0, total: 0 },
+    medical: { used: 0 },
+  })
+  const [teamStats, setTeamStats] = useState({
+    totalMembers: 0,
+    onLeaveToday: 0,
+    workingFromHome: 0,
+    inOffice: 0,
+    pendingRequests: 0,
+  })
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [totalPendingPages, setTotalPendingPages] = useState(0)
+  const [approvedRequests, setApprovedRequests] = useState<any[]>([])
+  const [totalApprovedPages, setTotalApprovedPages] = useState(0)
+  const [deniedRequests, setDeniedRequests] = useState<any[]>([])
+  const [totalDeniedPages, setTotalDeniedPages] = useState(0)
+  const [teamRequestsTab, setTeamRequestsTab] = useState<'pending' | 'approved' | 'denied'>('pending')
+  const [approvedRequestsPage, setApprovedRequestsPage] = useState(1)
+  const [deniedRequestsPage, setDeniedRequestsPage] = useState(1)
+
+  // Fetch manager's leave balance
+  useEffect(() => {
+    fetchManagerLeaveBalance()
+  }, [])
+
+  // Fetch team stats
+  useEffect(() => {
+    fetchTeamStats()
+  }, [])
+
+  // Fetch pending requests
+  useEffect(() => {
+    fetchPendingRequests()
+  }, [pendingRequestsPage])
+
+  // Fetch approved requests
+  useEffect(() => {
+    if (teamRequestsTab === 'approved') {
+      fetchApprovedRequests()
+    }
+  }, [approvedRequestsPage, teamRequestsTab])
+
+  // Fetch denied requests
+  useEffect(() => {
+    if (teamRequestsTab === 'denied') {
+      fetchDeniedRequests()
+    }
+  }, [deniedRequestsPage, teamRequestsTab])
+
+  const fetchManagerLeaveBalance = async () => {
+    try {
+      const response = await fetch('/api/manager/leave-balance')
+      if (response.ok) {
+        const data = await response.json()
+        setManagerLeaveBalance(data)
+      }
+    } catch (error) {
+      console.error('Error fetching leave balance:', error)
+      toast.error('Failed to load leave balance')
+    }
+  }
+
+  const fetchTeamStats = async () => {
+    try {
+      const response = await fetch('/api/manager/team/overview')
+      if (response.ok) {
+        const data = await response.json()
+        setTeamStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching team stats:', error)
+      toast.error('Failed to load team statistics')
+    }
+  }
+
+  const fetchPendingRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=4`)
+      if (response.ok) {
+        const data = await response.json()
+        setPendingRequests(data.requests)
+        setTotalPendingPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching pending requests:', error)
+      toast.error('Failed to load pending requests')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchApprovedRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/approved-requests?page=${approvedRequestsPage}&limit=4`)
+      if (response.ok) {
+        const data = await response.json()
+        setApprovedRequests(data.requests)
+        setTotalApprovedPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching approved requests:', error)
+      toast.error('Failed to load approved requests')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchDeniedRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/denied-requests?page=${deniedRequestsPage}&limit=4`)
+      if (response.ok) {
+        const data = await response.json()
+        setDeniedRequests(data.requests)
+        setTotalDeniedPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching denied requests:', error)
+      toast.error('Failed to load denied requests')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApprove = async (requestId: string, comment?: string) => {
+    try {
+      const response = await fetch(`/api/manager/team/approve-request/${requestId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment })
+      })
+      
+      if (response.ok) {
+        toast.success('Request approved successfully')
+        // Refresh all data
+        await Promise.all([
+          fetchPendingRequests(),
+          fetchTeamStats(),
+          fetchApprovedRequests() // Always refresh approved requests
+        ])
+        setShowApprovalDialog(false)
+      } else {
+        const errorData = await response.json()
+        console.error('API Error:', errorData)
+        toast.error(errorData.details || 'Failed to approve request')
+      }
+    } catch (error) {
+      console.error('Error approving request:', error)
+      toast.error('Failed to approve request')
+    }
+  }
+
+  const handleDeny = async (requestId: string, comment?: string) => {
+    try {
+      const response = await fetch(`/api/manager/team/deny-request/${requestId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment })
+      })
+      
+      if (response.ok) {
+        toast.success('Request denied')
+        // Refresh all data
+        await Promise.all([
+          fetchPendingRequests(),
+          fetchTeamStats(),
+          fetchDeniedRequests() // Always refresh denied requests
+        ])
+        setShowApprovalDialog(false)
+      } else {
+        toast.error('Failed to deny request')
+      }
+    } catch (error) {
+      console.error('Error denying request:', error)
+      toast.error('Failed to deny request')
+    }
+  }
+
+  // TODO: Add manager's WFH stats API endpoint
+  const managerWfhStats = { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
+
+  // TODO: Add manager's own requests API endpoint
+  const managerRequests = []
+  const myRequestsPerPage = 3
+  const myRequestsTotalPages = Math.ceil(managerRequests.length / myRequestsPerPage) || 1
+
+  // Mock team WFH data - TODO: Create API endpoint
+  const teamWfhStats = { averageWfhPercentage: 0, totalWfhDays: 0, totalWorkingDays: 160 }
+
+  // Pagination for pending requests
+  const pendingRequestsPerPage = 4
+  const startIndex = (pendingRequestsPage - 1) * pendingRequestsPerPage
+  const paginatedPendingRequests = pendingRequests.slice(startIndex, startIndex + pendingRequestsPerPage)
+
+  // Pagination for manager's own requests
+  const myRequestsStartIndex = (myRequestsPage - 1) * myRequestsPerPage
+  const myRequestsEndIndex = myRequestsStartIndex + myRequestsPerPage
+  const currentMyRequests = managerRequests.slice(myRequestsStartIndex, myRequestsEndIndex)
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "denied":
+        return <XCircle className="h-4 w-4 text-red-500" />
+      case "pending":
+        return <Clock className="h-4 w-4 text-yellow-500" />
+      default:
+        return null
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "bg-green-100 text-green-800"
+      case "denied":
+        return "bg-red-100 text-red-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const handleApproveRequest = (request: any) => {
+    setApprovalDetails({
+      action: "approve",
+      request: {
+        id: request.id,
+        employeeName: request.employee.name,
+        type: request.type,
+        dates: request.dates,
+        days: request.days,
+      },
+    })
+    setShowApprovalDialog(true)
+  }
+
+  const handleDenyRequest = (request: any) => {
+    setApprovalDetails({
+      action: "deny",
+      request: {
+        id: request.id,
+        employeeName: request.employee.name,
+        type: request.type,
+        dates: request.dates,
+        days: request.days,
+      },
+    })
+    setShowApprovalDialog(true)
+  }
+
+  // Navigation functions
+  const previousTeamStatsMonth = () => {
+    setTeamStatsMonth(subMonths(teamStatsMonth, 1))
+  }
+
+  const nextTeamStatsMonth = () => {
+    setTeamStatsMonth(addMonths(teamStatsMonth, 1))
+  }
+
+  const previousManagerWfhMonth = () => {
+    setManagerWfhMonth(subMonths(managerWfhMonth, 1))
+  }
+
+  const nextManagerWfhMonth = () => {
+    setManagerWfhMonth(addMonths(managerWfhMonth, 1))
+  }
+
+  const previousRequestsPage = () => {
+    setPendingRequestsPage(Math.max(1, pendingRequestsPage - 1))
+  }
+
+  const nextRequestsPage = () => {
+    setPendingRequestsPage(Math.min(totalPendingPages, pendingRequestsPage + 1))
+  }
+
+  const previousMyRequestsPage = () => {
+    setMyRequestsPage(Math.max(1, myRequestsPage - 1))
+  }
+
+  const nextMyRequestsPage = () => {
+    setMyRequestsPage(Math.min(myRequestsTotalPages, myRequestsPage + 1))
+  }
+
+  // Check session status
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session || !["MANAGER", "DEPARTMENT_DIRECTOR", "HR", "EXECUTIVE"].includes(session.user.role)) {
+    router.push('/')
+    return null
+  }
+
+  if (showRequestForm) {
+    return <LeaveRequestForm onBack={() => setShowRequestForm(false)} />
+  }
+
+  if (showRemoteForm) {
+    return <WorkRemoteRequestForm onBack={() => setShowWFHForm(false)} />
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Manager Dashboard</h1>
+              <p className="text-gray-600">
+                {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant="outline"
+                className="text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"
+              >
+                <AlertTriangle className="h-3 w-3" />
+                {teamStats.pendingRequests} team approvals pending
+              </Badge>
+              <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                Request Remote Work
+              </Button>
+              <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Request Leave
+              </Button>
+
+              <ThemeToggle />
+
+              {/* Profile Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={session?.user?.image || undefined} />
+                      <AvatarFallback>
+                        {session?.user?.firstName?.[0]}{session?.user?.lastName?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{session?.user?.firstName} {session?.user?.lastName}</p>
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">{session?.user?.email}</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600" onClick={() => signOut({ callbackUrl: '/login' })}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex gap-4 mb-6">
+          <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
+            My Dashboard
+          </Button>
+          <Button variant={activeTab === "team" ? "default" : "outline"} onClick={() => setActiveTab("team")}>
+            Team Management
+          </Button>
+          <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
+            Team Calendar
+          </Button>
+        </div>
+
+        {activeTab === "dashboard" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Manager's Personal Dashboard */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Manager's Leave Balance Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">My Vacation Days</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {managerLeaveBalance.vacation.total - managerLeaveBalance.vacation.used}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {managerLeaveBalance.vacation.used} used of {managerLeaveBalance.vacation.total}
+                    </p>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full"
+                        style={{
+                          width: `${(managerLeaveBalance.vacation.used / managerLeaveBalance.vacation.total) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">My Medical Leave</CardTitle>
+                    <Heart className="h-4 w-4 text-red-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{managerLeaveBalance.medical.used}</div>
+                    <p className="text-xs text-muted-foreground">Days used this year</p>
+                    <p className="text-xs text-gray-500 mt-2">Managed by HR</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">My Personal Days</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {managerLeaveBalance.personal.total - managerLeaveBalance.personal.used}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {managerLeaveBalance.personal.used} used of {managerLeaveBalance.personal.total}
+                    </p>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full"
+                        style={{
+                          width: `${(managerLeaveBalance.personal.used / managerLeaveBalance.personal.total) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Manager's WFH Usage */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm font-medium">
+                      My Remote Work Usage - {format(managerWfhMonth, "MMMM yyyy")}
+                    </CardTitle>
+                    <Home className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={previousManagerWfhMonth}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={nextManagerWfhMonth}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{managerWfhStats.daysUsed} days</div>
+                  <p className="text-xs text-muted-foreground">
+                    {managerWfhStats.daysUsed} of {managerWfhStats.workingDaysInMonth} working days this month
+                  </p>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full"
+                      style={{ width: `${managerWfhStats.percentage}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm font-medium text-blue-600 mt-2">{managerWfhStats.percentage}% WFH this month</p>
+                </CardContent>
+              </Card>
+
+              {/* Manager's Own Requests */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>My Requests</CardTitle>
+                      <CardDescription>Requests submitted to your manager</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">
+                        Page {myRequestsPage} of {myRequestsTotalPages}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={previousMyRequestsPage}
+                          disabled={myRequestsPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={nextMyRequestsPage}
+                          disabled={myRequestsPage === myRequestsTotalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {currentMyRequests.map((request) => (
+                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {getStatusIcon(request.status)}
+                          <div className="flex items-center gap-2">
+                            {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                            <div>
+                              <p className="font-medium">{request.type}</p>
+                              <p className="text-sm text-gray-600">{request.dates}</p>
+                              <p className="text-xs text-gray-500">To: {request.approver}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600">
+                            {request.days} day{request.days > 1 ? "s" : ""}
+                          </span>
+                          <Badge className={getStatusColor(request.status)}>
+                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pending Team Approvals on Dashboard */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Team Approvals</CardTitle>
+                  <CardDescription>Recent requests from your team members</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                  ) : pendingRequests.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">No pending requests</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingRequests.slice(0, 3).map((request) => (
+                        <div key={request.id} className="border rounded-lg p-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={request.employee.avatar} />
+                                <AvatarFallback>
+                                  {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{request.employee.name}</p>
+                                <p className="text-xs text-gray-500">{request.type} • {request.days} day{request.days > 1 ? 's' : ''}</p>
+                                <p className="text-xs text-gray-400">{request.dates}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 px-2"
+                                onClick={() => handleApproveRequest(request)}
+                              >
+                                <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-7 px-2"
+                                onClick={() => handleDenyRequest(request)}
+                              >
+                                <XCircle className="h-3.5 w-3.5 text-red-600" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {pendingRequests.length > 3 && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full mt-3" 
+                      onClick={() => setActiveTab("team")}
+                    >
+                      View All {pendingRequests.length} Requests
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Team Overview Sidebar */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Quick Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{teamStats.inOffice}</div>
+                      <div className="text-xs text-gray-600">In Office</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{teamStats.workingFromHome}</div>
+                      <div className="text-xs text-gray-600">Remote Work</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">{teamStats.onLeaveToday}</div>
+                      <div className="text-xs text-gray-600">On Leave</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">{teamStats.pendingRequests}</div>
+                      <div className="text-xs text-gray-600">Pending</div>
+                    </div>
+                  </div>
+                  <Button variant="outline" className="w-full mt-4" onClick={() => setActiveTab("team")}>
+                    Manage Team
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Reporting Manager</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback>
+                        {session?.user?.role === 'MANAGER' ? 'DD' : 'HR'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h4 className="font-semibold">
+                        {session?.user?.role === 'MANAGER' 
+                          ? 'Department Director' 
+                          : session?.user?.role === 'DEPARTMENT_DIRECTOR'
+                          ? 'HR Director'
+                          : 'Executive Team'}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {session?.user?.role === 'MANAGER' 
+                          ? 'Submit requests to your department director' 
+                          : session?.user?.role === 'DEPARTMENT_DIRECTOR'
+                          ? 'Submit requests to HR leadership'
+                          : 'Submit requests to executive team'}
+                      </p>
+                      <p className="text-xs text-gray-500">For leave approvals</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "team" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Team Management Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Team Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Team Members</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{teamStats.totalMembers}</div>
+                    <p className="text-xs text-muted-foreground">Total team size</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">In Office</CardTitle>
+                    <UserCheck className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{teamStats.inOffice}</div>
+                    <p className="text-xs text-muted-foreground">Present today</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Working from Home</CardTitle>
+                    <Home className="h-4 w-4 text-blue-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">{teamStats.workingFromHome}</div>
+                    <p className="text-xs text-muted-foreground">Remote today</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">On Leave</CardTitle>
+                    <UserX className="h-4 w-4 text-red-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{teamStats.onLeaveToday}</div>
+                    <p className="text-xs text-muted-foreground">Away today</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Team WFH Stats */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm font-medium">
+                      Team Remote Work Usage - {format(teamStatsMonth, "MMMM yyyy")}
+                    </CardTitle>
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={previousTeamStatsMonth}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={nextTeamStatsMonth}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{teamWfhStats.averageWfhPercentage}%</div>
+                  <p className="text-xs text-muted-foreground">
+                    {teamWfhStats.totalWfhDays} WFH days of {teamWfhStats.totalWorkingDays} total working days
+                  </p>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full"
+                      style={{ width: `${teamWfhStats.averageWfhPercentage}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm font-medium text-blue-600 mt-2">Average team WFH percentage</p>
+                </CardContent>
+              </Card>
+
+              {/* Team Requests with Tabs */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Team Leave Requests</CardTitle>
+                      <CardDescription>Manage leave requests from your team</CardDescription>
+                    </div>
+                  </div>
+                  
+                  {/* Tabs */}
+                  <div className="flex gap-1 mt-4">
+                    <Button
+                      variant={teamRequestsTab === 'pending' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTeamRequestsTab('pending')}
+                      className="flex items-center gap-2"
+                    >
+                      <Clock className="h-3 w-3" />
+                      Pending ({teamStats.pendingRequests})
+                    </Button>
+                    <Button
+                      variant={teamRequestsTab === 'approved' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTeamRequestsTab('approved')}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCircle className="h-3 w-3" />
+                      Approved
+                    </Button>
+                    <Button
+                      variant={teamRequestsTab === 'denied' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTeamRequestsTab('denied')}
+                      className="flex items-center gap-2"
+                    >
+                      <XCircle className="h-3 w-3" />
+                      Denied
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Pending Requests Tab */}
+                  {teamRequestsTab === 'pending' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalPendingPages > 0 
+                            ? `Page ${pendingRequestsPage} of ${totalPendingPages}`
+                            : 'No pending requests'}
+                        </span>
+                        {totalPendingPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={previousRequestsPage}
+                              disabled={pendingRequestsPage === 1}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={nextRequestsPage}
+                              disabled={pendingRequestsPage === totalPendingPages || totalPendingPages === 0}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {pendingRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">No pending requests</p>
+                        ) : (
+                          pendingRequests.map((request) => (
+                      <div key={request.id} className="p-4 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=40&width=40&text=${request.employee.avatar}`}
+                              />
+                              <AvatarFallback>{request.employee.avatar}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold">{request.employee.name}</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {request.employee.department}
+                                </Badge>
+                                {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">{request.type}</span> • {request.dates} ({request.days}{" "}
+                                day{request.days > 1 ? "s" : ""})
+                              </p>
+                              {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
+                              <p className="text-xs text-gray-400 mt-1">Submitted: {request.submittedDate}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleApproveRequest(request)}>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDenyRequest(request)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Deny
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Approved Requests Tab */}
+                  {teamRequestsTab === 'approved' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalApprovedPages > 0 
+                            ? `Page ${approvedRequestsPage} of ${totalApprovedPages}`
+                            : 'No approved requests'}
+                        </span>
+                        {totalApprovedPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setApprovedRequestsPage(Math.max(1, approvedRequestsPage - 1))}
+                              disabled={approvedRequestsPage === 1}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setApprovedRequestsPage(Math.min(totalApprovedPages, approvedRequestsPage + 1))}
+                              disabled={approvedRequestsPage === totalApprovedPages || totalApprovedPages === 0}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {approvedRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">No approved requests</p>
+                        ) : (
+                          approvedRequests.map((request) => (
+                            <div key={request.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee.avatar} />
+                                    <AvatarFallback>
+                                      {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold">{request.employee.name}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee.department}</p>
+                                    <div className="mt-2 space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium">{request.type}</span> • {request.days} day{request.days > 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{request.dates}</p>
+                                      {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
+                                      <p className="text-xs text-green-600 mt-1">
+                                        Approved on: {new Date(request.approvedDate).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <Badge className="bg-green-100 text-green-800">Approved by You</Badge>
+                                  {request.overallRequestStatus === 'PENDING' && (
+                                    <p className="text-xs text-orange-600 mt-1">Pending Executive</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Denied Requests Tab */}
+                  {teamRequestsTab === 'denied' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalDeniedPages > 0 
+                            ? `Page ${deniedRequestsPage} of ${totalDeniedPages}`
+                            : 'No denied requests'}
+                        </span>
+                        {totalDeniedPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDeniedRequestsPage(Math.max(1, deniedRequestsPage - 1))}
+                              disabled={deniedRequestsPage === 1}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDeniedRequestsPage(Math.min(totalDeniedPages, deniedRequestsPage + 1))}
+                              disabled={deniedRequestsPage === totalDeniedPages || totalDeniedPages === 0}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {deniedRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">No denied requests</p>
+                        ) : (
+                          deniedRequests.map((request) => (
+                            <div key={request.id} className="p-4 border rounded-lg bg-red-50 border-red-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee.avatar} />
+                                    <AvatarFallback>
+                                      {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold">{request.employee.name}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee.department}</p>
+                                    <div className="mt-2 space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium">{request.type}</span> • {request.days} day{request.days > 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{request.dates}</p>
+                                      {request.reason && <p className="text-sm text-gray-500">Request: "{request.reason}"</p>}
+                                      {request.denialReason && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          Denial reason: "{request.denialReason}"
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-red-600 mt-1">
+                                        Denied on: {new Date(request.deniedDate).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Badge className="bg-red-100 text-red-800">Denied</Badge>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Team Management Sidebar */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button className="w-full" variant="outline">
+                    <Clock className="h-4 w-4 mr-2" />
+                    View All Team Requests
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Generate Team Report
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "calendar" && <TeamCalendar />}
+      </div>
+
+      {/* Approval Dialog */}
+      {approvalDetails && (
+        <ApprovalDialogV2
+          isOpen={showApprovalDialog}
+          onClose={() => {
+            setShowApprovalDialog(false)
+            setApprovalDetails(null)
+          }}
+          action={approvalDetails.action}
+          request={approvalDetails.request}
+          onConfirm={(comment) => {
+            if (approvalDetails.action === 'approve') {
+              handleApprove(approvalDetails.request.id, comment)
+            } else {
+              handleDeny(approvalDetails.request.id, comment)
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
