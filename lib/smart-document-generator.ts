@@ -178,19 +178,8 @@ export class SmartDocumentGenerator {
                 console.warn(`Could not set checkbox ${formFieldName}:`, e)
               }
             } else {
-              try {
-                const textField = form.getTextField(formFieldName)
-                const cleanedText = this.cleanTextForPDF(String(value))
-                textField.setText(cleanedText)
-                
-                // Simply set the text - don't modify appearance yet
-                // We'll remove all field appearances before flattening
-              } catch (e) {
-                // Might be a signature field or other type
-                console.warn(`Could not set text field ${formFieldName}:`, e)
-                
-                // If it's a signature field and we have a signature value
-                if ((dataPath.includes('signature') || fieldType === 'signature') && value) {
+              // Check if it's a signature field first
+              if ((dataPath.includes('signature') || fieldType === 'signature') && value) {
                   console.log(`Processing signature field ${formFieldName} with value type: ${typeof value}, value length: ${value ? String(value).length : 0}, starts with data:image: ${value && typeof value === 'string' && value.startsWith('data:image')}`)
                   
                   // Check if it's an image data URL
@@ -216,6 +205,15 @@ export class SmartDocumentGenerator {
                       console.warn(`Could not set signature text field ${formFieldName}:`, sigError)
                     }
                   }
+                }
+              } else {
+                // Regular text field
+                try {
+                  const textField = form.getTextField(formFieldName)
+                  const cleanedText = this.cleanTextForPDF(String(value))
+                  textField.setText(cleanedText)
+                } catch (e) {
+                  console.warn(`Could not set text field ${formFieldName}:`, e)
                 }
               }
             }
@@ -276,6 +274,14 @@ export class SmartDocumentGenerator {
                   width: imgWidth * scale,
                   height: imgHeight * scale,
                 })
+                
+                // Clear the text field to remove base64 text
+                try {
+                  const textField = form.getTextField(sig.fieldName)
+                  textField.setText('')
+                } catch (e) {
+                  // Field might not be a text field, ignore
+                }
                 
                 console.log(`Drew signature image for field ${sig.fieldName}`)
               }
