@@ -110,8 +110,9 @@ export const authOptions: NextAuthOptions = {
         hasProfile: !!profile 
       })
       
-      // Allow development credentials provider
-      if (account?.provider === "credentials" && process.env.NODE_ENV === "development") {
+      // Allow development credentials provider in development and UAT
+      if (account?.provider === "credentials" && (process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true")) {
+        console.log('Allowing credentials provider login')
         return true
       }
       
