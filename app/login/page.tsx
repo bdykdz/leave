@@ -30,7 +30,8 @@ function LoginContent() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const isDevelopment = typeof window !== 'undefined' ? 
-    (window.location.hostname.includes('sslip.io') || window.location.hostname === 'localhost') :
+    (window.location.hostname === 'localhost' || 
+     /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)) :
     (process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'uat')
 
   useEffect(() => {
