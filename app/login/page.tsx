@@ -217,6 +217,7 @@ function LoginContent() {
                           <SelectItem value="DEPARTMENT_DIRECTOR">Department Director</SelectItem>
                           <SelectItem value="HR">HR</SelectItem>
                           <SelectItem value="EXECUTIVE">Executive</SelectItem>
+                          <SelectItem value="ADMIN">Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
