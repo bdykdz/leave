@@ -40,9 +40,10 @@ COPY --from=builder /app/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Copy the Next.js build output
+# Copy the Next.js build output and dependencies
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy Prisma files
 COPY --from=builder /app/prisma ./prisma
