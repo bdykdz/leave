@@ -15,4 +15,4 @@ chown -R nextjs:nodejs /app/node_modules/.prisma
 
 # Start the Next.js application as nextjs user
 echo "🌐 Starting Next.js application..."
-exec su-exec nextjs node server.js
+exec su-exec nextjs npm start
