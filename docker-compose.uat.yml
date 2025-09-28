@@ -6,13 +6,13 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:3000"
+      - "9001:3000"
     environment:
       - APP_ENV=uat
       - APP_NAME=Leave Management (UAT)
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:password@db:5432/leave_uat
-      - NEXTAUTH_URL=http://your-domain:8081
+      - NEXTAUTH_URL=http://your-domain:9001
       - NEXTAUTH_SECRET=uat-secret-change-me
       - AZURE_AD_CLIENT_ID=your-client-id
       - AZURE_AD_CLIENT_SECRET=your-client-secret
