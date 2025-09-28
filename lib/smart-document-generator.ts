@@ -323,16 +323,14 @@ export class SmartDocumentGenerator {
 
       // Save the filled PDF
       const pdfBytes = await pdfDoc.save()
+      // Save generated document to Minio
       const fileName = `leave-${leaveRequest.requestNumber}-${Date.now()}.pdf`
-      const outputPath = join(process.cwd(), 'public', 'uploads', 'documents', fileName)
-      
-      // Ensure directory exists
-      const dir = join(process.cwd(), 'public', 'uploads', 'documents')
-      if (!require('fs').existsSync(dir)) {
-        require('fs').mkdirSync(dir, { recursive: true })
-      }
-      
-      writeFileSync(outputPath, pdfBytes)
+      const fileUrl = await uploadToMinio(
+        Buffer.from(pdfBytes),
+        `documents/${fileName}`,
+        'application/pdf',
+        'leave-management-uat'
+      )
 
       // Determine initial status based on signature requirements
       const hasRequiredSignatures = template.signaturePlacements.some(s => s.isRequired)
@@ -343,7 +341,7 @@ export class SmartDocumentGenerator {
         data: {
           templateId,
           leaveRequestId,
-          fileUrl: `/uploads/documents/${fileName}`,
+          fileUrl: fileUrl,
           status: initialStatus,
           templateSnapshot: {
             templateId: template.id,
