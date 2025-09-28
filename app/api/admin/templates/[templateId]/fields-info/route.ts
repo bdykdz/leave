@@ -45,10 +45,21 @@ export async function GET(
     const form = pdfDoc.getForm()
     const fields = form.getFields()
 
-    const formFields = fields.map(field => ({
-      name: field.getName(),
-      type: field.constructor.name.replace('PDF', '').replace('Field', '').toLowerCase()
-    }))
+    const formFields = fields.map(field => {
+      const fieldName = field.getName()
+      let fieldType = field.constructor.name.replace('PDF', '').replace('Field', '').toLowerCase()
+      
+      // Fix common type issues
+      if (fieldType === 'text' || fieldType === '') fieldType = 'text'
+      if (fieldType === 'checkbo' || fieldType === 'check') fieldType = 'checkbox'
+      if (fieldType === 'combobo') fieldType = 'dropdown'
+      
+      return {
+        name: fieldName,
+        type: fieldType,
+        value: fieldType // Debug: show what type was detected
+      }
+    })
 
     // Available data fields
     const availableDataFields = [
@@ -72,6 +83,12 @@ export async function GET(
       { category: 'Leave Details', path: 'leave.requestNumber', label: 'Request Number', type: 'text' },
       { category: 'Leave Details', path: 'leave.status', label: 'Status', type: 'text' },
       { category: 'Leave Details', path: 'leave.requestedDate', label: 'Request Date', type: 'date' },
+      
+      // Leave Type Checkboxes
+      { category: 'Leave Type Checks', path: 'leave.isAnnualLeave', label: 'Is Annual Leave (✓)', type: 'checkbox' },
+      { category: 'Leave Type Checks', path: 'leave.isSickLeave', label: 'Is Sick Leave (✓)', type: 'checkbox' },
+      { category: 'Leave Type Checks', path: 'leave.isSpecialLeave', label: 'Is Special Leave (✓)', type: 'checkbox' },
+      { category: 'Leave Type Checks', path: 'leave.isMaternityLeave', label: 'Is Maternity Leave (✓)', type: 'checkbox' },
       
       // Manager Information
       { category: 'Manager Information', path: 'manager.name', label: 'Manager Name', type: 'text' },
