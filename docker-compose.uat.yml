@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:3000"
+    environment:
+      - APP_ENV=uat
+      - APP_NAME=Leave Management (UAT)
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@db:5432/leave_uat
+      - NEXTAUTH_URL=http://your-domain:8081
+      - NEXTAUTH_SECRET=uat-secret-change-me
+      - AZURE_AD_CLIENT_ID=your-client-id
+      - AZURE_AD_CLIENT_SECRET=your-client-secret
+      - AZURE_AD_TENANT_ID=your-tenant-id
+      - SETUP_PASSWORD=admin123
+      - CRON_SECRET=uat-cron-secret
+      - SHOW_DEV_LOGIN=true
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5481:5432"
+    environment:
+      - POSTGRES_DB=leave_uat
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - uat_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  uat_postgres_data:

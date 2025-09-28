@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8082:3000"
+    environment:
+      - APP_ENV=staging
+      - APP_NAME=Leave Management (Staging)
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@db:5432/leave_staging
+      - NEXTAUTH_URL=http://your-domain:8082
+      - NEXTAUTH_SECRET=staging-secret-change-me
+      - AZURE_AD_CLIENT_ID=your-client-id
+      - AZURE_AD_CLIENT_SECRET=your-client-secret
+      - AZURE_AD_TENANT_ID=your-tenant-id
+      - SETUP_PASSWORD=admin123
+      - CRON_SECRET=staging-cron-secret
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5482:5432"
+    environment:
+      - POSTGRES_DB=leave_staging
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  staging_postgres_data:
