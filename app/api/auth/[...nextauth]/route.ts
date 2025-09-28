@@ -171,8 +171,8 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user, account, profile }) {
-      // Handle development credentials provider
-      if (account?.provider === "credentials" && process.env.NODE_ENV === "development") {
+      // Handle development credentials provider in development and UAT
+      if (account?.provider === "credentials" && (process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true")) {
         const devUser = user as any
         token.id = devUser.id
         token.email = devUser.email
