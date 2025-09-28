@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
 export async function GET() {
-  // Only allow in development
-  if (process.env.NODE_ENV !== 'development') {
+  // Only allow in development or UAT
+  if (process.env.NODE_ENV !== 'development' && process.env.APP_ENV !== 'uat' && process.env.SHOW_DEV_LOGIN !== 'true') {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
   }
 
