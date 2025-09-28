@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PrismaClient } from '@prisma/client';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { existsSync } from 'fs';
+import { uploadToMinio } from '@/lib/minio';
 
 const prisma = new PrismaClient();
 
@@ -47,28 +45,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique filename
-    const fileExtension = path.extname(file.name);
-    const uniqueFilename = `${uuidv4()}${fileExtension}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'templates');
-    const filePath = path.join(uploadDir, uniqueFilename);
+    const fileExtension = file.name.split('.').pop();
+    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
 
-    // Convert file to buffer and save
+    // Convert file to buffer and upload to Minio
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
-    // Create upload directory if it doesn't exist
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-    
-    await writeFile(filePath, buffer);
+    const fileUrl = await uploadToMinio(buffer, uniqueFilename, file.type);
 
     // Create database entry
     const template = await prisma.documentTemplate.create({
       data: {
         name,
         description: description || '',
-        fileUrl: `/uploads/templates/${uniqueFilename}`,
+        fileUrl: fileUrl,
         fileType: 'pdf',
         category: 'leave_request', // Default category, could be derived from leave type
         createdBy: session.user.id,
