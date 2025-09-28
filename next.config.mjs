@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // output: 'standalone', // Temporarily disabled to debug routing issues
   eslint: {
     ignoreDuringBuilds: true,
   },
