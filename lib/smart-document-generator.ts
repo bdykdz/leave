@@ -1,8 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
-import { readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
 import { format } from 'date-fns'
+import { getFromMinio, uploadToMinio } from '@/lib/minio'
 
 export class SmartDocumentGenerator {
   private pendingSignatures: any[] = []
@@ -96,9 +95,20 @@ export class SmartDocumentGenerator {
         throw new Error('Template not found')
       }
 
-      // Load the PDF template
-      const templatePath = join(process.cwd(), 'public', template.fileUrl)
-      const templateBytes = readFileSync(templatePath)
+      // Load the PDF template from Minio or filesystem
+      let templateBytes: Buffer
+      
+      if (template.fileUrl.startsWith('minio://')) {
+        // Load from Minio
+        const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
+        templateBytes = await getFromMinio(objectPath, 'leave-management-uat')
+      } else {
+        // Legacy filesystem storage
+        const templatePath = join(process.cwd(), 'public', template.fileUrl)
+        const fs = await import('fs')
+        templateBytes = fs.readFileSync(templatePath)
+      }
+      
       const pdfDoc = await PDFDocument.load(templateBytes)
 
       // Embed a font that supports Unicode characters
