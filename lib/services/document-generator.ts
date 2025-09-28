@@ -1,8 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { PrismaClient } from '@prisma/client';
-import fs from 'fs/promises';
-import path from 'path';
 import { WorkflowEngine } from './workflow-engine';
+import { getFromMinio, uploadToMinio } from '@/lib/minio';
 
 const prisma = new PrismaClient();
 const workflowEngine = new WorkflowEngine();
@@ -238,9 +237,20 @@ export class DocumentGenerator {
     const fieldMappings = templateData.fieldMappings || template.fieldMappings;
     const signaturePlacements = templateData.signaturePlacements || template.signaturePlacements;
     
-    // Load the template PDF
-    const templatePath = path.join(process.cwd(), 'public', template.fileUrl);
-    const existingPdfBytes = await fs.readFile(templatePath);
+    // Load the template PDF from Minio or filesystem
+    let existingPdfBytes: Buffer
+    
+    if (template.fileUrl.startsWith('minio://')) {
+      // Load from Minio
+      const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
+      existingPdfBytes = await getFromMinio(objectPath, 'leave-management-uat')
+    } else {
+      // Legacy filesystem storage
+      const templatePath = path.join(process.cwd(), 'public', template.fileUrl);
+      const fs = await import('fs/promises');
+      existingPdfBytes = await fs.readFile(templatePath);
+    }
+    
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     
     // Embed font
@@ -365,16 +375,19 @@ export class DocumentGenerator {
       }
     }
 
-    // Save the PDF
+    // Save the PDF to Minio
     const pdfBytes = await pdfDoc.save();
-    const outputDir = path.join(process.cwd(), 'public', 'uploads', 'documents');
-    await fs.mkdir(outputDir, { recursive: true });
-    
     const fileName = `leave-${leaveRequest.requestNumber}-${Date.now()}.pdf`;
-    const filePath = path.join(outputDir, fileName);
-    await fs.writeFile(filePath, pdfBytes);
+    
+    // Upload generated document to Minio
+    const fileUrl = await uploadToMinio(
+      Buffer.from(pdfBytes), 
+      `documents/${fileName}`, 
+      'application/pdf',
+      'leave-management-uat'
+    );
 
-    return `/uploads/documents/${fileName}`;
+    return fileUrl;
   }
 
   /**
