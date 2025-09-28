@@ -3,8 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { PDFDocument } from 'pdf-lib'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { getFromMinio } from '@/lib/minio'
 
 export async function GET(
   request: Request,
@@ -29,8 +28,19 @@ export async function GET(
     }
 
     // Get form fields from PDF
-    const templatePath = join(process.cwd(), 'public', template.fileUrl)
-    const templateBytes = readFileSync(templatePath)
+    let templateBytes: Buffer
+    
+    if (template.fileUrl.startsWith('minio://')) {
+      // New Minio storage
+      const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
+      templateBytes = await getFromMinio(objectPath, 'leave-management-uat')
+    } else {
+      // Legacy filesystem storage (for existing templates)
+      const templatePath = join(process.cwd(), 'public', template.fileUrl)
+      const fs = await import('fs')
+      templateBytes = fs.readFileSync(templatePath)
+    }
+    
     const pdfDoc = await PDFDocument.load(templateBytes)
     const form = pdfDoc.getForm()
     const fields = form.getFields()
