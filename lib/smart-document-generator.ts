@@ -180,30 +180,29 @@ export class SmartDocumentGenerator {
             } else {
               // Check if it's a signature field first
               if ((dataPath.includes('signature') || fieldType === 'signature') && value) {
-                  console.log(`Processing signature field ${formFieldName} with value type: ${typeof value}, value length: ${value ? String(value).length : 0}, starts with data:image: ${value && typeof value === 'string' && value.startsWith('data:image')}`)
-                  
-                  // Check if it's an image data URL
-                  if (value && typeof value === 'string' && value.startsWith('data:image')) {
-                    // Store signature data for later processing after form is flattened
-                    if (!this.pendingSignatures) {
-                      this.pendingSignatures = []
+                console.log(`Processing signature field ${formFieldName} with value type: ${typeof value}, value length: ${value ? String(value).length : 0}, starts with data:image: ${value && typeof value === 'string' && value.startsWith('data:image')}`)
+                
+                // Check if it's an image data URL
+                if (value && typeof value === 'string' && value.startsWith('data:image')) {
+                  // Store signature data for later processing after form is flattened
+                  if (!this.pendingSignatures) {
+                    this.pendingSignatures = []
+                  }
+                  this.pendingSignatures.push({
+                    fieldName: formFieldName,
+                    signatureData: value,
+                    field: form.getField(formFieldName)
+                  })
+                } else {
+                  // Try to set as text (for text-based signatures like "APPROVED")
+                  try {
+                    const field = form.getField(formFieldName)
+                    if (field && 'setText' in field) {
+                      const cleanedText = this.cleanTextForPDF(String(value))
+                      (field as any).setText(cleanedText)
                     }
-                    this.pendingSignatures.push({
-                      fieldName: formFieldName,
-                      signatureData: value,
-                      field: form.getField(formFieldName)
-                    })
-                  } else {
-                    // Try to set as text (for text-based signatures like "APPROVED")
-                    try {
-                      const field = form.getField(formFieldName)
-                      if (field && 'setText' in field) {
-                        const cleanedText = this.cleanTextForPDF(String(value))
-                        (field as any).setText(cleanedText)
-                      }
-                    } catch (sigError) {
-                      console.warn(`Could not set signature text field ${formFieldName}:`, sigError)
-                    }
+                  } catch (sigError) {
+                    console.warn(`Could not set signature text field ${formFieldName}:`, sigError)
                   }
                 }
               } else {
