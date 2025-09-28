@@ -10,8 +10,8 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
   },
   providers: [
-    // Development-only credentials provider
-    ...(process.env.NODE_ENV === "development" ? [
+    // Development and UAT credentials provider
+    ...(process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true" ? [
       CredentialsProvider({
         name: "Development Login",
         credentials: {
