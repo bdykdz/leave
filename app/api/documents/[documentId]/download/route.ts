@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PrismaClient } from '@prisma/client';
-import fs from 'fs/promises';
-import path from 'path';
+import { getFromMinio } from '@/lib/minio';
 
 const prisma = new PrismaClient();
 
@@ -40,10 +39,21 @@ export async function GET(
     }
 
     // Read file
-    const filePath = path.join(process.cwd(), 'public', document.fileUrl);
+    // Get file from Minio or filesystem
+    let fileBuffer: Buffer
     
     try {
-      const fileBuffer = await fs.readFile(filePath);
+      if (document.fileUrl.startsWith('minio://')) {
+        // Get from Minio
+        const objectPath = document.fileUrl.replace('minio://leave-management-uat/', '')
+        fileBuffer = await getFromMinio(objectPath, 'leave-management-uat')
+      } else {
+        // Legacy filesystem storage
+        const fs = await import('fs/promises')
+        const path = await import('path')
+        const filePath = path.join(process.cwd(), 'public', document.fileUrl)
+        fileBuffer = await fs.readFile(filePath)
+      }
       
       // Generate filename
       const fileName = `leave-request-${document.leaveRequest.requestNumber}.pdf`;
