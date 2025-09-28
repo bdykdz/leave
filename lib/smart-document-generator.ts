@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
 import { format } from 'date-fns'
+import { join } from 'path'
 import { getFromMinio, uploadToMinio } from '@/lib/minio'
 
 export class SmartDocumentGenerator {
