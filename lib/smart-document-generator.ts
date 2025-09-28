@@ -216,7 +216,6 @@ export class SmartDocumentGenerator {
                   console.warn(`Could not set text field ${formFieldName}:`, e)
                 }
               }
-            }
           }
         } catch (error) {
           console.error(`Error processing field mapping ${mapping.fieldKey}:`, error)
