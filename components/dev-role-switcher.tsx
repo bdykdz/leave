@@ -19,7 +19,8 @@ export function DevRoleSwitcher() {
   const { data: session } = useSession()
   const [users, setUsers] = useState<User[]>([])
   const [isChanging, setIsChanging] = useState(false)
-  const isDevelopment = process.env.NODE_ENV === 'development'
+  const isDevelopment = process.env.NODE_ENV === 'development' || 
+    (typeof window !== 'undefined' && /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname))
   
   useEffect(() => {
     if (isDevelopment) {
