@@ -23,7 +23,17 @@ export const authOptions: NextAuthOptions = {
           }
         },
         async authorize(credentials) {
-          if (!credentials?.email) return null
+          console.log('NextAuth authorize called with:', { 
+            email: credentials?.email, 
+            role: credentials?.role,
+            userId: credentials?.userId,
+            env: process.env.APP_ENV 
+          })
+          
+          if (!credentials?.email) {
+            console.log('No email provided, returning null')
+            return null
+          }
           
           // If a userId is provided, fetch the actual user from database
           if (credentials.userId) {
@@ -64,6 +74,7 @@ export const authOptions: NextAuthOptions = {
             role: credentials.role || "EMPLOYEE"
           }
           
+          console.log('Returning dev user:', devUser)
           return devUser
         }
       })
