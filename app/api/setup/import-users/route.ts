@@ -35,7 +35,7 @@ async function getAccessToken() {
 
 export async function POST(request: NextRequest) {
   // Check if user is authenticated for setup
-  const setupAuth = cookies().get('setup-auth')
+  const setupAuth = (await cookies()).get('setup-auth')
   if (!setupAuth?.value) {
     return NextResponse.json(
       { error: 'Unauthorized' },
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
             const defaultLeaveSetting = await prisma.companySetting.findUnique({
               where: { key: 'default_leave_days' }
             })
-            const defaultDays = defaultLeaveSetting?.value?.normalLeaveDays || 21
+            const defaultDays = (defaultLeaveSetting?.value as any)?.normalLeaveDays || 21
 
             await prisma.leaveBalance.create({
               data: {

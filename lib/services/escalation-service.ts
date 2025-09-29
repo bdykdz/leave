@@ -122,7 +122,7 @@ export class EscalationService {
     await prisma.approval.update({
       where: { id: approval.id },
       data: {
-        escalatedToId,
+        escalatedToId: escalateToId,
         escalatedAt: new Date(),
         escalationReason
       }

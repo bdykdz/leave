@@ -54,7 +54,7 @@ export async function GET() {
     })
 
     return NextResponse.json({
-      normalLeaveDays: setting?.value?.normalLeaveDays || 21
+      normalLeaveDays: (setting?.value as any)?.normalLeaveDays || 21
     })
   } catch (error) {
     console.error('Error fetching leave settings:', error)

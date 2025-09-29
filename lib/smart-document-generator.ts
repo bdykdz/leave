@@ -1,16 +1,22 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
 import { format } from 'date-fns'
+import { join } from 'path'
 import { getFromMinio, uploadToMinio } from '@/lib/minio'
 
+type AnyObj = Record<string, any>
+
 export class SmartDocumentGenerator {
-  private pendingSignatures: any[] = []
-  
-  // Helper function to clean text for WinAnsi encoding
+  private pendingSignatures: Array<{
+    fieldName: string
+    signatureData: string
+    field: any
+  }> = []
+
+  // Helper: clean text for WinAnsi encoding
   private cleanTextForPDF(text: string): string {
     if (!text) return ''
-    
-    // Map of Unicode characters to ASCII equivalents
+
     const charMap: { [key: string]: string } = {
       'ă': 'a', 'Ă': 'A',
       'â': 'a', 'Â': 'A',
@@ -37,105 +43,82 @@ export class SmartDocumentGenerator {
       'ñ': 'n', 'Ñ': 'N',
       'ç': 'c', 'Ç': 'C'
     }
-    
-    return text.replace(/[ăâîșşțţàáäèéëìíïòóöùúüñçĂÂÎȘŞȚŢÀÁÄÈÉËÌÍÏÒÓÖÙÚÜÑÇ]/g, 
-      char => charMap[char] || char)
+
+    return text.replace(
+      /[ăâîșşțţàáäèéëìíïòóöùúüñçĂÂÎȘŞȚŢÀÁÄÈÉËÌÍÏÒÓÖÙÚÜÑÇ]/g,
+      char => charMap[char] || char
+    )
   }
-  
+
+  // === NEW helper you asked for ===
+  private isTruthyCheckbox(value: unknown): boolean {
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value !== 0
+
+    const s = String(value ?? '').trim().toLowerCase()
+    // add any other markers you use in templates here
+    return ['true', '1', 'x', '✓', 'yes', 'checked'].includes(s)
+  }
+
   async generateDocument(leaveRequestId: string, templateId: string): Promise<string> {
     console.log('Starting smart document generation:', { leaveRequestId, templateId })
+
     try {
-      // Get the leave request with all related data
+      // 1) Load Leave Request
       const leaveRequest = await prisma.leaveRequest.findUnique({
         where: { id: leaveRequestId },
         include: {
-          user: {
-            include: {
-              manager: true
-            }
-          },
+          user: { include: { manager: true } },
           leaveType: true,
           substitute: true,
-          substitutes: {
-            include: {
-              user: true
-            }
-          },
+          substitutes: { include: { user: true } },
           generatedDocument: {
             include: {
-              signatures: {
-                include: {
-                  signer: true
-                }
-              }
+              signatures: { include: { signer: true } }
             }
           },
-          approvals: {
-            include: {
-              approver: true
-            }
-          }
+          approvals: { include: { approver: true } }
         }
       })
+      if (!leaveRequest) throw new Error('Leave request not found')
 
-      if (!leaveRequest) {
-        throw new Error('Leave request not found')
-      }
-
-      // Get the template with field mappings
+      // 2) Load Template
       const template = await prisma.documentTemplate.findUnique({
         where: { id: templateId },
-        include: {
-          fieldMappings: true,
-          signaturePlacements: true
-        }
+        include: { fieldMappings: true, signaturePlacements: true }
       })
+      if (!template) throw new Error('Template not found')
 
-      if (!template) {
-        throw new Error('Template not found')
-      }
-
-      // Load the PDF template from Minio or filesystem
+      // 3) Load PDF bytes (Minio or FS)
       let templateBytes: Buffer
-      
       if (template.fileUrl.startsWith('minio://')) {
-        // Load from Minio
         const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
         templateBytes = await getFromMinio(objectPath, 'leave-management-uat')
       } else {
-        // Legacy filesystem storage
         const templatePath = join(process.cwd(), 'public', template.fileUrl)
         const fs = await import('fs')
         templateBytes = fs.readFileSync(templatePath)
       }
-      
-      const pdfDoc = await PDFDocument.load(templateBytes)
 
-      // Embed a font that supports Unicode characters
+      const pdfDoc = await PDFDocument.load(templateBytes)
       const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
-      // Get the form from the PDF
+      // 4) PDF form
       const form = pdfDoc.getForm()
       const formFields = form.getFields()
-      
-      // Validate that the PDF has form fields
       if (formFields.length === 0) {
         throw new Error('Template PDF does not contain any form fields. Please upload a PDF with form fields.')
       }
-      
       console.log(`Found ${formFields.length} form fields in template`)
-      
-      // Prepare data for field replacement
-      const fieldData = this.prepareFieldData(leaveRequest)
+
+      // 5) Prepare data
+      const fieldData = this.prepareFieldData(leaveRequest as AnyObj)
       console.log('Prepared field data:', JSON.stringify(fieldData, null, 2))
-      console.log('Substitute data:', {
-        substitute: fieldData.substitute,
-        substitutes: fieldData.substitutes
-      })
+      console.log('Substitute data:', { substitute: fieldData.substitute, substitutes: fieldData.substitutes })
       console.log('Decision data:', fieldData.decision)
       console.log('Signature data:', fieldData.signature)
 
-      // Fill form fields based on mappings
+      // 6) Fill mapped fields
       console.log(`Processing ${template.fieldMappings.length} field mappings`)
       console.log('Available field data keys:', Object.keys(fieldData))
       console.log('Decision data:', JSON.stringify(fieldData.decision, null, 2))
@@ -145,75 +128,71 @@ export class SmartDocumentGenerator {
         rawSubstitutes: leaveRequest.substitutes,
         rawSubstitute: leaveRequest.substitute
       })
-      for (const mapping of template.fieldMappings) {
+
+      for (const mapping of template.fieldMappings as AnyObj[]) {
         try {
-          // Get the PDF form field name from documentPosition
-          const formFieldName = (mapping.documentPosition as any)?.formFieldName || mapping.fieldLabel
-          const dataPath = mapping.fieldKey
-          
-          // Get the value from field data
+          const formFieldName =
+            (mapping.documentPosition as AnyObj)?.formFieldName || mapping.fieldLabel
+          const dataPath = mapping.fieldKey as string
+
           const value = this.getFieldValue(fieldData, dataPath)
           console.log(`Mapping ${formFieldName} <- ${dataPath}: "${value}"`)
-          
-          if (value) {
-            // Check field type from mapping or detect from field key
-            let fieldType = (mapping.documentPosition as any)?.type || 'text'
-            if (!fieldType && mapping.fieldKey.includes('signature')) {
-              fieldType = 'signature'
+
+          if (!value) continue
+
+          let fieldType =
+            (mapping.documentPosition as AnyObj)?.type || 'text'
+          if (!fieldType && dataPath.includes('signature')) fieldType = 'signature'
+
+          if (fieldType === 'checkbox') {
+            try {
+              const checkbox = form.getCheckBox(formFieldName)
+              // === Using the new helper here ===
+              const truthy = this.isTruthyCheckbox(value)
+
+              console.log(
+                `Checkbox field ${formFieldName}: value="${value}" -> ${truthy ? 'check' : 'uncheck'}`
+              )
+
+              if (truthy) checkbox.check()
+              else checkbox.uncheck()
+            } catch (e) {
+              console.warn(`Could not set checkbox ${formFieldName}:`, e)
             }
-            
-            if (fieldType === 'checkbox') {
-              try {
-                const checkbox = form.getCheckBox(formFieldName)
-                console.log(`Checkbox field ${formFieldName}: value="${value}", type=${typeof value}, truthy=${!!value}`)
-                if (value === true || value === 'true' || value === '✓' || value === 'X') {
-                  console.log(`  -> Checking checkbox`)
-                  checkbox.check()
+          } else {
+            // text or signature (text fallback)
+            try {
+              const textField = form.getTextField(formFieldName)
+              const cleanedText = this.cleanTextForPDF(String(value))
+              textField.setText(cleanedText)
+              textField.updateAppearances(helveticaFont)
+            } catch (e) {
+              console.warn(`Could not set text field ${formFieldName}:`, e)
+
+              // Handle image signatures via data URLs
+              const isSignatureField = dataPath.includes('signature') || fieldType === 'signature'
+              if (isSignatureField && typeof value === 'string') {
+                const isDataUrl = value.startsWith('data:image')
+                if (isDataUrl) {
+                  if (!this.pendingSignatures) this.pendingSignatures = []
+                  this.pendingSignatures.push({
+                    fieldName: formFieldName,
+                    signatureData: value,
+                    field: (form as AnyObj).getField(formFieldName)
+                  })
                 } else {
-                  console.log(`  -> Unchecking checkbox`)
-                  checkbox.uncheck()
-                }
-              } catch (e) {
-                console.warn(`Could not set checkbox ${formFieldName}:`, e)
-              }
-            } else {
-              try {
-                const textField = form.getTextField(formFieldName)
-                const cleanedText = this.cleanTextForPDF(String(value))
-                textField.setText(cleanedText)
-                
-                // Simply set the text - don't modify appearance yet
-                // We'll remove all field appearances before flattening
-              } catch (e) {
-                // Might be a signature field or other type
-                console.warn(`Could not set text field ${formFieldName}:`, e)
-                
-                // If it's a signature field and we have a signature value
-                if ((dataPath.includes('signature') || fieldType === 'signature') && value) {
-                  console.log(`Processing signature field ${formFieldName} with value type: ${typeof value}, value length: ${value ? String(value).length : 0}, starts with data:image: ${value && typeof value === 'string' && value.startsWith('data:image')}`)
-                  
-                  // Check if it's an image data URL
-                  if (value && typeof value === 'string' && value.startsWith('data:image')) {
-                    // Store signature data for later processing after form is flattened
-                    if (!this.pendingSignatures) {
-                      this.pendingSignatures = []
-                    }
-                    this.pendingSignatures.push({
-                      fieldName: formFieldName,
-                      signatureData: value,
-                      field: form.getField(formFieldName)
-                    })
-                  } else {
-                    // Try to set as text (for text-based signatures like "APPROVED")
-                    try {
-                      const field = form.getField(formFieldName)
-                      if (field && 'setText' in field) {
-                        const cleanedText = this.cleanTextForPDF(String(value))
-                        (field as any).setText(cleanedText)
+                  // Fallback: inject as text (e.g., "APPROVED")
+                  try {
+                    const field = (form as AnyObj).getField(formFieldName)
+                    if (field && 'setText' in field) {
+                      const cleanedText = this.cleanTextForPDF(String(value))
+                      ;(field as AnyObj).setText(cleanedText)
+                      if ('updateAppearances' in field) {
+                        ;(field as AnyObj).updateAppearances(helveticaFont)
                       }
-                    } catch (sigError) {
-                      console.warn(`Could not set signature text field ${formFieldName}:`, sigError)
                     }
+                  } catch (sigError) {
+                    console.warn(`Could not set signature text field ${formFieldName}:`, sigError)
                   }
                 }
               }
@@ -224,138 +203,124 @@ export class SmartDocumentGenerator {
         }
       }
 
-      // Process signature images before flattening
+      // 7) Draw pending signature images (before saving)
       if (this.pendingSignatures && this.pendingSignatures.length > 0) {
         console.log(`Processing ${this.pendingSignatures.length} signature images`)
         const pages = pdfDoc.getPages()
-        
+
         for (const sig of this.pendingSignatures) {
           try {
-            // Get field widget annotations to find position
-            const field = sig.field
-            const widgets = field.acroField.getWidgets()
-            
-            if (widgets.length > 0) {
-              const widget = widgets[0]
-              const rect = widget.getRectangle()
-              const pageIndex = pages.findIndex(page => {
-                const pageRef = page.ref
-                const widgetPageRef = widget.P()
-                return pageRef === widgetPageRef
-              })
-              
-              if (pageIndex >= 0 && sig.signatureData.startsWith('data:image')) {
-                // Extract base64 data
-                const base64Data = sig.signatureData.split(',')[1]
-                const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
-                
-                // Embed image
-                let image
-                if (sig.signatureData.includes('image/png')) {
-                  image = await pdfDoc.embedPng(imageBytes)
-                } else if (sig.signatureData.includes('image/jpeg') || sig.signatureData.includes('image/jpg')) {
-                  image = await pdfDoc.embedJpg(imageBytes)
-                } else {
-                  console.warn(`Unsupported image format for signature: ${sig.fieldName}`)
-                  continue
-                }
-                
-                // Draw image on page
-                const page = pages[pageIndex]
-                const { x, y, width, height } = rect
-                
-                // Scale image to fit
-                const imgWidth = image.width
-                const imgHeight = image.height
-                const scale = Math.min(width / imgWidth, height / imgHeight) * 0.9 // 90% to leave some padding
-                
-                page.drawImage(image, {
-                  x: x + (width - imgWidth * scale) / 2,
-                  y: y + (height - imgHeight * scale) / 2,
-                  width: imgWidth * scale,
-                  height: imgHeight * scale,
-                })
-                
-                console.log(`Drew signature image for field ${sig.fieldName}`)
+            const field: any = sig.field
+            const widgets = field?.acroField?.getWidgets?.() || []
+            if (widgets.length === 0) continue
+
+            const widget = widgets[0] as any
+            const rect = widget.getRectangle ? widget.getRectangle() : widget.getRect?.()
+            const pageRef = widget.getP ? widget.getP() : widget.P?.()
+            const pageIndex = pages.findIndex((p: any) => p.ref === pageRef || p.node === pageRef)
+
+            if (pageIndex >= 0 && typeof sig.signatureData === 'string' && sig.signatureData.startsWith('data:image')) {
+              const base64Data = sig.signatureData.split(',')[1]
+              const imageBytes = Buffer.from(base64Data, 'base64') // Node-safe (no atob)
+
+              let image: any
+              if (sig.signatureData.includes('image/png')) {
+                image = await pdfDoc.embedPng(imageBytes)
+              } else if (sig.signatureData.includes('image/jpeg') || sig.signatureData.includes('image/jpg')) {
+                image = await pdfDoc.embedJpg(imageBytes)
+              } else {
+                console.warn(`Unsupported image format for signature: ${sig.fieldName}`)
+                continue
               }
+
+              const page = pages[pageIndex]
+              let x = 0, y = 0, width = 0, height = 0
+              if (rect && typeof rect === 'object' && 'x' in rect) {
+                ({ x, y, width, height } = rect)
+              } else if (Array.isArray(rect) && rect.length === 4) {
+                const [x1, y1, x2, y2] = rect
+                x = Math.min(x1, x2)
+                y = Math.min(y1, y2)
+                width = Math.abs(x2 - x1)
+                height = Math.abs(y2 - y1)
+              } else {
+                console.warn(`Could not resolve rectangle for signature field ${sig.fieldName}`)
+                continue
+              }
+
+              const imgW = image.width
+              const imgH = image.height
+              const scale = Math.min(width / imgW, height / imgH) * 0.9 // 90% padding
+
+              page.drawImage(image, {
+                x: x + (width - imgW * scale) / 2,
+                y: y + (height - imgH * scale) / 2,
+                width: imgW * scale,
+                height: imgH * scale
+              })
+
+              console.log(`Drew signature image for field ${sig.fieldName}`)
             }
           } catch (error) {
             console.error(`Error processing signature for field ${sig.fieldName}:`, error)
           }
         }
       }
-      
-      // Clear pending signatures
+
+      // Clear pending signature placeholders
       this.pendingSignatures = []
-      
-      // Before saving, clean up text field appearances but keep signature fields
-      const allFields = form.getFields()
-      for (const field of allFields) {
+
+      // 8) Light appearance cleanup for text fields (keep fields live)
+      for (const field of form.getFields()) {
         try {
           const fieldName = field.getName()
-          
-          // Only process text fields, not signature fields
-          if (field.constructor.name === 'PDFTextField' && !fieldName.toLowerCase().includes('signature')) {
-            const textField = field as any
-            // Remove all visual decorations
-            textField.setBackgroundColor(undefined)
-            textField.setBorderColor(undefined)
-            textField.setBorderWidth(0)
-            // Update the appearance without decorations
-            textField.updateAppearances(helveticaFont)
+          const ctor = (field as any).constructor?.name
+          if (ctor === 'PDFTextField' && !fieldName.toLowerCase().includes('signature')) {
+            if ('updateAppearances' in (field as any)) {
+              ;(field as AnyObj).updateAppearances(helveticaFont)
+            }
           }
         } catch (e) {
           console.warn(`Could not clean field appearance: ${e}`)
         }
       }
-      
-      // DON'T flatten - this would convert signatures to static images
-      // Keep the form fields but with clean appearance
 
-      // Store existing signatures before deleting
+      // 9) Replace existing generated doc metadata, upload new PDF
       const existingSignatures = leaveRequest.generatedDocument?.signatures || []
-      
-      // Delete any existing document for this leave request
-      await prisma.generatedDocument.deleteMany({
-        where: { leaveRequestId }
-      })
 
-      // Save the filled PDF
+      await prisma.generatedDocument.deleteMany({ where: { leaveRequestId } })
+
       const pdfBytes = await pdfDoc.save()
       const fileName = `leave-${leaveRequest.requestNumber}-${Date.now()}.pdf`
-      const outputPath = join(process.cwd(), 'public', 'uploads', 'documents', fileName)
-      
-      // Ensure directory exists
-      const dir = join(process.cwd(), 'public', 'uploads', 'documents')
-      if (!require('fs').existsSync(dir)) {
-        require('fs').mkdirSync(dir, { recursive: true })
-      }
-      
-      writeFileSync(outputPath, pdfBytes)
 
-      // Determine initial status based on signature requirements
+      const fileUrl = await uploadToMinio(
+        Buffer.from(pdfBytes),
+        `documents/${fileName}`,
+        'application/pdf',
+        'leave-management-uat'
+      )
+
       const hasRequiredSignatures = template.signaturePlacements.some(s => s.isRequired)
       const initialStatus = hasRequiredSignatures ? 'PENDING_SIGNATURES' : 'COMPLETED'
-      
-      // Create database record
+
       const generatedDoc = await prisma.generatedDocument.create({
         data: {
           templateId,
           leaveRequestId,
-          fileUrl: `/uploads/documents/${fileName}`,
+          fileUrl,
           status: initialStatus,
           templateSnapshot: {
             templateId: template.id,
             templateName: template.name,
             fieldMappingsCount: template.fieldMappings.length,
             signaturePlacementsCount: template.signaturePlacements.length,
-            formFieldBased: true // Indicate this used form fields
+            formFieldBased: true
           },
           completedAt: hasRequiredSignatures ? null : new Date()
         }
       })
-      
-      // Restore existing signatures
+
+      // 10) Restore previous signatures metadata (DB) and complete if all required present
       if (existingSignatures.length > 0) {
         console.log(`Restoring ${existingSignatures.length} signatures`)
         for (const sig of existingSignatures) {
@@ -369,22 +334,16 @@ export class SmartDocumentGenerator {
             }
           })
         }
-        
-        // No need to call updatePDFWithSignatures here - signatures are already included in the PDF generation above
-        
-        // Check if all required signatures are complete
-        const requiredSignatures = template.signaturePlacements.filter(s => s.isRequired)
-        const allSigned = requiredSignatures.every(req => 
+
+        const required = template.signaturePlacements.filter(s => s.isRequired)
+        const allSigned = required.every(req =>
           existingSignatures.some(sig => sig.signerRole === req.signerRole)
         )
-        
+
         if (allSigned) {
           await prisma.generatedDocument.update({
             where: { id: generatedDoc.id },
-            data: {
-              status: 'COMPLETED',
-              completedAt: new Date()
-            }
+            data: { status: 'COMPLETED', completedAt: new Date() }
           })
         }
       }
@@ -396,138 +355,103 @@ export class SmartDocumentGenerator {
     }
   }
 
-  private prepareSignatureData(leaveRequest: any) {
-    const signatures: any = {
-      employee: {
-        name: `${leaveRequest.user.firstName || ''} ${leaveRequest.user.lastName || ''}`.trim(),
-        date: '',
-        signature: ''
-      },
-      manager: {
-        name: '',
-        date: '',
-        signature: ''
-      },
-      director: {
-        name: '',
-        date: '',
-        signature: ''
-      },
-      hr: {
-        name: '',
-        date: '',
-        signature: ''
-      },
-      executive: {
-        name: '',
-        date: '',
-        signature: ''
-      }
+  // --- Helpers --------------------------------------------------------------
+
+  private prepareSignatureData(leaveRequest: AnyObj) {
+    // Return a NESTED object: signature.manager.signature / .date / .name
+    const sig = {
+      employee: { name: '', date: '', signature: '' },
+      manager:  { name: '', date: '', signature: '' },
+      director: { name: '', date: '', signature: '' },
+      hr:       { name: '', date: '', signature: '' },
+      executive:{ name: '', date: '', signature: '' }
     }
 
-    // Check if document has signatures
-    if (leaveRequest.generatedDocument?.signatures) {
-      for (const sig of leaveRequest.generatedDocument.signatures) {
-        const role = sig.signerRole.toLowerCase()
-        if (signatures[role]) {
-          // Get signer's full name
-          let signerName = ''
-          if (sig.signer) {
-            signerName = `${sig.signer.firstName || ''} ${sig.signer.lastName || ''}`.trim()
-          } else if (role === 'employee') {
-            signerName = signatures.employee.name
-          } else if (leaveRequest.approvals) {
-            // Try to get from approvals
-            const approval = leaveRequest.approvals.find((a: any) => 
-              a.approver && a.status === 'APPROVED'
-            )
-            if (approval?.approver) {
-              signerName = `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim()
-            }
-          }
+    sig.employee.name = `${leaveRequest.user.firstName || ''} ${leaveRequest.user.lastName || ''}`.trim()
 
-          signatures[role] = {
-            name: signerName,
-            date: sig.signedAt ? format(new Date(sig.signedAt), 'dd.MM.yyyy') : '',
-            signature: sig.signatureData || 'SIGNED'
+    if (leaveRequest.generatedDocument?.signatures) {
+      for (const s of leaveRequest.generatedDocument.signatures) {
+        const role = String(s.signerRole || '').toLowerCase()
+        if (!(role in sig)) continue
+
+        let signerName = ''
+        if (s.signer) {
+          signerName = `${s.signer.firstName || ''} ${s.signer.lastName || ''}`.trim()
+        } else if (role === 'employee') {
+          signerName = sig.employee.name
+        } else if (leaveRequest.approvals) {
+          const approval = leaveRequest.approvals.find((a: AnyObj) => a.approver && a.status === 'APPROVED')
+          if (approval?.approver) {
+            signerName = `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim()
           }
+        }
+
+        sig[role as keyof typeof sig] = {
+          name: signerName,
+          date: s.signedAt ? format(new Date(s.signedAt), 'dd.MM.yyyy') : '',
+          signature: s.signatureData || 'SIGNED'
         }
       }
     }
 
-    // Also check approvals for signatures
     if (leaveRequest.approvals) {
       for (const approval of leaveRequest.approvals) {
-        if (approval.status === 'APPROVED' && approval.approver) {
-          const approverRole = approval.approver.role?.toLowerCase()
-          let sigRole = 'manager' // default
-          
-          if (approverRole === 'executive') {
-            sigRole = 'executive'
-          } else if (approverRole === 'department_director') {
-            sigRole = 'director'
-          } else if (approverRole === 'hr') {
-            sigRole = 'hr'
-          }
-          
-          if (!signatures[sigRole].signature && approval.signature) {
-            signatures[sigRole] = {
-              name: `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim(),
-              date: approval.signedAt ? format(new Date(approval.signedAt), 'dd.MM.yyyy') : format(new Date(approval.approvedAt), 'dd.MM.yyyy'),
-              signature: approval.signature || 'APPROVED'
-            }
+        if (approval.status !== 'APPROVED' || !approval.approver) continue
+        const approverRole = String(approval.approver.role || '').toLowerCase()
+
+        let role: keyof typeof sig | null = 'manager'
+        if (approverRole === 'executive') role = 'executive'
+        else if (approverRole === 'department_director') role = 'director'
+        else if (approverRole === 'hr') role = 'hr'
+
+        if (role && !sig[role].signature) {
+          sig[role] = {
+            name: `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim(),
+            date: approval.signedAt
+              ? format(new Date(approval.signedAt), 'dd.MM.yyyy')
+              : format(new Date(approval.approvedAt), 'dd.MM.yyyy'),
+            signature: approval.signature || 'APPROVED'
           }
         }
       }
     }
 
-    // Create a flat structure that supports both direct access and sub-properties
-    const flatSignatures: any = {}
-    
-    for (const role of ['employee', 'manager', 'director', 'hr', 'executive']) {
-      // Direct signature field (for PDF signature fields) - use the actual signature data
-      flatSignatures[role] = signatures[role].signature || ''
-      // Sub-properties for name and date fields
-      flatSignatures[`${role}.name`] = signatures[role].name || ''
-      flatSignatures[`${role}.date`] = signatures[role].date || ''
-    }
-
-    return flatSignatures
+    return sig
   }
 
-  private prepareFieldData(leaveRequest: any) {
+  private prepareFieldData(leaveRequest: AnyObj) {
     const startDate = new Date(leaveRequest.startDate)
     const endDate = new Date(leaveRequest.endDate)
-    
-    // Format individual dates or smart ranges
+
     let dateRange = ''
-    
-    // Try to get selectedDates from the new field or from supportingDocuments
     let selectedDates = leaveRequest.selectedDates || []
+
     if ((!selectedDates || selectedDates.length === 0) && leaveRequest.supportingDocuments) {
-      const supportingDocs = typeof leaveRequest.supportingDocuments === 'string' 
-        ? JSON.parse(leaveRequest.supportingDocuments) 
-        : leaveRequest.supportingDocuments
-      selectedDates = supportingDocs.selectedDates || []
+      const supportingDocs =
+        typeof leaveRequest.supportingDocuments === 'string'
+          ? JSON.parse(leaveRequest.supportingDocuments)
+          : leaveRequest.supportingDocuments
+      selectedDates = supportingDocs?.selectedDates || []
     }
-    
+
     console.log('Selected dates:', selectedDates)
+
     if (selectedDates && selectedDates.length > 0) {
-      // Group consecutive dates
-      const dates = selectedDates.map((d: string | Date) => new Date(d)).sort((a: Date, b: Date) => a.getTime() - b.getTime())
+      const dates = selectedDates
+        .map((d: string | Date) => new Date(d))
+        .sort((a: Date, b: Date) => a.getTime() - b.getTime())
+
       const groups: string[] = []
       let currentGroup: Date[] = [dates[0]]
-      
+
       for (let i = 1; i < dates.length; i++) {
         const prevDate = dates[i - 1]
         const currDate = dates[i]
         const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
-        
+
         if (dayDiff === 1) {
-          // Consecutive day
           currentGroup.push(currDate)
         } else {
-          // Gap found, close current group
           if (currentGroup.length === 1) {
             groups.push(format(currentGroup[0], 'dd.MM.yyyy'))
           } else if (currentGroup.length === 2) {
@@ -538,8 +462,7 @@ export class SmartDocumentGenerator {
           currentGroup = [currDate]
         }
       }
-      
-      // Handle last group
+
       if (currentGroup.length === 1) {
         groups.push(format(currentGroup[0], 'dd.MM.yyyy'))
       } else if (currentGroup.length === 2) {
@@ -547,57 +470,41 @@ export class SmartDocumentGenerator {
       } else {
         groups.push(`${format(currentGroup[0], 'dd.MM')}-${format(currentGroup[currentGroup.length - 1], 'dd.MM.yyyy')}`)
       }
-      
+
       dateRange = groups.join(', ')
     } else {
-      // Fallback to simple range
-      dateRange = startDate.toDateString() === endDate.toDateString()
-        ? format(startDate, 'dd.MM.yyyy')
-        : `${format(startDate, 'dd.MM.yyyy')} - ${format(endDate, 'dd.MM.yyyy')}`
+      dateRange =
+        startDate.toDateString() === endDate.toDateString()
+          ? format(startDate, 'dd.MM.yyyy')
+          : `${format(startDate, 'dd.MM.yyyy')} - ${format(endDate, 'dd.MM.yyyy')}`
     }
-    
-    // Determine the actual approver based on requester's role
+
     let approverName = ''
     let approverEmail = ''
-    
+
     if (leaveRequest.approvals && leaveRequest.approvals.length > 0) {
-      const primaryApproval = leaveRequest.approvals.find((a: any) => a.level === 1)
-      if (primaryApproval && primaryApproval.approver) {
+      const primaryApproval = leaveRequest.approvals.find((a: AnyObj) => a.level === 1)
+      if (primaryApproval?.approver) {
         approverName = `${primaryApproval.approver.firstName} ${primaryApproval.approver.lastName}`
         approverEmail = primaryApproval.approver.email
       }
     }
-    
-    // Get signature data first
+
     const signatureData = this.prepareSignatureData(leaveRequest)
-    
-    // Process approvals to get decision data
-    const decisions: any = {
+
+    const decisions: AnyObj = {
       manager: { approved: '', rejected: '' },
       director: { approved: '', rejected: '' },
       hr: { approved: '', rejected: '' },
       executive: { approved: '', rejected: '' },
       comments: ''
     }
-    
-    // First, check signatures - if signed, it's approved!
-    if (signatureData.manager.signature || signatureData.manager.date) {
-      decisions.manager.approved = 'X'  // Put X for approved
-      decisions.manager.rejected = ''   // Empty for not rejected
-    }
-    if (signatureData.director.signature || signatureData.director.date) {
-      decisions.director.approved = 'X'
-      decisions.director.rejected = ''
-    }
-    if (signatureData.hr.signature || signatureData.hr.date) {
-      decisions.hr.approved = 'X'
-      decisions.hr.rejected = ''
-    }
-    if (signatureData.executive.signature || signatureData.executive.date) {
-      decisions.executive.approved = 'X'
-      decisions.executive.rejected = ''
-    }
-    
+
+    if (signatureData.manager.signature || signatureData.manager.date) decisions.manager.approved = 'X'
+    if (signatureData.director.signature || signatureData.director.date) decisions.director.approved = 'X'
+    if (signatureData.hr.signature || signatureData.hr.date) decisions.hr.approved = 'X'
+    if (signatureData.executive.signature || signatureData.executive.date) decisions.executive.approved = 'X'
+
     if (leaveRequest.approvals) {
       console.log(`Processing ${leaveRequest.approvals.length} approvals`)
       for (const approval of leaveRequest.approvals) {
@@ -608,24 +515,19 @@ export class SmartDocumentGenerator {
           approverId: approval.approverId,
           approverName: approval.approver ? `${approval.approver.firstName} ${approval.approver.lastName}` : 'Unknown'
         })
+
         if (approval.approver || approval.level === 1) {
-          // For level 1 approvals, always treat as manager approval
-          let decisionRole = 'manager' // default
-          
+          let decisionRole: keyof typeof decisions = 'manager'
+
           if (approval.level === 1) {
-            // Level 1 is always manager approval
             decisionRole = 'manager'
           } else if (approval.approver) {
-            const approverRole = approval.approver.role?.toLowerCase()
-            if (approverRole === 'executive') {
-              decisionRole = 'executive'
-            } else if (approverRole === 'department_director') {
-              decisionRole = 'director'
-            } else if (approverRole === 'hr') {
-              decisionRole = 'hr'
-            }
+            const approverRole = String(approval.approver.role || '').toLowerCase()
+            if (approverRole === 'executive') decisionRole = 'executive'
+            else if (approverRole === 'department_director') decisionRole = 'director'
+            else if (approverRole === 'hr') decisionRole = 'hr'
           }
-          
+
           console.log(`  -> Setting decision for role: ${decisionRole}`)
           if (approval.status === 'APPROVED') {
             decisions[decisionRole].approved = 'X'
@@ -634,21 +536,18 @@ export class SmartDocumentGenerator {
             decisions[decisionRole].approved = ''
             decisions[decisionRole].rejected = 'X'
           }
-          
-          // Collect all approval comments
+
           if (approval.comments) {
-            if (decisions.comments) {
-              decisions.comments += '\n' + approval.comments
-            } else {
-              decisions.comments = approval.comments
-            }
+            decisions.comments = decisions.comments
+              ? `${decisions.comments}\n${approval.comments}`
+              : approval.comments
           }
         }
       }
     }
-    
+
     console.log('Final decisions state:', decisions)
-    
+
     return {
       employee: {
         firstName: leaveRequest.user.firstName || '',
@@ -658,9 +557,11 @@ export class SmartDocumentGenerator {
         employeeId: leaveRequest.user.employeeId || '',
         department: leaveRequest.user.department || 'Unassigned',
         position: leaveRequest.user.position || '',
-        manager: approverName || (leaveRequest.user.manager?.firstName && leaveRequest.user.manager?.lastName 
-          ? `${leaveRequest.user.manager.firstName} ${leaveRequest.user.manager.lastName}`
-          : '')
+        manager:
+          approverName ||
+          (leaveRequest.user.manager?.firstName && leaveRequest.user.manager?.lastName
+            ? `${leaveRequest.user.manager.firstName} ${leaveRequest.user.manager.lastName}`
+            : '')
       },
       leave: {
         type: leaveRequest.leaveType.name,
@@ -674,9 +575,11 @@ export class SmartDocumentGenerator {
         requestedDate: format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy')
       },
       manager: {
-        name: approverName || (leaveRequest.user.manager?.firstName && leaveRequest.user.manager?.lastName 
-          ? `${leaveRequest.user.manager.firstName} ${leaveRequest.user.manager.lastName}`
-          : ''),
+        name:
+          approverName ||
+          (leaveRequest.user.manager?.firstName && leaveRequest.user.manager?.lastName
+            ? `${leaveRequest.user.manager.firstName} ${leaveRequest.user.manager.lastName}`
+            : ''),
         email: approverEmail || leaveRequest.user.manager?.email || ''
       },
       substitute: {
@@ -693,15 +596,15 @@ export class SmartDocumentGenerator {
         workingDays: String(leaveRequest.totalDays)
       },
       decision: decisions,
-      signature: signatureData
+      signature: signatureData // nested
     }
   }
 
-  private getSubstitutesString(leaveRequest: any): string {
-    // Handle multiple substitutes
+  private getSubstitutesString(leaveRequest: AnyObj): string {
     if (leaveRequest.substitutes && leaveRequest.substitutes.length > 0) {
-      console.log(`Found ${leaveRequest.substitutes.length} substitutes:`, 
-        leaveRequest.substitutes.map((sub: any) => ({
+      console.log(
+        `Found ${leaveRequest.substitutes.length} substitutes:`,
+        leaveRequest.substitutes.map((sub: AnyObj) => ({
           id: sub.id,
           userId: sub.userId,
           firstName: sub.user?.firstName,
@@ -709,12 +612,11 @@ export class SmartDocumentGenerator {
         }))
       )
       const names = leaveRequest.substitutes
-        .map((sub: any) => `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim())
+        .map((sub: AnyObj) => `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim())
         .filter((name: string) => name)
       console.log('Substitute names:', names)
       return names.join(', ')
     }
-    // Fallback to single substitute for backward compatibility
     if (leaveRequest.substitute) {
       console.log('Using single substitute:', {
         id: leaveRequest.substitute.id,
@@ -727,22 +629,20 @@ export class SmartDocumentGenerator {
     return ''
   }
 
-  private getSubstitutesEmails(leaveRequest: any): string {
-    // Handle multiple substitutes
+  private getSubstitutesEmails(leaveRequest: AnyObj): string {
     if (leaveRequest.substitutes && leaveRequest.substitutes.length > 0) {
       return leaveRequest.substitutes
-        .map((sub: any) => sub.user.email)
+        .map((sub: AnyObj) => sub.user.email)
         .filter((email: string) => email)
         .join(', ')
     }
-    // Fallback to single substitute for backward compatibility
     return leaveRequest.substitute?.email || ''
   }
 
-  private getFieldValue(data: any, fieldKey: string): string {
+  private getFieldValue(data: AnyObj, fieldKey: string): string {
     const keys = fieldKey.split('.')
-    let value = data
-    
+    let value: any = data
+
     for (const key of keys) {
       if (value && typeof value === 'object' && key in value) {
         value = value[key]
@@ -750,18 +650,18 @@ export class SmartDocumentGenerator {
         return ''
       }
     }
-    
+
     if (Array.isArray(value)) {
-      return value.map(item => 
-        typeof item === 'object' && item.name ? item.name : String(item)
-      ).join(', ')
+      return value
+        .map(item => (typeof item === 'object' && item?.name ? item.name : String(item)))
+        .join(', ')
     }
-    
-    if (value && typeof value === 'object' && value.name) {
-      return value.name
+
+    if (value && typeof value === 'object' && 'name' in value) {
+      return (value as AnyObj).name
     }
-    
-    return String(value || '')
+
+    return String(value ?? '')
   }
 
   // Signature methods remain the same
@@ -781,11 +681,7 @@ export class SmartDocumentGenerator {
         where: { id: documentId },
         include: {
           signatures: true,
-          template: {
-            include: {
-              signaturePlacements: true
-            }
-          },
+          template: { include: { signaturePlacements: true } },
           leaveRequest: true
         }
       })
@@ -794,20 +690,17 @@ export class SmartDocumentGenerator {
         const requiredSignatures = document.template.signaturePlacements.filter(s => s.isRequired)
         const completedSignatures = document.signatures
 
-        const allSigned = requiredSignatures.every(req => 
+        const allSigned = requiredSignatures.every(req =>
           completedSignatures.some(comp => comp.signerRole === req.signerRole)
         )
 
         if (allSigned) {
           await prisma.generatedDocument.update({
             where: { id: documentId },
-            data: {
-              status: 'COMPLETED',
-              completedAt: new Date()
-            }
+            data: { status: 'COMPLETED', completedAt: new Date() }
           })
         }
-        
+
         // Regenerate the document to include the new signature
         if (document.leaveRequest && document.template) {
           await this.generateDocument(document.leaveRequest.id, document.template.id)
@@ -818,10 +711,9 @@ export class SmartDocumentGenerator {
       throw error
     }
   }
-  
+
   private async updatePDFWithSignatures(documentId: string): Promise<void> {
     // This method is called during document generation
-    // No need to regenerate here as signatures are already included in the generation process
     console.log('PDF signatures will be included in current generation:', documentId)
   }
 }

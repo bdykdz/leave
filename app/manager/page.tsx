@@ -249,7 +249,7 @@ export default function ManagerDashboard() {
   const managerWfhStats = { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
 
   // TODO: Add manager's own requests API endpoint
-  const managerRequests = []
+  const managerRequests: any[] = []
   const myRequestsPerPage = 3
   const myRequestsTotalPages = Math.ceil(managerRequests.length / myRequestsPerPage) || 1
 

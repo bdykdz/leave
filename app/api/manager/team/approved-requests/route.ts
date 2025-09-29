@@ -75,14 +75,14 @@ export async function GET(request: Request) {
         id: request.id,
         employee: {
           name: `${request.user.firstName} ${request.user.lastName}`,
-          avatar: request.user.profilePicture || '',
+          avatar: request.user.image || '',
           department: request.user.department
         },
         type: request.leaveType.name,
         dates: `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate).toLocaleDateString()}`,
         startDate: request.startDate,
         endDate: request.endDate,
-        days: request.days,
+        days: request.totalDays,
         reason: request.reason,
         submittedDate: request.createdAt.toISOString(),
         approvedDate: approval?.approvedAt?.toISOString() || request.updatedAt.toISOString(),

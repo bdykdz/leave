@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
+import { Role } from '@prisma/client'
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const roleFilter = searchParams.get('role')
     
-    const where = roleFilter ? { role: roleFilter } : {}
+    const where = roleFilter ? { role: roleFilter as Role } : {}
     
     const users = await prisma.user.findMany({
       where,

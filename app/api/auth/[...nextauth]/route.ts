@@ -3,6 +3,7 @@ import AzureADProvider from "next-auth/providers/azure-ad"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 import { NextAuthOptions } from "next-auth"
+import { Role } from "@prisma/client"
 
 export const authOptions: NextAuthOptions = {
   // Remove adapter when using JWT strategy - they don't work together
@@ -20,7 +21,8 @@ export const authOptions: NextAuthOptions = {
             label: "Role", 
             type: "select",
             placeholder: "Select role"
-          }
+          },
+          userId: { label: "User ID", type: "text" }
         },
         async authorize(credentials) {
           console.log('NextAuth authorize called with:', { 
@@ -71,7 +73,10 @@ export const authOptions: NextAuthOptions = {
             id: "dev-user",
             email: credentials.email,
             name: credentials.email.split('@')[0],
-            role: credentials.role || "EMPLOYEE"
+            role: credentials.role || "EMPLOYEE",
+            department: "Development",
+            firstName: credentials.email.split('@')[0],
+            lastName: "User"
           }
           
           console.log('Returning dev user:', devUser)
@@ -135,11 +140,12 @@ export const authOptions: NextAuthOptions = {
             
             // Update user info from Azure AD if available
             const updates: any = {}
-            if (profile?.given_name && profile.given_name !== existingUser.firstName) {
-              updates.firstName = profile.given_name
+            const azureProfile = profile as any
+            if (azureProfile?.given_name && azureProfile.given_name !== existingUser.firstName) {
+              updates.firstName = azureProfile.given_name
             }
-            if (profile?.family_name && profile.family_name !== existingUser.lastName) {
-              updates.lastName = profile.family_name
+            if (azureProfile?.family_name && azureProfile.family_name !== existingUser.lastName) {
+              updates.lastName = azureProfile.family_name
             }
             
             if (Object.keys(updates).length > 0) {
@@ -214,7 +220,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session?.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as string
+        session.user.role = token.role as Role
         session.user.department = token.department as string
         session.user.firstName = token.firstName as string
         session.user.lastName = token.lastName as string
