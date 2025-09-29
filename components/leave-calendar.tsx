@@ -118,7 +118,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     }
 
     if (isWeekend(date)) {
-      return cn(baseClasses, "text-gray-500 hover:bg-gray-100")
+      return cn(baseClasses, "text-gray-500 cursor-not-allowed")
     }
 
     if (isSelected(date)) {
@@ -129,7 +129,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
   }
 
   const handleDateClick = (date: Date) => {
-    if (!isSameMonth(date, currentMonth) || isPastDate(date) || isCompanyHoliday(date) || isBlockedDate(date)) {
+    if (!isSameMonth(date, currentMonth) || isPastDate(date) || isCompanyHoliday(date) || isBlockedDate(date) || isWeekend(date)) {
       return
     }
     onDateSelect(date)
