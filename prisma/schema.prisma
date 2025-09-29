@@ -345,3 +345,19 @@ enum DocumentStatus {
   PENDING_SIGNATURES
   COMPLETED
 }
+
+model Holiday {
+  id          String   @id @default(cuid())
+  nameEn      String   // English name
+  nameRo      String   // Romanian name
+  date        DateTime
+  description String?
+  isRecurring Boolean  @default(false)
+  country     String   @default("RO") // Default to Romania
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  
+  @@unique([date, nameEn])
+}

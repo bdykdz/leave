@@ -23,6 +23,7 @@ import {
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { TeamCalendar } from "@/components/team-calendar"
+import { HolidaysList } from "@/components/HolidaysList"
 import { format } from "date-fns/format"
 import { addMonths } from "date-fns/addMonths"
 import { subMonths } from "date-fns/subMonths"
@@ -554,32 +555,7 @@ export default function EmployeeDashboard() {
                 <CardDescription>Company-wide holidays</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">New Year's Day</p>
-                      <p className="text-sm text-gray-600">January 1, 2025</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Martin Luther King Jr. Day</p>
-                      <p className="text-sm text-gray-600">January 20, 2025</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Presidents' Day</p>
-                      <p className="text-sm text-gray-600">February 17, 2025</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Memorial Day</p>
-                      <p className="text-sm text-gray-600">May 26, 2025</p>
-                    </div>
-                  </div>
-                </div>
+                <HolidaysList />
               </CardContent>
             </Card>
           </div>
