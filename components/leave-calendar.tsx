@@ -167,7 +167,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       <div className="grid grid-cols-7 gap-1">
         {/* Day headers */}
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-          <div key={day} className="h-10 flex items-center justify-center text-sm font-medium text-gray-500">
+          <div key={day} className="h-10 w-10 flex items-center justify-center text-sm font-medium text-gray-500">
             {day}
           </div>
         ))}
