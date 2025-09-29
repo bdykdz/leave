@@ -143,6 +143,14 @@ export class SmartDocumentGenerator {
           let fieldType =
             (mapping.documentPosition as AnyObj)?.type || 'text'
           if (!fieldType && dataPath.includes('signature')) fieldType = 'signature'
+          
+          // Detect checkbox fields by name patterns
+          if (formFieldName.toLowerCase().includes('check') || 
+              formFieldName.toLowerCase().includes('approved') ||
+              dataPath.includes('.approved') ||
+              dataPath.includes('.rejected')) {
+            fieldType = 'checkbox'
+          }
 
           if (fieldType === 'checkbox') {
             try {
@@ -160,40 +168,39 @@ export class SmartDocumentGenerator {
               console.warn(`Could not set checkbox ${formFieldName}:`, e)
             }
           } else {
-            // text or signature (text fallback)
-            try {
-              const textField = form.getTextField(formFieldName)
-              const cleanedText = this.cleanTextForPDF(String(value))
-              textField.setText(cleanedText)
-              textField.updateAppearances(helveticaFont)
-            } catch (e) {
-              console.warn(`Could not set text field ${formFieldName}:`, e)
-
-              // Handle image signatures via data URLs
-              const isSignatureField = dataPath.includes('signature') || fieldType === 'signature'
-              if (isSignatureField && typeof value === 'string') {
-                const isDataUrl = value.startsWith('data:image')
-                if (isDataUrl) {
-                  if (!this.pendingSignatures) this.pendingSignatures = []
-                  this.pendingSignatures.push({
-                    fieldName: formFieldName,
-                    signatureData: value,
-                    field: (form as AnyObj).getField(formFieldName)
-                  })
-                } else {
-                  // Fallback: inject as text (e.g., "APPROVED")
-                  try {
-                    const field = (form as AnyObj).getField(formFieldName)
-                    if (field && 'setText' in field) {
-                      const cleanedText = this.cleanTextForPDF(String(value))
-                      ;(field as AnyObj).setText(cleanedText)
-                      if ('updateAppearances' in field) {
-                        ;(field as AnyObj).updateAppearances(helveticaFont)
-                      }
+            // Check if it's signature data first
+            const isSignatureField = dataPath.includes('signature') || fieldType === 'signature'
+            if (isSignatureField && typeof value === 'string' && value.startsWith('data:image')) {
+              // Handle image signatures
+              console.log(`Processing signature field ${formFieldName} with image data`)
+              if (!this.pendingSignatures) this.pendingSignatures = []
+              this.pendingSignatures.push({
+                fieldName: formFieldName,
+                signatureData: value,
+                field: (form as AnyObj).getField(formFieldName)
+              })
+            } else {
+              // Regular text field
+              try {
+                const textField = form.getTextField(formFieldName)
+                const cleanedText = this.cleanTextForPDF(String(value))
+                textField.setText(cleanedText)
+                textField.updateAppearances(helveticaFont)
+              } catch (e) {
+                console.warn(`Could not set text field ${formFieldName}:`, e)
+                
+                // Try as generic field if text field fails
+                try {
+                  const field = (form as AnyObj).getField(formFieldName)
+                  if (field && 'setText' in field) {
+                    const cleanedText = this.cleanTextForPDF(String(value))
+                    ;(field as AnyObj).setText(cleanedText)
+                    if ('updateAppearances' in field) {
+                      ;(field as AnyObj).updateAppearances(helveticaFont)
                     }
-                  } catch (sigError) {
-                    console.warn(`Could not set signature text field ${formFieldName}:`, sigError)
                   }
+                } catch (sigError) {
+                  console.warn(`Could not set field ${formFieldName}:`, sigError)
                 }
               }
             }
