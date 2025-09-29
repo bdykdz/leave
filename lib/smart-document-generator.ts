@@ -579,7 +579,12 @@ export class SmartDocumentGenerator {
         reason: leaveRequest.reason || ' ',
         requestNumber: leaveRequest.requestNumber || '',
         status: String(leaveRequest.status),
-        requestedDate: format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy')
+        requestedDate: format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy'),
+        // Leave Type Checkboxes
+        isAnnualLeave: leaveRequest.leaveType.name.includes('Annual') ? 'X' : '',
+        isSickLeave: leaveRequest.leaveType.name.includes('Sick') ? 'X' : '',
+        isSpecialLeave: leaveRequest.leaveType.name.includes('Special') ? 'X' : '',
+        isMaternityLeave: leaveRequest.leaveType.name.includes('Maternity') ? 'X' : ''
       },
       manager: {
         name:
