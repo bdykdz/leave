@@ -14,6 +14,7 @@ import { WorkflowRulesManager } from "./WorkflowRulesManager"
 import { PositionsManager } from "./PositionsManager"
 import { UserManagement } from "./UserManagement"
 import { SystemSettings } from "./SystemSettings"
+import { HolidaysManager } from "./HolidaysManager"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { 
   FileText,
@@ -109,7 +110,7 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-9">
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
             <TabsTrigger value="templates" className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
               <span className="hidden sm:inline">Templates</span>
@@ -141,6 +142,10 @@ export function AdminPanel() {
             <TabsTrigger value="orgchart" className="flex items-center gap-1">
               <Network className="h-3 w-3" />
               <span className="hidden sm:inline">Org Chart</span>
+            </TabsTrigger>
+            <TabsTrigger value="holidays" className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              <span className="hidden sm:inline">Holidays</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-1">
               <Settings className="h-3 w-3" />
@@ -178,6 +183,10 @@ export function AdminPanel() {
 
           <TabsContent value="orgchart" className="space-y-4">
             <OrgChart />
+          </TabsContent>
+
+          <TabsContent value="holidays" className="space-y-4">
+            <HolidaysManager />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
