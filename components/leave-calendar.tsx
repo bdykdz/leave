@@ -53,12 +53,17 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd })
 
   // Get the first day of the week for the month (to show previous month's trailing days)
+  // Adjust for Monday start: Sunday = 0, Monday = 1, etc. Convert to Monday = 0, Tuesday = 1, etc.
   const startDate = new Date(monthStart)
-  startDate.setDate(startDate.getDate() - monthStart.getDay())
+  const startDayOfWeek = monthStart.getDay()
+  const daysFromMonday = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1
+  startDate.setDate(startDate.getDate() - daysFromMonday)
 
   // Get the last day of the week for the month (to show next month's leading days)
   const endDate = new Date(monthEnd)
-  endDate.setDate(endDate.getDate() + (6 - monthEnd.getDay()))
+  const endDayOfWeek = monthEnd.getDay()
+  const daysToSunday = endDayOfWeek === 0 ? 0 : 7 - endDayOfWeek
+  endDate.setDate(endDate.getDate() + daysToSunday)
 
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
 
@@ -161,7 +166,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1">
         {/* Day headers */}
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
           <div key={day} className="h-10 flex items-center justify-center text-sm font-medium text-gray-500">
             {day}
           </div>
