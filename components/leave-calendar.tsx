@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { format } from "date-fns/format"
@@ -25,13 +25,26 @@ interface LeaveCalendarProps {
 
 export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {} }: LeaveCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [companyHolidays, setCompanyHolidays] = useState<Date[]>([])
 
-  // Mock data for company holidays and team leave
-  const companyHolidays = [
-    new Date(2025, 0, 1), // New Year's Day
-    new Date(2025, 0, 20), // MLK Day
-    new Date(2025, 1, 17), // Presidents Day
-  ]
+  useEffect(() => {
+    fetchHolidays()
+  }, [currentMonth])
+
+  const fetchHolidays = async () => {
+    try {
+      const year = currentMonth.getFullYear()
+      const response = await fetch(`/api/holidays?year=${year}`)
+      const data = await response.json()
+      
+      const holidayDates = (data.holidays || []).map((holiday: any) => new Date(holiday.date))
+      setCompanyHolidays(holidayDates)
+    } catch (error) {
+      console.error('Failed to fetch holidays:', error)
+      // Fallback to empty array
+      setCompanyHolidays([])
+    }
+  }
 
   const teamLeave = [new Date(2025, 0, 15), new Date(2025, 0, 16), new Date(2025, 1, 10)]
 
