@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 export async function POST() {
   try {
@@ -23,7 +24,7 @@ export async function POST() {
     await prisma.leaveRequest.updateMany({
       data: {
         documentUrl: null,
-        supportingDocuments: null,
+        supportingDocuments: Prisma.JsonNull,
         hrDocumentVerified: false,
         hrVerifiedBy: null,
         hrVerifiedAt: null,

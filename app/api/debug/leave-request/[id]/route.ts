@@ -74,11 +74,11 @@ export async function GET(
           }
           
           if (approval.status === 'APPROVED') {
-            decisions[decisionRole].approved = '✓'
-            decisions[decisionRole].rejected = ''
+            (decisions as any)[decisionRole].approved = '✓'
+            (decisions as any)[decisionRole].rejected = ''
           } else if (approval.status === 'REJECTED') {
-            decisions[decisionRole].approved = ''
-            decisions[decisionRole].rejected = '✓'
+            (decisions as any)[decisionRole].approved = ''
+            (decisions as any)[decisionRole].rejected = '✓'
           }
           
           if (approval.comments) {

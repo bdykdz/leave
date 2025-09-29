@@ -295,8 +295,12 @@ export class WorkflowEngine {
       throw new Error('Document not found');
     }
 
-    // Get existing decisions
-    const decisions = (document.decisions as WorkflowDecision[]) || [];
+    // Get existing decisions and properly convert dates
+    const rawDecisions = document.decisions as any[] || [];
+    const decisions: WorkflowDecision[] = rawDecisions.map(d => ({
+      ...d,
+      decidedAt: new Date(d.decidedAt)
+    }));
 
     // Add new decision
     decisions.push({
@@ -307,10 +311,10 @@ export class WorkflowEngine {
       comments,
     });
 
-    // Update document
+    // Update document with properly serialized decisions
     await prisma.generatedDocument.update({
       where: { id: documentId },
-      data: { decisions },
+      data: { decisions: decisions as any },
     });
 
     // Update leave request status if rejected
@@ -340,7 +344,11 @@ export class WorkflowEngine {
 
     if (!document) return false;
 
-    const decisions = (document.decisions as WorkflowDecision[]) || [];
+    const rawDecisions = document.decisions as any[] || [];
+    const decisions: WorkflowDecision[] = rawDecisions.map(d => ({
+      ...d,
+      decidedAt: new Date(d.decidedAt)
+    }));
     const templateSnapshot = document.templateSnapshot as any;
     const workflowRule = templateSnapshot.workflowRule;
 

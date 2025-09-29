@@ -2,6 +2,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { PrismaClient } from '@prisma/client';
 import { WorkflowEngine } from './workflow-engine';
 import { getFromMinio, uploadToMinio } from '@/lib/minio';
+import path from 'path';
 
 const prisma = new PrismaClient();
 const workflowEngine = new WorkflowEngine();

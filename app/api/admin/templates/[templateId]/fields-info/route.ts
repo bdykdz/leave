@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { PDFDocument } from 'pdf-lib'
 import { getFromMinio } from '@/lib/minio'
+import { join } from 'path'
 
 export async function GET(
   request: Request,

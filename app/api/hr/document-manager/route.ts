@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     const documents = await prisma.leaveRequest.findMany({
       where: {
         OR: [
-          { supportingDocuments: { not: null } },
+          { supportingDocuments: { not: Prisma.JsonNull } },
           { hrVerificationNotes: { contains: '[Documents removed' } },
           { hrDocumentVerified: true },
           { generatedDocument: { isNot: null } },

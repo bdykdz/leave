@@ -97,7 +97,7 @@ export async function GET() {
       }
     })
 
-    const totalLeaveDaysYTD = approvedLeavesYTD.reduce((total, leave) => total + leave.days, 0)
+    const totalLeaveDaysYTD = approvedLeavesYTD.reduce((total, leave) => total + leave.totalDays, 0)
     const averageLeaveDaysPerEmployee = totalEmployees > 0 ? (totalLeaveDaysYTD / totalEmployees).toFixed(1) : 0
 
     // Calculate leave utilization rate

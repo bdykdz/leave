@@ -148,7 +148,7 @@ export default function EmployeeDashboard() {
   // Get WFH stats for current selected month
   const getWfhStatsForMonth = (date: Date) => {
     const monthKey = format(date, "yyyy-MM")
-    return wfhDataByMonth[monthKey] || { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
+    return (wfhDataByMonth as any)[monthKey] || { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
   }
 
   const wfhStats = getWfhStatsForMonth(wfhCurrentMonth)
@@ -293,18 +293,6 @@ export default function EmployeeDashboard() {
                 <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
                   Admin Dashboard
-                </Button>
-              )}
-              {session.user.role === "EXECUTIVE" && (
-                <Button onClick={() => router.push("/executive")} variant="outline" className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Executive Dashboard
-                </Button>
-              )}
-              {session.user.role === "HR" && (
-                <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  HR Dashboard
                 </Button>
               )}
               <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Set a cookie to maintain setup session
-    cookies().set('setup-auth', 'true', {
+    (await cookies()).set('setup-auth', 'true', {
       httpOnly: true,
       secure: process.env.APP_ENV === 'production', // Only secure in production, not UAT
       sameSite: 'lax', // Changed from strict to lax for better compatibility

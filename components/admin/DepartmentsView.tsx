@@ -707,7 +707,7 @@ export function DepartmentsView() {
 
       {/* Department Details Dialog */}
       <Dialog open={departmentDetailsOpen} onOpenChange={setDepartmentDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" showCloseButton={true}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {selectedDepartment?.name}
@@ -801,7 +801,7 @@ export function DepartmentsView() {
                 <Label className="text-muted-foreground">
                   Employees ({selectedDepartment._count?.users || 0})
                 </Label>
-                {selectedDepartment._count?.users > 0 ? (
+                {(selectedDepartment._count?.users || 0) > 0 ? (
                   <div className="border rounded-lg">
                     <Table>
                       <TableHeader>
