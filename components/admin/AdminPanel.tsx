@@ -15,7 +15,6 @@ import { PositionsManager } from "./PositionsManager"
 import { UserManagement } from "./UserManagement"
 import { SystemSettings } from "./SystemSettings"
 import { HolidaysManager } from "./HolidaysManager"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { 
   FileText,
   Calendar,
@@ -70,7 +69,6 @@ export function AdminPanel() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <ThemeToggle />
               {/* Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

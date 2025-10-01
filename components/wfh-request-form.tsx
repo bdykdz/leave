@@ -17,12 +17,14 @@ import { format } from "date-fns/format"
 import { isSameDay } from "date-fns/isSameDay"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTranslations } from "@/components/language-provider"
 
 interface WorkRemoteRequestFormProps {
   onBack: () => void
 }
 
 export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
+  const t = useTranslations()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [reason, setReason] = useState("")
   const [signature, setSignature] = useState("")
@@ -153,11 +155,11 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
           <div className="flex items-center py-6">
             <Button variant="ghost" onClick={onBack} className="mr-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              {t.common.back}
             </Button>
             <div className="flex items-center gap-2">
               <Network className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Request Remote Work</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.remoteForm.title}</h1>
             </div>
           </div>
         </div>
@@ -171,11 +173,10 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Network className="h-5 w-5 text-blue-600" />
-                  Select Work Remote Days
+                  {t.leaveForm.selectDates}
                 </CardTitle>
                 <CardDescription>
-                  Click on individual days to select when you'd like to work remote. You can select multiple individual
-                  days or consecutive periods.
+                  {t.leaveForm.selectDates} when you'd like to work remote. You can select multiple individual days or consecutive periods.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -190,21 +191,21 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Selected Days</CardTitle>
+                  <CardTitle className="text-lg">{t.leaveForm.selectDates}</CardTitle>
                   {selectedDates.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={handleClearAll}>
-                      Clear All
+                      {t.common.clear}
                     </Button>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No days selected</p>
+                  <p className="text-gray-500 text-center py-4">No {t.leaveForm.days} selected</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Days:</span>
+                      <span className="text-sm font-medium">{t.leaveForm.totalDays}:</span>
                       <Badge variant="secondary" className="text-lg px-3 py-1 bg-blue-100 text-blue-800">
                         {getTotalDays()}
                       </Badge>
@@ -239,15 +240,15 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
             {/* Work Remote Request Form */}
             <Card>
               <CardHeader>
-                <CardTitle>Request Details</CardTitle>
+                <CardTitle>{t.remoteForm.title} Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="reason">Reason for Working Remote</Label>
+                    <Label htmlFor="reason">{t.remoteForm.reason}</Label>
                     <Textarea
                       id="reason"
-                      placeholder="Please provide a reason for your work remote request (e.g., focus time, client calls, home repairs, etc.)"
+                      placeholder={t.remoteForm.reasonPlaceholder}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={4}

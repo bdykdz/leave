@@ -19,6 +19,7 @@ import { isSameDay } from "date-fns/isSameDay"
 import { SubstitutePicker } from "@/components/substitute-picker"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
+import { useTranslations } from "@/components/language-provider"
 
 interface LeaveType {
   id: string
@@ -49,6 +50,7 @@ interface Approver {
 
 export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const { data: session } = useSession()
+  const t = useTranslations()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [leaveType, setLeaveType] = useState("")
   const [reason, setReason] = useState("")
@@ -297,9 +299,9 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
           <div className="flex items-center py-6">
             <Button variant="ghost" onClick={onBack} className="mr-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              {t.common.back}
             </Button>
-            <h1 className="text-2xl font-bold text-gray-900">Request Leave</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t.leaveForm.title}</h1>
           </div>
         </div>
       </div>
@@ -312,11 +314,10 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5" />
-                  Select Leave Days
+                  {t.leaveForm.selectDates}
                 </CardTitle>
                 <CardDescription>
-                  Click on individual days to select them. You can select multiple individual days or consecutive
-                  periods.
+                  {t.leaveForm.selectDates}. You can select multiple individual days or consecutive periods.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -336,21 +337,21 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Selected Days</CardTitle>
+                  <CardTitle className="text-lg">{t.leaveForm.selectDates}</CardTitle>
                   {selectedDates.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={handleClearAll}>
-                      Clear All
+                      {t.common.clear}
                     </Button>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No days selected</p>
+                  <p className="text-gray-500 text-center py-4">No {t.leaveForm.days} selected</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Days:</span>
+                      <span className="text-sm font-medium">{t.leaveForm.totalDays}:</span>
                       <Badge variant="secondary" className="text-lg px-3 py-1">
                         {getTotalDays()}
                       </Badge>
@@ -385,15 +386,15 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
             {/* Leave Request Form */}
             <Card>
               <CardHeader>
-                <CardTitle>Request Details</CardTitle>
+                <CardTitle>{t.leaveForm.title} Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="leave-type">Leave Type *</Label>
+                    <Label htmlFor="leave-type">{t.leaveForm.leaveType} *</Label>
                     <Select value={leaveType} onValueChange={setLeaveType} required disabled={loadingLeaveTypes}>
                       <SelectTrigger>
-                        <SelectValue placeholder={loadingLeaveTypes ? "Loading..." : "Select leave type"} />
+                        <SelectValue placeholder={loadingLeaveTypes ? t.common.loading : t.leaveForm.selectLeaveType} />
                       </SelectTrigger>
                       <SelectContent>
                         {leaveTypes.map((type) => (
@@ -401,7 +402,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                             <div className="flex items-center justify-between w-full">
                               <span>{type.name}</span>
                               <Badge variant="secondary" className="ml-2">
-                                {type.balance.available} days
+                                {type.balance.available} {t.leaveForm.days}
                               </Badge>
                             </div>
                           </SelectItem>
@@ -416,9 +417,9 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                             <p className="text-gray-600">{selected.description}</p>
                           )}
                           <div className="flex items-center justify-between text-xs">
-                            <span>Available: {selected.balance.available} days</span>
+                            <span>{t.leaveForm.available}: {selected.balance.available} {t.leaveForm.days}</span>
                             {selected.balance.pending > 0 && (
-                              <span className="text-amber-600">Pending: {selected.balance.pending} days</span>
+                              <span className="text-amber-600">{t.leaveForm.pending}: {selected.balance.pending} {t.leaveForm.days}</span>
                             )}
                           </div>
                           {selected.requiresDocument && (
@@ -439,10 +440,10 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="reason">Reason (Optional)</Label>
+                    <Label htmlFor="reason">{t.leaveForm.reason} ({t.common.optional})</Label>
                     <Textarea
                       id="reason"
-                      placeholder="Provide additional details about your leave request..."
+                      placeholder={t.leaveForm.reasonPlaceholder}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={3}
