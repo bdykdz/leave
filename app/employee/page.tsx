@@ -37,11 +37,13 @@ import {
 import { LogOut, Settings, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut } from "next-auth/react"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { useTranslations } from "@/components/language-provider"
+import { LanguageToggle } from "@/components/language-toggle"
 
 export default function EmployeeDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [showRemoteForm, setShowWFHForm] = useState(false)
   const [activeTab, setActiveTab] = useState("dashboard")
@@ -287,7 +289,7 @@ export default function EmployeeDashboard() {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Leave Management</h1>
-              <p className="text-gray-600">Welcome back, {userName}</p>
+              <p className="text-gray-600">{t.dashboard.welcomeBack}, {userName}</p>
             </div>
             <div className="flex items-center gap-3">
               {session.user.role === "ADMIN" && (
@@ -298,14 +300,15 @@ export default function EmployeeDashboard() {
               )}
               <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
                 <Home className="h-4 w-4" />
-                Request Remote Work
+                {t.dashboard.newRemoteRequest}
               </Button>
               <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Request Leave
+                {t.dashboard.newLeaveRequest}
               </Button>
 
-              <ThemeToggle />
+              <LanguageToggle />
+
 
               {/* Profile Dropdown */}
               <DropdownMenu>
@@ -325,18 +328,9 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>{t.nav.logout}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -349,10 +343,10 @@ export default function EmployeeDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex gap-4 mb-6">
           <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
-            Dashboard
+            {t.nav.dashboard}
           </Button>
           <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
-            Team Calendar
+            {t.dashboard.teamCalendar}
           </Button>
         </div>
 
@@ -371,7 +365,7 @@ export default function EmployeeDashboard() {
                     <CardContent>
                       <div className="text-2xl font-bold">{normalLeave.available || 0}</div>
                       <p className="text-xs text-muted-foreground">
-                        {normalLeave.used || 0} used of {normalLeave.entitled || 0} days
+                        {normalLeave.used || 0} {t.leaveForm.used} of {normalLeave.entitled || 0} {t.leaveForm.days}
                       </p>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                         <div
@@ -392,7 +386,7 @@ export default function EmployeeDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{sickLeave.used || 0}</div>
-                      <p className="text-xs text-muted-foreground">Days used this year</p>
+                      <p className="text-xs text-muted-foreground">{t.leaveForm.days} used this year</p>
                       <p className="text-xs text-gray-500 mt-2">No limit - tracked by HR</p>
                     </CardContent>
                   </Card>
@@ -401,15 +395,15 @@ export default function EmployeeDashboard() {
                 {/* Special Leave Summary Card */}
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Special Leave</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.leaveTypes.special}</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{specialLeaves.reduce((sum, leave) => sum + (leave.used || 0), 0)}</div>
-                    <p className="text-xs text-muted-foreground">Total special leave days used</p>
+                    <p className="text-xs text-muted-foreground">Total special leave {t.leaveForm.days} used</p>
                     <div className="text-xs text-gray-500 mt-2 space-y-1">
                       {specialLeaves.filter(leave => leave.used > 0).map(leave => (
-                        <div key={leave.leaveTypeId}>{leave.leaveTypeName}: {leave.used} days</div>
+                        <div key={leave.leaveTypeId}>{leave.leaveTypeName}: {leave.used} {t.leaveForm.days}</div>
                       ))}
                       {specialLeaves.filter(leave => leave.used > 0).length === 0 && (
                         <div>No special leave taken</div>
@@ -424,7 +418,7 @@ export default function EmployeeDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-sm font-medium">
-                      Remote Work Usage - {format(wfhCurrentMonth, "MMMM yyyy")}
+                      {t.remoteForm.title} - {format(wfhCurrentMonth, "MMMM yyyy")}
                     </CardTitle>
                     <Home className="h-4 w-4 text-blue-600" />
                   </div>
@@ -438,9 +432,9 @@ export default function EmployeeDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} days</div>
+                  <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} {t.leaveForm.days}</div>
                   <p className="text-xs text-muted-foreground">
-                    {wfhStats.daysUsed} of {wfhStats.workingDaysInMonth} working days this month
+                    {wfhStats.daysUsed} of {wfhStats.workingDaysInMonth} working {t.leaveForm.days} this month
                   </p>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${wfhStats.percentage}%` }}></div>

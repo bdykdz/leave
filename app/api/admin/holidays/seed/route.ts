@@ -35,6 +35,22 @@ const ROMANIAN_HOLIDAYS_2026 = [
   { nameEn: "Boxing Day", nameRo: "A doua zi de Crăciun", date: "2026-12-26" }
 ]
 
+const ROMANIAN_HOLIDAYS_2027 = [
+  { nameEn: "New Year's Day", nameRo: "Anul Nou", date: "2027-01-01" },
+  { nameEn: "Epiphany", nameRo: "Bobotează", date: "2027-01-06" },
+  { nameEn: "Orthodox Easter", nameRo: "Paștele Ortodox", date: "2027-05-02" },
+  { nameEn: "Orthodox Easter Monday", nameRo: "Lunea Paștelui", date: "2027-05-03" },
+  { nameEn: "Labour Day", nameRo: "Ziua Muncii", date: "2027-05-01" },
+  { nameEn: "Children's Day", nameRo: "Ziua Copilului", date: "2027-06-01" },
+  { nameEn: "Orthodox Pentecost", nameRo: "Rusaliile", date: "2027-06-20" },
+  { nameEn: "Orthodox Pentecost Monday", nameRo: "Lunea Rusaliilor", date: "2027-06-21" },
+  { nameEn: "Assumption of Mary", nameRo: "Adormirea Maicii Domnului", date: "2027-08-15" },
+  { nameEn: "St. Andrew's Day", nameRo: "Sfântul Andrei", date: "2027-11-30" },
+  { nameEn: "National Day", nameRo: "Ziua Națională", date: "2027-12-01" },
+  { nameEn: "Christmas Day", nameRo: "Crăciunul", date: "2027-12-25" },
+  { nameEn: "Boxing Day", nameRo: "A doua zi de Crăciun", date: "2027-12-26" }
+]
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -43,7 +59,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const allHolidays = [...ROMANIAN_HOLIDAYS_2025, ...ROMANIAN_HOLIDAYS_2026]
+    const allHolidays = [...ROMANIAN_HOLIDAYS_2025, ...ROMANIAN_HOLIDAYS_2026, ...ROMANIAN_HOLIDAYS_2027]
     
     // Clear existing holidays
     await prisma.holiday.deleteMany({})

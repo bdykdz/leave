@@ -24,9 +24,34 @@ export function HolidaysList() {
 
   const fetchHolidays = async () => {
     try {
-      const response = await fetch('/api/holidays?upcoming=true')
-      const data = await response.json()
-      setHolidays(data.holidays || [])
+      // Get holidays for next 6 months
+      const now = new Date()
+      const sixMonthsLater = new Date()
+      sixMonthsLater.setMonth(now.getMonth() + 6)
+      
+      const currentYear = now.getFullYear()
+      const futureYear = sixMonthsLater.getFullYear()
+      
+      // Fetch holidays for current and potentially next year
+      const years = [currentYear]
+      if (futureYear !== currentYear) {
+        years.push(futureYear)
+      }
+      
+      const allHolidays = []
+      for (const year of years) {
+        const response = await fetch(`/api/holidays?year=${year}`)
+        const data = await response.json()
+        allHolidays.push(...(data.holidays || []))
+      }
+      
+      // Filter to only upcoming holidays within 6 months
+      const upcomingHolidays = allHolidays.filter(holiday => {
+        const holidayDate = new Date(holiday.date)
+        return holidayDate >= now && holidayDate <= sixMonthsLater
+      })
+      
+      setHolidays(upcomingHolidays)
     } catch (error) {
       console.error('Failed to fetch holidays:', error)
     } finally {
@@ -49,7 +74,7 @@ export function HolidaysList() {
 
   return (
     <div className="space-y-3">
-      {holidays.slice(0, 4).map((holiday) => (
+      {holidays.slice(0, 6).map((holiday) => (
         <div key={holiday.id} className="flex justify-between items-center">
           <div>
             <p className="font-medium">{holiday.nameEn}</p>
@@ -60,9 +85,9 @@ export function HolidaysList() {
           </div>
         </div>
       ))}
-      {holidays.length > 4 && (
+      {holidays.length > 6 && (
         <p className="text-sm text-muted-foreground text-center pt-2">
-          +{holidays.length - 4} more holidays
+          +{holidays.length - 6} more holidays
         </p>
       )}
     </div>

@@ -9,7 +9,6 @@ import { DocumentFileManager } from "@/components/hr/DocumentFileManager"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Shield, FolderOpen, LogOut, Settings, User } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +33,6 @@ export default function HRDashboard() {
               <p className="text-gray-600">Manage employees, review leave requests, and generate reports</p>
             </div>
             <div className="flex items-center gap-3">
-              <ThemeToggle />
 
               {/* Profile Dropdown */}
               <DropdownMenu>

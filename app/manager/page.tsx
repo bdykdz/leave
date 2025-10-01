@@ -34,14 +34,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings, User } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { toast } from "sonner"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "@/components/language-provider"
+import { LanguageToggle } from "@/components/language-toggle"
 
 export default function ManagerDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [activeTab, setActiveTab] = useState("dashboard")
   const [pendingRequestsPage, setPendingRequestsPage] = useState(1)
   const [teamStatsMonth, setTeamStatsMonth] = useState(new Date())
@@ -385,7 +387,7 @@ export default function ManagerDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Manager Dashboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
               <p className="text-gray-600">
                 {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
               </p>
@@ -400,14 +402,15 @@ export default function ManagerDashboard() {
               </Badge>
               <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
                 <Home className="h-4 w-4" />
-                Request Remote Work
+                {t.dashboard.newRemoteRequest}
               </Button>
               <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Request Leave
+                {t.dashboard.newLeaveRequest}
               </Button>
 
-              <ThemeToggle />
+              <LanguageToggle />
+
 
               {/* Profile Dropdown */}
               <DropdownMenu>
@@ -429,18 +432,9 @@ export default function ManagerDashboard() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut({ callbackUrl: '/login' })}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>{t.nav.logout}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -453,13 +447,13 @@ export default function ManagerDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex gap-4 mb-6">
           <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
-            My Dashboard
+            {t.nav.dashboard}
           </Button>
           <Button variant={activeTab === "team" ? "default" : "outline"} onClick={() => setActiveTab("team")}>
-            Team Management
+            {t.dashboard.teamOverview}
           </Button>
           <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
-            Team Calendar
+            {t.dashboard.teamCalendar}
           </Button>
         </div>
 
