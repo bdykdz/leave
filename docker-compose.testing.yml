@@ -9,22 +9,45 @@ services:
     ports:
       - "3001:3000"  # Different port from dev version
     environment:
+      # Application
       - APP_ENV=production
       - APP_NAME=Leave Management Testing
       - NODE_ENV=production
+      
+      # Database
       - DATABASE_URL=postgresql://postgres:password@leave-db-testing:5432/leave_testing
+      
+      # Authentication
       - NEXTAUTH_URL=http://your-server-ip:3001
-      - NEXTAUTH_SECRET=testing-secret-change-me
-      - AZURE_AD_CLIENT_ID=your-client-id
-      - AZURE_AD_CLIENT_SECRET=your-client-secret
+      - NEXTAUTH_SECRET=testing-secret-change-me-generate-with-openssl-rand-base64-32
+      
+      # Azure AD Configuration
+      - AZURE_AD_CLIENT_ID=your-testing-client-id
+      - AZURE_AD_CLIENT_SECRET=your-testing-client-secret
       - AZURE_AD_TENANT_ID=your-tenant-id
-      - SETUP_PASSWORD=admin123
-      - CRON_SECRET=testing-cron-secret
-      - RESEND_API_KEY=your-resend-api-key
+      
+      # Security
+      - SETUP_PASSWORD=testing-admin-password
+      - CRON_SECRET=testing-cron-secret-generate-with-openssl-rand-base64-32
+      
+      # Email Configuration (Resend)
+      - RESEND_API_KEY=re_123456789_your_testing_resend_api_key
       - RESEND_FROM_EMAIL=noreply@yourdomain.com
-      - COMPANY_NAME=Your Company Name
+      - COMPANY_NAME=Your Company Name - Testing
+      
+      # Optional: Redis (for session storage)
+      - REDIS_URL=redis://leave-redis-testing:6379
+      
+      # Optional: MinIO/S3 (for file storage)
+      - MINIO_ENDPOINT=leave-minio-testing:9000
+      - MINIO_ACCESS_KEY=testing-minio-access-key
+      - MINIO_SECRET_KEY=testing-minio-secret-key
+      - MINIO_BUCKET=leave-management-testing
     depends_on:
       - leave-db-testing
+      # Uncomment these if you want to use Redis and MinIO
+      # - leave-redis-testing
+      # - leave-minio-testing
     restart: unless-stopped
     networks:
       - leave-testing-network
@@ -44,6 +67,35 @@ services:
     networks:
       - leave-testing-network
 
+  # Optional: Redis for session storage
+  # Uncomment this service if you want to use Redis
+  # leave-redis-testing:
+  #   image: redis:7-alpine
+  #   container_name: leave-management-redis-testing
+  #   ports:
+  #     - "6380:6379"  # Different port from dev version
+  #   restart: unless-stopped
+  #   networks:
+  #     - leave-testing-network
+
+  # Optional: MinIO for file storage
+  # Uncomment this service if you want to use MinIO
+  # leave-minio-testing:
+  #   image: minio/minio
+  #   container_name: leave-management-minio-testing
+  #   ports:
+  #     - "9001:9000"   # Different port from dev version
+  #     - "9091:9090"   # Console port
+  #   environment:
+  #     - MINIO_ROOT_USER=testing-minio-access-key
+  #     - MINIO_ROOT_PASSWORD=testing-minio-secret-key
+  #   command: server /data --console-address ":9090"
+  #   volumes:
+  #     - leave_testing_minio_data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - leave-testing-network
+
 networks:
   leave-testing-network:
     name: leave-management-testing-network
@@ -51,3 +103,6 @@ networks:
 volumes:
   leave_testing_postgres_data:
     name: leave-management-testing-data
+  # Uncomment this volume if you use MinIO
+  # leave_testing_minio_data:
+  #   name: leave-management-testing-minio-data
