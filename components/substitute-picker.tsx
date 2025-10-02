@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
+import { useTranslations } from "@/components/language-provider"
 
 interface TeamMember {
   id: string
@@ -27,6 +28,7 @@ interface SubstitutePickerProps {
 }
 
 export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: SubstitutePickerProps) {
+  const t = useTranslations()
   const [open, setOpen] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([])
@@ -81,7 +83,7 @@ export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: Sub
     <div className="space-y-3">
       <Label className="flex items-center gap-2 text-sm font-medium">
         <Users className="h-4 w-4" />
-        Coverage Assignment *
+        {t.leaveForm.coverageAssignment} *
       </Label>
 
       <div className="space-y-3">
@@ -99,16 +101,16 @@ export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: Sub
                 {loading ? (
                   <span className="text-gray-500 text-sm flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading team members...
+                    {t.common.loading}
                   </span>
                 ) : !selectedSubstitute ? (
                   <span className="text-gray-500 text-sm truncate w-full">
-                    Select a team member to cover your responsibilities...
+                    {t.leaveForm.selectTeamMember} {t.leaveForm.selectTeamMemberDesc}...
                   </span>
                 ) : (
                   <div className="w-full">
                     <span className="text-sm font-medium">
-                      1 team member selected
+                      1 {t.manager.teamMember} selected
                     </span>
                     <div className="text-xs text-gray-500 truncate w-full mt-0.5">
                       {getSelectedMember()?.name || ""}
@@ -124,7 +126,7 @@ export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: Sub
               <div className="p-3 border-b">
                 <input
                   type="text"
-                  placeholder="Search team members..."
+                  placeholder={`${t.common.search} team members...`}
                   className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onChange={(e) => {
                     const searchTerm = e.target.value.toLowerCase()
@@ -141,7 +143,7 @@ export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: Sub
                 {loading ? (
                   <div className="p-4 text-center text-sm text-gray-500">
                     <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                    Loading team members...
+                    {t.common.loading}
                   </div>
                 ) : teamMembers.length === 0 ? (
                   <div className="p-4 text-center text-sm text-gray-500">
@@ -189,7 +191,7 @@ export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: Sub
         {/* Selected Substitute */}
         {selectedSubstitute && getSelectedMember() && (
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700">Selected for Coverage:</div>
+            <div className="text-sm font-medium text-gray-700">Selected for {t.leaveForm.coverageAssignment}:</div>
             <div className="flex flex-wrap gap-2">
               <Badge
                 variant="secondary"
@@ -216,8 +218,7 @@ export function SubstitutePicker({ selectedSubstitute, onSubstituteChange }: Sub
       </div>
 
       <div className="text-xs text-gray-500 leading-relaxed">
-        Select a team member who will cover your responsibilities while you're away. This ensures continuity and helps
-        your manager coordinate coverage.
+        {t.leaveForm.selectTeamMember} {t.leaveForm.selectTeamMemberDesc}
       </div>
     </div>
   )

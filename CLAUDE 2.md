@@ -102,9 +102,11 @@ AZURE_AD_TENANT_ID="your-tenant-id"
 # Setup Security
 SETUP_PASSWORD="strong-admin-password"
 
-# Email Configuration (Resend)
-RESEND_API_KEY="re_123456789_your_resend_api_key"
-RESEND_FROM_EMAIL="noreply@yourdomain.com"
+# Email Configuration (Microsoft 365 SMTP)
+SMTP_HOST="smtp.office365.com"
+SMTP_PORT="587"
+SMTP_USER="noreply@yourcompany.com"
+SMTP_PASSWORD="your-email-password"
 COMPANY_NAME="Your Company Name"
 ```
 
@@ -112,41 +114,6 @@ COMPANY_NAME="Your Company Name"
 ```bash
 docker build -t leave-management .
 docker run -p 3000:3000 --env-file .env leave-management
-```
-
-## Email Setup with Resend
-
-This application uses [Resend](https://resend.com) for sending transactional emails in Romanian.
-
-### Setting up Resend
-
-1. **Create a Resend account**: Go to https://resend.com and sign up
-2. **Get your API key**: In the Resend dashboard, go to API Keys and create a new key
-3. **Verify your domain**: Add your domain in Resend dashboard and verify it
-4. **Configure environment variables**:
-   ```env
-   RESEND_API_KEY="re_123456789_your_resend_api_key"
-   RESEND_FROM_EMAIL="noreply@yourdomain.com"
-   COMPANY_NAME="Your Company Name"
-   ```
-
-### Email Features
-
-- **Leave Request Notifications**: Managers receive emails when employees submit requests
-- **Approval/Rejection Notifications**: Employees receive emails when requests are processed
-- **Romanian Templates**: All emails are in Romanian with professional styling
-- **Test Endpoint**: Use `/api/test-email` to test email functionality
-
-### Testing Emails
-
-```bash
-# Check email configuration
-curl http://localhost:3000/api/test-email
-
-# Send test emails (requires HR/Executive role)
-curl -X POST http://localhost:3000/api/test-email \
-  -H "Content-Type: application/json" \
-  -d '{"type": "leave-request", "email": "test@example.com"}'
 ```
 
 ## Testing Authentication

@@ -6,6 +6,7 @@ import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RotateCcw, PenTool, Check } from "lucide-react"
+import { useTranslations } from "@/components/language-provider"
 
 interface SignaturePadProps {
   onSignatureChange: (signature: string) => void
@@ -13,6 +14,7 @@ interface SignaturePadProps {
 }
 
 export function SignaturePad({ onSignatureChange, signature }: SignaturePadProps) {
+  const t = useTranslations()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [isEmpty, setIsEmpty] = useState(true)
@@ -121,7 +123,7 @@ export function SignaturePad({ onSignatureChange, signature }: SignaturePadProps
     <div className="space-y-3">
       <Label className="flex items-center gap-2">
         <PenTool className="h-4 w-4" />
-        Digital Signature *
+        {t.leaveForm.digitalSignature} *
       </Label>
 
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-white">
@@ -139,12 +141,12 @@ export function SignaturePad({ onSignatureChange, signature }: SignaturePadProps
 
         <div className="flex items-center justify-between mt-3">
           <p className="text-xs text-gray-500">
-            {isEmpty ? "Please sign above using your mouse or finger" : "Signature captured"}
+            {isEmpty ? `${t.leaveForm.pleaseSignAbove} ${t.leaveForm.signatureConfirmation}` : "Signature captured"}
           </p>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={clearSignature} disabled={isEmpty}>
               <RotateCcw className="h-3 w-3 mr-1" />
-              Clear
+              {t.common.clear}
             </Button>
             {!isEmpty && (
               <div className="flex items-center gap-1 text-green-600 text-sm">

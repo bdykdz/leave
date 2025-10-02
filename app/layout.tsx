@@ -5,7 +5,6 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "sonner"
 import { AuthProvider } from "@/components/auth-provider"
-import { DevRoleSwitcher } from "@/components/dev-role-switcher"
 import { LanguageProvider } from "@/components/language-provider"
 
 const inter = Inter({ 
@@ -38,7 +37,6 @@ export default function RootLayout({
             <LanguageProvider>
               {children}
               <Toaster />
-              <DevRoleSwitcher />
             </LanguageProvider>
           </ThemeProvider>
         </AuthProvider>

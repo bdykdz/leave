@@ -95,6 +95,27 @@ export interface Translations {
     selectDates: string
     duration: string
     totalDays: string
+    selectDatesOnCalendar: string
+    selectDatesCalendarDesc: string
+    selectedDays: string
+    noDaysSelected: string
+    requestDetails: string
+    leaveTypeRequired: string
+    approvalWorkflow: string
+    manager: string
+    departmentHead: string
+    level: string
+    additionalApprovers: string
+    additionalApproversDesc: string
+    coverageAssignment: string
+    coverageAssignmentRequired: string
+    selectTeamMember: string
+    selectTeamMemberDesc: string
+    digitalSignature: string
+    digitalSignatureRequired: string
+    pleaseSignAbove: string
+    signatureConfirmation: string
+    submitRequestDays: string
   }
 
   // Remote Work Form
@@ -250,7 +271,28 @@ export const translations: Record<Language, Translations> = {
       maxDaysPerRequest: "Max days per request",
       selectDates: "Select dates on the calendar",
       duration: "Duration",
-      totalDays: "Total Days"
+      totalDays: "Total Days",
+      selectDatesOnCalendar: "Select dates on calendar",
+      selectDatesCalendarDesc: "Select dates on calendar. You can select multiple individual days or consecutive periods.",
+      selectedDays: "Selected days",
+      noDaysSelected: "No days selected",
+      requestDetails: "Request Details",
+      leaveTypeRequired: "Leave Type Required",
+      approvalWorkflow: "Approval Workflow",
+      manager: "Manager",
+      departmentHead: "Department Head",
+      level: "Level",
+      additionalApprovers: "Additional approvers may be added based on",
+      additionalApproversDesc: "leave type and duration.",
+      coverageAssignment: "Coverage Assignment",
+      coverageAssignmentRequired: "Coverage Assignment Required",
+      selectTeamMember: "Select a team member to cover your",
+      selectTeamMemberDesc: "responsibilities while you're away. This ensures continuity and helps your manager coordinate coverage.",
+      digitalSignature: "Digital Signature",
+      digitalSignatureRequired: "Digital Signature Required",
+      pleaseSignAbove: "Please sign above using your",
+      signatureConfirmation: "mouse or finger",
+      submitRequestDays: "Submit Request (0 days)"
     },
     remoteForm: {
       title: "New Remote Work Request",
@@ -394,7 +436,28 @@ export const translations: Record<Language, Translations> = {
       maxDaysPerRequest: "Maxim zile per cerere",
       selectDates: "Selectează datele pe calendar",
       duration: "Durata",
-      totalDays: "Total zile"
+      totalDays: "Total zile",
+      selectDatesOnCalendar: "Selectează datele pe calendar",
+      selectDatesCalendarDesc: "Selectează datele pe calendar. Puteți selecta zile individuale multiple sau perioade consecutive.",
+      selectedDays: "Zile selectate",
+      noDaysSelected: "Nu zile selectate",
+      requestDetails: "Detaliile cererii",
+      leaveTypeRequired: "Tip concediu necesar",
+      approvalWorkflow: "Flux de aprobare",
+      manager: "Manager",
+      departmentHead: "Șef departament",
+      level: "Nivel",
+      additionalApprovers: "Aprobatori suplimentari pot fi adăugați pe baza",
+      additionalApproversDesc: "tipului de concediu și duratei.",
+      coverageAssignment: "Atribuire acoperire",
+      coverageAssignmentRequired: "Atribuire acoperire necesară",
+      selectTeamMember: "Selectează un membru al echipei pentru a acoperi",
+      selectTeamMemberDesc: "responsabilitățile tale în timpul absenței. Aceasta asigură continuitatea și îl ajută pe manager să coordoneze acoperirea.",
+      digitalSignature: "Semnătură digitală",
+      digitalSignatureRequired: "Semnătură digitală necesară",
+      pleaseSignAbove: "Vă rugăm să semnați mai sus folosind",
+      signatureConfirmation: "mouse-ul sau degetul",
+      submitRequestDays: "Trimite cererea (0 zile)"
     },
     remoteForm: {
       title: "Cerere nouă de lucru la distanță",

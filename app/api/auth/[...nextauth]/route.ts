@@ -1,6 +1,5 @@
 import NextAuth from "next-auth"
 import AzureADProvider from "next-auth/providers/azure-ad"
-import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 import { NextAuthOptions } from "next-auth"
 import { Role } from "@prisma/client"
@@ -11,79 +10,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
   },
   providers: [
-    // Development and UAT credentials provider
-    ...(process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true" ? [
-      CredentialsProvider({
-        name: "Development Login",
-        credentials: {
-          email: { label: "Email", type: "email", placeholder: "dev@example.com" },
-          role: { 
-            label: "Role", 
-            type: "select",
-            placeholder: "Select role"
-          },
-          userId: { label: "User ID", type: "text" }
-        },
-        async authorize(credentials) {
-          console.log('NextAuth authorize called with:', { 
-            email: credentials?.email, 
-            role: credentials?.role,
-            userId: credentials?.userId,
-            env: process.env.APP_ENV 
-          })
-          
-          if (!credentials?.email) {
-            console.log('No email provided, returning null')
-            return null
-          }
-          
-          // If a userId is provided, fetch the actual user from database
-          if (credentials.userId) {
-            try {
-              const user = await prisma.user.findUnique({
-                where: { id: credentials.userId },
-                select: {
-                  id: true,
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                  role: true,
-                  department: true
-                }
-              })
-              
-              if (user) {
-                return {
-                  id: user.id,
-                  email: user.email,
-                  name: `${user.firstName} ${user.lastName}`,
-                  role: user.role,
-                  department: user.department,
-                  firstName: user.firstName,
-                  lastName: user.lastName
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching user:', error)
-            }
-          }
-          
-          // Otherwise create a mock user with the selected role
-          const devUser = {
-            id: "dev-user",
-            email: credentials.email,
-            name: credentials.email.split('@')[0],
-            role: credentials.role || "EMPLOYEE",
-            department: "Development",
-            firstName: credentials.email.split('@')[0],
-            lastName: "User"
-          }
-          
-          console.log('Returning dev user:', devUser)
-          return devUser
-        }
-      })
-    ] : []),
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
@@ -114,12 +40,6 @@ export const authOptions: NextAuthOptions = {
         email: user?.email,
         hasProfile: !!profile 
       })
-      
-      // Allow development credentials provider in development and UAT
-      if (account?.provider === "credentials" && (process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true")) {
-        console.log('Allowing credentials provider login')
-        return true
-      }
       
       if (account?.provider === "azure-ad") {
         try {
@@ -177,66 +97,52 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user, account, profile }) {
-      // Handle development credentials provider in development and UAT
-      if (account?.provider === "credentials" && (process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true")) {
-        const devUser = user as any
-        token.id = devUser.id
-        token.email = devUser.email
-        token.name = devUser.name
-        token.role = devUser.role || "EMPLOYEE"
-        token.department = devUser.department || "Development"
-        token.firstName = devUser.firstName || devUser.name?.split(' ')[0] || "Dev"
-        token.lastName = devUser.lastName || devUser.name?.split(' ')[1] || "User"
-      }
-      
-      if (account?.provider === "azure-ad") {
-        // Store the image URL from the initial sign in
-        if (user?.image) {
-          token.image = user.image
-        }
-        
-        // Get user from database to get their role and details
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email! },
-          select: { 
-            id: true, 
-            role: true, 
-            department: true,
-            firstName: true,
-            lastName: true 
+      if (account?.provider === "azure-ad" && user?.email) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email.toLowerCase() },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              department: true
+            }
+          })
+
+          if (dbUser) {
+            token.id = dbUser.id
+            token.email = dbUser.email
+            token.name = `${dbUser.firstName} ${dbUser.lastName}`
+            token.role = dbUser.role
+            token.department = dbUser.department
+            token.firstName = dbUser.firstName
+            token.lastName = dbUser.lastName
           }
-        })
-        
-        if (dbUser) {
-          token.id = dbUser.id
-          token.role = dbUser.role
-          token.department = dbUser.department
-          token.firstName = dbUser.firstName
-          token.lastName = dbUser.lastName
+        } catch (error) {
+          console.error("Error fetching user data:", error)
         }
       }
       return token
     },
     async session({ session, token }) {
-      if (session?.user) {
+      if (token?.id) {
         session.user.id = token.id as string
         session.user.role = token.role as Role
         session.user.department = token.department as string
         session.user.firstName = token.firstName as string
         session.user.lastName = token.lastName as string
-        if (token.image) {
-          session.user.image = token.image as string
-        }
       }
       return session
     }
   },
   pages: {
-    signIn: '/login',
-    error: '/login',
-  }
+    signIn: "/login",
+    error: "/login"
+  },
+  debug: process.env.NODE_ENV === "development"
 }
 
 const handler = NextAuth(authOptions)
-
 export { handler as GET, handler as POST }

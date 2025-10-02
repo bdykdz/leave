@@ -19,6 +19,9 @@ services:
       - AZURE_AD_TENANT_ID=your-tenant-id
       - SETUP_PASSWORD=admin123
       - CRON_SECRET=production-cron-secret
+      - RESEND_API_KEY=your-resend-api-key
+      - RESEND_FROM_EMAIL=noreply@yourdomain.com
+      - COMPANY_NAME=Your Company Name
     depends_on:
       - db
     restart: unless-stopped

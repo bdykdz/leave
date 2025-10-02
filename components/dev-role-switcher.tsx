@@ -1,10 +1,10 @@
 'use client'
 
 import { useSession, signIn, signOut } from 'next-auth/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Code2, RefreshCw, User, ChevronDown, ChevronUp } from 'lucide-react'
+import { Code2, RefreshCw, User, ChevronDown, ChevronUp, Move } from 'lucide-react'
 
 interface User {
   id: string
@@ -20,6 +20,10 @@ export function DevRoleSwitcher() {
   const [users, setUsers] = useState<User[]>([])
   const [isChanging, setIsChanging] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true)
+  const [position, setPosition] = useState({ x: 16, y: 16 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const dragRef = useRef<HTMLDivElement>(null)
   const isDevelopment = process.env.NODE_ENV === 'development' || 
     (typeof window !== 'undefined' && /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname))
   
@@ -40,6 +44,46 @@ export function DevRoleSwitcher() {
       console.error('Failed to fetch users:', error)
     }
   }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return
+    setIsDragging(true)
+    setDragStart({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    })
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+    
+    const newX = e.clientX - dragStart.x
+    const newY = e.clientY - dragStart.y
+    
+    // Keep within viewport bounds
+    const maxX = window.innerWidth - (dragRef.current?.offsetWidth || 280)
+    const maxY = window.innerHeight - (dragRef.current?.offsetHeight || 100)
+    
+    setPosition({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    })
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging, dragStart])
   
   if (!isDevelopment || !session) return null
   
@@ -73,20 +117,34 @@ export function DevRoleSwitcher() {
   }
   
   return (
-    <div className="fixed top-4 right-4 z-50 bg-orange-100 dark:bg-orange-900 rounded-lg shadow-lg border border-orange-200 dark:border-orange-800 min-w-[280px]">
+    <div 
+      ref={dragRef}
+      className="fixed z-50 bg-orange-100 dark:bg-orange-900 rounded-lg shadow-lg border border-orange-200 dark:border-orange-800 min-w-[280px] select-none"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        cursor: isDragging ? 'grabbing' : 'default'
+      }}
+    >
       {/* Header - Always Visible */}
-      <div 
-        className="flex items-center justify-between p-3 cursor-pointer hover:bg-orange-200 dark:hover:bg-orange-800 rounded-t-lg"
-        onClick={() => setIsCollapsed(!isCollapsed)}
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between p-3 rounded-t-lg">
+        <div 
+          className="flex items-center gap-2 cursor-grab active:cursor-grabbing flex-1"
+          onMouseDown={handleMouseDown}
+        >
+          <Move className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           <Code2 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           <span className="text-sm font-medium text-orange-600 dark:text-orange-400">Dev Mode</span>
         </div>
-        {isCollapsed ? 
-          <ChevronDown className="h-4 w-4 text-orange-600 dark:text-orange-400" /> : 
-          <ChevronUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-        }
+        <button
+          className="p-1 hover:bg-orange-200 dark:hover:bg-orange-800 rounded"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          {isCollapsed ? 
+            <ChevronDown className="h-4 w-4 text-orange-600 dark:text-orange-400" /> : 
+            <ChevronUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          }
+        </button>
       </div>
       
       {/* Collapsible Content */}
