@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  leave-app-testing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leave-management-app-testing
+    ports:
+      - "3001:3000"  # Different port from dev version
+    environment:
+      - APP_ENV=production
+      - APP_NAME=Leave Management Testing
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@leave-db-testing:5432/leave_testing
+      - NEXTAUTH_URL=http://your-server-ip:3001
+      - NEXTAUTH_SECRET=testing-secret-change-me
+      - AZURE_AD_CLIENT_ID=your-client-id
+      - AZURE_AD_CLIENT_SECRET=your-client-secret
+      - AZURE_AD_TENANT_ID=your-tenant-id
+      - SETUP_PASSWORD=admin123
+      - CRON_SECRET=testing-cron-secret
+      - RESEND_API_KEY=your-resend-api-key
+      - RESEND_FROM_EMAIL=noreply@yourdomain.com
+      - COMPANY_NAME=Your Company Name
+    depends_on:
+      - leave-db-testing
+    restart: unless-stopped
+    networks:
+      - leave-testing-network
+
+  leave-db-testing:
+    image: postgres:15-alpine
+    container_name: leave-management-db-testing
+    ports:
+      - "5433:5432"  # Different port from dev version
+    environment:
+      - POSTGRES_DB=leave_testing
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - leave_testing_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - leave-testing-network
+
+networks:
+  leave-testing-network:
+    name: leave-management-testing-network
+
+volumes:
+  leave_testing_postgres_data:
+    name: leave-management-testing-data
