@@ -103,10 +103,10 @@ export default function SetupPage() {
       if (res.ok) {
         setIsAuthenticated(true)
         toast.success('Authentication successful')
-        // Immediately load existing users
+        // Load existing users after cookie is set
         setTimeout(() => {
           fetchExistingUsers()
-        }, 100)
+        }, 500)
       } else {
         toast.error('Invalid admin password')
       }

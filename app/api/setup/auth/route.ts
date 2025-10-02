@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
 
     // Set a cookie to maintain setup session
     (await cookies()).set('setup-auth', 'true', {
-      httpOnly: true,
+      httpOnly: false, // Allow client-side access for testing
       secure: false, // Disable secure for testing deployment (HTTP)
       sameSite: 'lax',
+      path: '/',
       maxAge: 60 * 60 * 24 // 24 hours
     })
 
