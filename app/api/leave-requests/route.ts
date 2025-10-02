@@ -4,6 +4,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
+import { emailService } from '@/lib/email-service';
+import { format } from 'date-fns';
 
 const prisma = new PrismaClient();
 const documentGenerator = new SmartDocumentGenerator();
@@ -285,6 +287,27 @@ export async function POST(request: NextRequest) {
           link: `/manager/approvals/${leaveRequest.id}`,
         },
       });
+    }
+
+    // Send email notification to the first approver
+    try {
+      if (firstApprover?.approver?.email) {
+        await emailService.sendLeaveRequestNotification(firstApprover.approver.email, {
+          employeeName: `${user.firstName} ${user.lastName}`,
+          leaveType: leaveRequest.leaveType.name,
+          startDate: format(startDate, 'dd MMMM yyyy'),
+          endDate: format(endDate, 'dd MMMM yyyy'),
+          days: actualDays,
+          reason: validatedData.reason || undefined,
+          managerName: `${firstApprover.approver.firstName} ${firstApprover.approver.lastName}`,
+          companyName: process.env.COMPANY_NAME || 'Company',
+          requestId: leaveRequest.id
+        });
+        console.log(`Email notification sent to ${firstApprover.approver.email}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending email notification:', emailError);
+      // Don't fail the request if email fails
     }
 
     // Automatically generate document for the leave request

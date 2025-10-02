@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { SmartDocumentGenerator } from "@/lib/smart-document-generator"
+import { emailService } from "@/lib/email-service"
+import { format } from "date-fns"
 
 export async function POST(
   request: Request,
@@ -185,8 +187,39 @@ export async function POST(
         // Don't fail the approval if document handling fails
       }
 
-      // TODO: Send notification to employee
-      // TODO: Update calendar/integration systems
+      // Send email notification to employee
+      try {
+        const updatedLeaveRequest = await prisma.leaveRequest.findUnique({
+          where: { id: requestId },
+          include: {
+            user: true,
+            leaveType: true
+          }
+        });
+        
+        const approver = await prisma.user.findUnique({
+          where: { id: session.user.id }
+        });
+
+        if (updatedLeaveRequest?.user?.email && approver) {
+          await emailService.sendApprovalNotification(updatedLeaveRequest.user.email, {
+            employeeName: `${updatedLeaveRequest.user.firstName} ${updatedLeaveRequest.user.lastName}`,
+            leaveType: updatedLeaveRequest.leaveType.name,
+            startDate: format(updatedLeaveRequest.startDate, 'dd MMMM yyyy'),
+            endDate: format(updatedLeaveRequest.endDate, 'dd MMMM yyyy'),
+            days: updatedLeaveRequest.totalDays,
+            approverName: `${approver.firstName} ${approver.lastName}`,
+            status: 'approved',
+            comments: cleanComment || undefined,
+            companyName: process.env.COMPANY_NAME || 'Company',
+            requestId: requestId
+          });
+          console.log(`Approval email sent to ${updatedLeaveRequest.user.email}`);
+        }
+      } catch (emailError) {
+        console.error('Error sending approval email:', emailError);
+        // Don't fail the approval if email fails
+      }
     }
 
     return NextResponse.json({ 
