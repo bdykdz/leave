@@ -1,17 +1,51 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import { rateLimit } from "./lib/rate-limiter"
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const token = req.nextauth.token
     const isAuth = !!token
-    const isAuthPage = req.nextUrl.pathname.startsWith("/login")
+    const pathname = req.nextUrl.pathname
+    const isAuthPage = pathname.startsWith("/login")
+
+    // Add security headers to all responses
+    const response = NextResponse.next()
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('X-XSS-Protection', '1; mode=block')
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    
+    // Apply rate limiting for API routes
+    if (pathname.startsWith("/api/")) {
+      let rateLimitConfig = 'api' // default
+      
+      // Determine rate limit config based on path
+      if (pathname.startsWith("/api/auth")) {
+        rateLimitConfig = 'auth'
+      } else if (pathname === "/api/leave-requests" && req.method === "POST") {
+        rateLimitConfig = 'createLeaveRequest'
+      } else if (pathname.startsWith("/api/admin")) {
+        rateLimitConfig = 'sensitive'
+      } else if (pathname.includes("/upload")) {
+        rateLimitConfig = 'upload'
+      } else if (req.method === "GET") {
+        rateLimitConfig = 'read'
+      }
+      
+      // Apply rate limiting
+      const limiter = rateLimit(rateLimitConfig as any)
+      const limitResponse = await limiter(req as any)
+      if (limitResponse) {
+        return limitResponse
+      }
+    }
 
     if (isAuthPage) {
       if (isAuth) {
         return NextResponse.redirect(new URL("/", req.url))
       }
-      return null
+      return response
     }
 
     if (!isAuth) {
@@ -25,8 +59,12 @@ export default withAuth(
       )
     }
 
+    // Add user ID to headers for rate limiting
+    if (token?.sub) {
+      response.headers.set('x-user-id', token.sub as string)
+    }
+
     // Role-based route protection
-    const pathname = req.nextUrl.pathname
     const userRole = token.role as string
 
     // HR routes
@@ -43,6 +81,8 @@ export default withAuth(
     if (pathname.startsWith("/executive") && userRole !== "EXECUTIVE") {
       return NextResponse.redirect(new URL("/", req.url))
     }
+    
+    return response
   },
   {
     callbacks: {
@@ -53,6 +93,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|login|setup).*)",
+    "/((?!_next/static|_next/image|favicon.ico|setup).*)",
   ]
 }

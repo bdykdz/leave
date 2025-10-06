@@ -63,25 +63,31 @@ export async function GET() {
       const { startDate, endDate } = months[i]
       
       for (const dept of departments) {
-        // Count approved WFH requests for this department in this month
-        const wfhCount = await prisma.workFromHomeRequest.count({
+        // Get approved WFH requests for this department in this month
+        const wfhRequests = await prisma.workFromHomeRequest.findMany({
           where: {
             status: 'APPROVED',
-            date: {
-              gte: startDate,
-              lte: endDate
-            },
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
             user: {
               department: dept.department
             }
           }
         })
 
+        // Count total WFH days
+        const wfhDays = wfhRequests.reduce((total, wfh) => {
+          const start = wfh.startDate > startDate ? wfh.startDate : startDate
+          const end = wfh.endDate < endDate ? wfh.endDate : endDate
+          const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          return total + days
+        }, 0)
+
         // Calculate percentage (WFH days / (employees * working days in month))
         // Assuming ~22 working days per month
         const workingDays = 22
         const percentage = dept._count.id > 0 
-          ? Math.round((wfhCount / (dept._count.id * workingDays)) * 100)
+          ? Math.round((wfhDays / (dept._count.id * workingDays)) * 100)
           : 0
 
         trendData[i][dept.department] = percentage

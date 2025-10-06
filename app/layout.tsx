@@ -7,6 +7,7 @@ import { Toaster } from "sonner"
 import { AuthProvider } from "@/components/auth-provider"
 import { DevRoleSwitcher } from "@/components/dev-role-switcher"
 import { LanguageProvider } from "@/components/language-provider"
+import { AppProviders } from "@/components/providers/app-providers"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -28,19 +29,21 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body className="font-sans" suppressHydrationWarning>
         <AuthProvider>
-          <ThemeProvider 
-            attribute="class" 
-            defaultTheme="light" 
-            enableSystem={false}
-            disableTransitionOnChange
-            forcedTheme="light"
-          >
-            <LanguageProvider>
-              {children}
-              <Toaster />
-              <DevRoleSwitcher />
-            </LanguageProvider>
-          </ThemeProvider>
+          <AppProviders>
+            <ThemeProvider 
+              attribute="class" 
+              defaultTheme="light" 
+              enableSystem={false}
+              disableTransitionOnChange
+              forcedTheme="light"
+            >
+              <LanguageProvider>
+                {children}
+                <Toaster />
+                {process.env.NODE_ENV === 'development' && <DevRoleSwitcher />}
+              </LanguageProvider>
+            </ThemeProvider>
+          </AppProviders>
         </AuthProvider>
       </body>
     </html>

@@ -61,6 +61,9 @@ model User {
   directsReports        User[]                   @relation("DirectorSubordinates")
   manager               User?                    @relation("ManagerSubordinates", fields: [managerId], references: [id])
   subordinates          User[]                   @relation("ManagerSubordinates")
+  wfhRequests           WorkFromHomeRequest[]
+  wfhApprovals          WFHApproval[]
+  wfhSignatures         WFHSignature[]
 }
 
 model LeaveType {
@@ -192,6 +195,7 @@ model DocumentTemplate {
   updatedAt           DateTime               @updatedAt
   leaveType           LeaveType?             @relation(fields: [leaveTypeId], references: [id])
   generatedDocuments  GeneratedDocument[]
+  wfhDocuments        WFHDocument[]
   fieldMappings       TemplateFieldMapping[]
   signaturePlacements TemplateSignature[]
 }
@@ -355,9 +359,89 @@ model Holiday {
   isRecurring Boolean  @default(false)
   country     String   @default("RO") // Default to Romania
   isActive    Boolean  @default(true)
+  isBlocked   Boolean  @default(false) // Whether leave/WFH is blocked on this day
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   String?
   
   @@unique([date, nameEn])
+}
+
+model WorkFromHomeRequest {
+  id            String                @id @default(cuid())
+  requestNumber String                @unique
+  userId        String
+  startDate     DateTime
+  endDate       DateTime
+  selectedDates Json?                 // Array of specific dates for non-consecutive WFH
+  totalDays     Int
+  location      String                // "home" or specific location
+  status        RequestStatus         @default(PENDING)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  
+  // Relations
+  user          User                  @relation(fields: [userId], references: [id])
+  approvals     WFHApproval[]
+  document      WFHDocument?
+  
+  @@index([userId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model WFHApproval {
+  id           String              @id @default(cuid())
+  wfhRequestId String
+  approverId   String
+  status       ApprovalStatus      @default(PENDING)
+  comments     String?
+  approvedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  
+  // Relations
+  wfhRequest   WorkFromHomeRequest @relation(fields: [wfhRequestId], references: [id], onDelete: Cascade)
+  approver     User                @relation(fields: [approverId], references: [id])
+  
+  @@unique([wfhRequestId, approverId])
+  @@index([wfhRequestId])
+  @@index([approverId])
+}
+
+model WFHDocument {
+  id             String              @id @default(cuid())
+  wfhRequestId   String              @unique
+  templateId     String?
+  fileUrl        String?
+  pdfData        Bytes?
+  status         DocumentStatus      @default(DRAFT)
+  completedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  
+  // Relations
+  wfhRequest     WorkFromHomeRequest @relation(fields: [wfhRequestId], references: [id], onDelete: Cascade)
+  template       DocumentTemplate?   @relation(fields: [templateId], references: [id])
+  signatures     WFHSignature[]
+  
+  @@index([wfhRequestId])
+  @@index([templateId])
+}
+
+model WFHSignature {
+  id            String       @id @default(cuid())
+  documentId    String
+  signerId      String
+  signerRole    String       // "employee", "manager", "hr"
+  signatureData String       // Base64 encoded signature image
+  signedAt      DateTime     @default(now())
+  
+  // Relations
+  document      WFHDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer        User         @relation(fields: [signerId], references: [id])
+  
+  @@unique([documentId, signerId, signerRole])
+  @@index([documentId])
+  @@index([signerId])
 }

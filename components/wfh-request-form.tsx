@@ -26,13 +26,12 @@ interface WorkRemoteRequestFormProps {
 export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
   const t = useTranslations()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
-  const [reason, setReason] = useState("")
   const [signature, setSignature] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
-  const [location, setLocation] = useState("Home")
+  const [location, setLocation] = useState("home")
   const [otherLocation, setOtherLocation] = useState("")
 
   const handleDateSelect = (date: Date) => {
@@ -66,12 +65,14 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
     e.preventDefault()
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for your work remote request.")
+      showError("No Dates Selected", "Please select at least one date for your work from home request.")
       return
     }
 
-    if (!reason.trim()) {
-      showError("Reason Required", "Please provide a reason for your work remote request.")
+    const finalLocation = location === "Other" ? otherLocation : location
+
+    if (!finalLocation.trim()) {
+      showError("Location Required", "Please provide a location for your work from home request.")
       return
     }
 
@@ -83,15 +84,43 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Sort dates to get start and end
+      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime())
+      const startDate = sortedDates[0]
+      const endDate = sortedDates[sortedDates.length - 1]
+
+      const response = await fetch('/api/wfh-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          selectedDates: selectedDates.map(d => d.toISOString()),
+          location: finalLocation,
+          signature,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.errors) {
+          const errorMessages = data.errors.map((e: any) => e.message).join(', ')
+          showError('Validation Error', errorMessages)
+        } else {
+          showError('Submission Failed', data.error || 'Failed to submit work from home request')
+        }
+        return
+      }
 
       // Show success dialog
       setShowSuccessDialog(true)
     } catch (error) {
       showError(
         "Submission Failed",
-        "There was an error submitting your Work Remote request. Please check your connection and try again.",
+        "There was an error submitting your work from home request. Please check your connection and try again.",
       )
     } finally {
       setIsSubmitting(false)
@@ -102,7 +131,8 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
     setShowSuccessDialog(false)
     // Reset form
     setSelectedDates([])
-    setReason("")
+    setLocation("home")
+    setOtherLocation("")
     setSignature("")
     // Go back to dashboard
     onBack()
@@ -244,32 +274,18 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">{t.remoteForm.reason}</Label>
-                    <Textarea
-                      id="reason"
-                      placeholder={t.remoteForm.reasonPlaceholder}
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      rows={4}
-                      required
-                    />
-                    <p className="text-xs text-gray-500">
-                      Help your manager understand why you need to work remote on these days
-                    </p>
-                  </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="location">Work Remote Location</Label>
-                    <Select onValueChange={setLocation}>
+                    <Label htmlFor="location">Work From Home Location</Label>
+                    <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a location" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Home">Home</SelectItem>
-                        <SelectItem value="Client Site">Client Site</SelectItem>
-                        <SelectItem value="Partner Office">Partner Office</SelectItem>
-                        <SelectItem value="Other Office Location">Other Office Location</SelectItem>
+                        <SelectItem value="home">Home</SelectItem>
+                        <SelectItem value="client-site">Client Site</SelectItem>
+                        <SelectItem value="partner-office">Partner Office</SelectItem>
+                        <SelectItem value="other-office">Other Office Location</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -298,11 +314,11 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Work Remote Guidelines</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">Work From Home Guidelines</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Work from home requests must be for next week or later</li>
                       <li>• Ensure you have reliable internet connection</li>
                       <li>• Be available during core business hours</li>
-                      <li>• Attend all scheduled meetings via video call</li>
                       <li>• Maintain regular communication with your team</li>
                     </ul>
                   </div>
@@ -316,7 +332,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                       disabled={isSubmitting || selectedDates.length === 0 || !signature}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
-                      {isSubmitting ? "Submitting..." : `Submit Remote Work Request (${getTotalDays()} days)`}
+                      {isSubmitting ? "Submitting..." : `Submit Work From Home Request (${getTotalDays()} days)`}
                     </Button>
                     <Button type="button" variant="outline" onClick={onBack} className="w-full">
                       Cancel

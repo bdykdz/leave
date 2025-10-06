@@ -6,6 +6,9 @@ import { z } from 'zod';
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
 import { emailService } from '@/lib/email-service';
 import { format } from 'date-fns';
+import { log } from '@/lib/logger';
+import { asyncHandler, safeAsync } from '@/lib/async-handler';
+import { ValidationService } from '@/lib/validation-service';
 
 const prisma = new PrismaClient();
 const documentGenerator = new SmartDocumentGenerator();
@@ -75,8 +78,7 @@ function formatDateGroup(dates: Date[]): string {
 }
 
 // GET /api/leave-requests - Get user's leave requests
-export async function GET(request: NextRequest) {
-  try {
+export const GET = asyncHandler(async (request: NextRequest) => {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -102,8 +104,10 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    console.log('Fetching leave requests for user:', session.user.id);
-    console.log('Query where clause:', JSON.stringify(where, null, 2));
+    log.debug('Fetching leave requests', { 
+      userId: session.user.id,
+      where 
+    });
 
     const leaveRequests = await prisma.leaveRequest.findMany({
       where,
@@ -141,21 +145,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log('Found leave requests:', leaveRequests.length);
+    log.info('Leave requests fetched', { count: leaveRequests.length });
 
     return NextResponse.json({ leaveRequests });
-  } catch (error) {
-    console.error('Error fetching leave requests:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch leave requests' },
-      { status: 500 }
-    );
-  }
-}
+});
 
 // POST /api/leave-requests - Create a new leave request
-export async function POST(request: NextRequest) {
-  try {
+export const POST = asyncHandler(async (request: NextRequest) => {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -190,21 +186,29 @@ export async function POST(request: NextRequest) {
     // If specific dates are selected (non-consecutive), use that count instead
     const actualDays = validatedData.selectedDates?.length || totalDays;
 
-    // Check leave balance
-    const currentYear = new Date().getFullYear();
-    const leaveBalance = await prisma.leaveBalance.findUnique({
-      where: {
-        userId_leaveTypeId_year: {
-          userId: session.user.id,
-          leaveTypeId: validatedData.leaveTypeId,
-          year: currentYear,
-        },
-      },
-    });
+    // Perform comprehensive validation
+    const validationErrors = await ValidationService.validateLeaveRequest(
+      session.user.id,
+      {
+        leaveTypeId: validatedData.leaveTypeId,
+        startDate,
+        endDate,
+        totalDays: actualDays,
+        substituteIds: validatedData.substituteIds,
+      }
+    );
 
-    if (!leaveBalance || leaveBalance.available < actualDays) {
+    if (validationErrors.length > 0) {
+      log.warn('Leave request validation failed', {
+        userId: session.user.id,
+        errors: validationErrors,
+      });
+      
       return NextResponse.json(
-        { error: 'Insufficient leave balance' },
+        { 
+          error: 'Validation failed',
+          errors: validationErrors,
+        },
         { status: 400 }
       );
     }
@@ -290,8 +294,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Send email notification to the first approver
-    try {
-      if (firstApprover?.approver?.email) {
+    if (firstApprover?.approver?.email) {
+      await safeAsync(async () => {
+        log.info('Sending email notification', {
+          requestId: leaveRequest.id,
+          requester: `${user.firstName} ${user.lastName}`,
+          requesterRole: user.role,
+          approver: `${firstApprover.approver.firstName} ${firstApprover.approver.lastName}`,
+          approverEmail: firstApprover.approver.email
+        });
+        
         await emailService.sendLeaveRequestNotification(firstApprover.approver.email, {
           employeeName: `${user.firstName} ${user.lastName}`,
           leaveType: leaveRequest.leaveType.name,
@@ -303,16 +315,20 @@ export async function POST(request: NextRequest) {
           companyName: process.env.COMPANY_NAME || 'Company',
           requestId: leaveRequest.id
         });
-        console.log(`Email notification sent to ${firstApprover.approver.email}`);
-      }
-    } catch (emailError) {
-      console.error('Error sending email notification:', emailError);
-      // Don't fail the request if email fails
+        log.info('Email notification sent', { to: firstApprover.approver.email });
+      }, undefined, 'Failed to send email notification');
+    } else {
+      log.warn('No approver email found', {
+        requestId: leaveRequest.id,
+        hasFirstApprover: !!firstApprover,
+        hasApproverData: !!firstApprover?.approver,
+        approverId: firstApprover?.approverId
+      });
     }
 
     // Automatically generate document for the leave request
     try {
-      console.log(`Generating document for leave request ${leaveRequest.id}`);
+      log.info('Generating document', { requestId: leaveRequest.id });
       
       // Get the leave type and check for active templates
       const leaveType = await prisma.leaveType.findUnique({
@@ -329,7 +345,7 @@ export async function POST(request: NextRequest) {
       if (leaveType?.documentTemplates.length > 0) {
         const template = leaveType.documentTemplates[0];
         const documentId = await documentGenerator.generateDocument(leaveRequest.id, template.id);
-        console.log(`Document generated successfully: ${documentId}`);
+        log.info('Document generated', { documentId });
         
         // Add employee signature if provided
         if (signature) {
@@ -339,13 +355,13 @@ export async function POST(request: NextRequest) {
             'employee',
             signature
           );
-          console.log('Employee signature added to document');
+          log.info('Employee signature added to document');
         }
       } else {
-        console.log('No active template found for leave type:', leaveType?.name);
+        log.warn('No active template found', { leaveType: leaveType?.name });
       }
     } catch (docError) {
-      console.error('Error generating document:', docError);
+      log.error('Document generation failed', docError);
       // Don't fail the request if document generation fails
       // Document can be generated later manually
     }
@@ -354,26 +370,7 @@ export async function POST(request: NextRequest) {
       success: true,
       leaveRequest,
     });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-    
-    console.error('Error creating leave request:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to create leave request', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
-  }
-}
+});
 
 // Helper function to get substitute names
 async function getSubstituteNames(substituteIds: string[]): Promise<string> {
@@ -402,8 +399,19 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
       break;
       
     case 'MANAGER':
-      // Managers need department director approval (skip their own level)
-      approvalLevels = [{ role: 'DEPARTMENT_HEAD', required: true }];
+      // Managers need their own manager's approval first, then department director if applicable
+      const managerApprovals = [];
+      if (user.managerId) {
+        managerApprovals.push({ role: 'DIRECT_MANAGER', required: true });
+      }
+      if (user.departmentDirectorId && user.departmentDirectorId !== user.managerId) {
+        managerApprovals.push({ role: 'DEPARTMENT_HEAD', required: true });
+      }
+      // If no manager or director set, try to find an executive
+      if (managerApprovals.length === 0) {
+        managerApprovals.push({ role: 'EXECUTIVE', required: true });
+      }
+      approvalLevels = managerApprovals;
       break;
       
     case 'DEPARTMENT_DIRECTOR':

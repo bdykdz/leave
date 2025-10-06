@@ -112,7 +112,7 @@ export class SmartDocumentGenerator {
       console.log(`Found ${formFields.length} form fields in template`)
 
       // 5) Prepare data
-      const fieldData = this.prepareFieldData(leaveRequest as AnyObj)
+      const fieldData = await this.prepareFieldData(leaveRequest as AnyObj)
       console.log('Prepared field data:', JSON.stringify(fieldData, null, 2))
       console.log('Substitute data:', { substitute: fieldData.substitute, substitutes: fieldData.substitutes })
       console.log('Decision data:', fieldData.decision)
@@ -426,9 +426,26 @@ export class SmartDocumentGenerator {
     return sig
   }
 
-  private prepareFieldData(leaveRequest: AnyObj) {
+  private async prepareFieldData(leaveRequest: AnyObj) {
     const startDate = new Date(leaveRequest.startDate)
     const endDate = new Date(leaveRequest.endDate)
+    
+    // Fetch actual leave balance for the user
+    const currentYear = new Date().getFullYear()
+    let leaveBalance = null
+    try {
+      leaveBalance = await prisma.leaveBalance.findUnique({
+        where: {
+          userId_leaveTypeId_year: {
+            userId: leaveRequest.userId,
+            leaveTypeId: leaveRequest.leaveTypeId,
+            year: currentYear
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Error fetching leave balance:', error)
+    }
 
     let dateRange = ''
     let selectedDates = leaveRequest.selectedDates || []
@@ -606,6 +623,13 @@ export class SmartDocumentGenerator {
       calculated: {
         currentDate: format(new Date(), 'dd.MM.yyyy'),
         workingDays: String(leaveRequest.totalDays)
+      },
+      balance: {
+        entitled: String(leaveBalance?.entitled || 0),
+        used: String(leaveBalance?.used || 0),
+        pending: String(leaveBalance?.pending || 0),
+        available: String(leaveBalance?.available || 0),
+        afterApproval: String((leaveBalance?.available || 0) - leaveRequest.totalDays)
       },
       decision: decisions,
       signature: signatureData // nested

@@ -35,14 +35,12 @@ export async function GET() {
       }
     })
 
-    // Get employees working remote today
+    // Get employees working from home today
     const workingRemoteToday = await prisma.workFromHomeRequest.count({
       where: {
         status: 'APPROVED',
-        date: {
-          gte: today,
-          lt: tomorrow
-        }
+        startDate: { lte: tomorrow },
+        endDate: { gte: today }
       }
     })
 
@@ -77,16 +75,21 @@ export async function GET() {
       return total + days
     }, 0)
 
-    // Total remote days this month
-    const totalRemoteDaysThisMonth = await prisma.workFromHomeRequest.count({
+    // Total WFH days this month
+    const approvedWFHThisMonth = await prisma.workFromHomeRequest.findMany({
       where: {
         status: 'APPROVED',
-        date: {
-          gte: firstDayOfMonth,
-          lte: lastDayOfMonth
-        }
+        startDate: { lte: lastDayOfMonth },
+        endDate: { gte: firstDayOfMonth }
       }
     })
+
+    const totalRemoteDaysThisMonth = approvedWFHThisMonth.reduce((total, wfh) => {
+      const start = wfh.startDate > firstDayOfMonth ? wfh.startDate : firstDayOfMonth
+      const end = wfh.endDate < lastDayOfMonth ? wfh.endDate : lastDayOfMonth
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      return total + days
+    }, 0)
 
     // Calculate average leave days per employee (year to date)
     const yearStart = new Date(today.getFullYear(), 0, 1)

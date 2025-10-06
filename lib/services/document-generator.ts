@@ -262,7 +262,7 @@ export class DocumentGenerator {
     const pages = pdfDoc.getPages();
 
     // Prepare data for field mapping including decisions
-    const fieldData = this.prepareFieldData(leaveRequest, generatedDoc);
+    const fieldData = await this.prepareFieldData(leaveRequest, generatedDoc);
 
     // Fill in field mappings
     for (const mapping of fieldMappings) {
@@ -394,17 +394,34 @@ export class DocumentGenerator {
   /**
    * Prepare field data from leave request
    */
-  private prepareFieldData(leaveRequest: any, generatedDoc?: any): any {
+  private async prepareFieldData(leaveRequest: any, generatedDoc?: any): Promise<any> {
     const user = leaveRequest.user;
     const leave = leaveRequest;
     
+    // Get actual leave balance from database
+    const currentYear = new Date().getFullYear();
+    let leaveBalance = null;
+    try {
+      leaveBalance = await this.prisma.leaveBalance.findUnique({
+        where: {
+          userId_leaveTypeId_year: {
+            userId: leave.userId,
+            leaveTypeId: leave.leaveTypeId,
+            year: currentYear
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching leave balance:', error);
+    }
+    
     // Calculate leave balance after approval
     const balance = {
-      entitled: 21, // TODO: Get from actual balance
-      used: 10,
-      pending: leave.totalDays,
-      available: 11,
-      afterApproval: 11 - leave.totalDays,
+      entitled: leaveBalance?.entitled || 0,
+      used: leaveBalance?.used || 0,
+      pending: leaveBalance?.pending || leave.totalDays,
+      available: leaveBalance?.available || 0,
+      afterApproval: (leaveBalance?.available || 0) - leave.totalDays,
     };
 
     // Prepare decision data

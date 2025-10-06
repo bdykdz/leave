@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { SmartDocumentGenerator } from "@/lib/smart-document-generator"
 import { emailService } from "@/lib/email-service"
 import { format } from "date-fns"
+import { ValidationService } from "@/lib/validation-service"
+import { log } from "@/lib/logger"
 
 export async function POST(
   request: Request,
@@ -21,7 +23,7 @@ export async function POST(
     const comment = body.comment || ''
     const requestId = params.requestId
     
-    console.log('Approve request:', { requestId, comment, userId: session.user.id })
+    log.info('Processing approval request', { requestId, comment, userId: session.user.id })
 
     // Get the leave request and verify manager has permission
     const leaveRequest = await prisma.leaveRequest.findUnique({
@@ -38,6 +40,30 @@ export async function POST(
 
     if (!leaveRequest) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    }
+
+    // Check for self-approval
+    const validationErrors = await ValidationService.validateApprovalPermission(
+      session.user.id,
+      leaveRequest.userId,
+      requestId
+    )
+    
+    if (validationErrors.length > 0) {
+      log.warn('Approval validation failed', {
+        approverId: session.user.id,
+        requesterId: leaveRequest.userId,
+        requestId,
+        errors: validationErrors
+      })
+      
+      return NextResponse.json(
+        { 
+          error: validationErrors[0].message,
+          code: validationErrors[0].code
+        },
+        { status: 403 }
+      )
     }
 
     // Verify the current user is the manager of the requester

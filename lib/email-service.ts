@@ -279,6 +279,173 @@ ${process.env.NEXTAUTH_URL}/employee
     const template = this.generateApprovalEmail(data)
     return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
   }
+
+  // WFH Email Methods
+  generateWFHRequestEmail(data: {
+    employeeName: string
+    startDate: string
+    endDate: string
+    days: number
+    location: string
+    managerName: string
+    requestId: string
+  }): EmailTemplate {
+    const subject = `New Work From Home Request - ${data.employeeName}`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Work From Home Request</h2>
+        </div>
+        <div class="content">
+            <p>Dear ${data.managerName},</p>
+            <p><strong>${data.employeeName}</strong> has submitted a work from home request that requires your approval.</p>
+            
+            <div class="details">
+                <h3>Request Details:</h3>
+                <p><strong>Period:</strong> ${data.startDate} - ${data.endDate}</p>
+                <p><strong>Total Days:</strong> ${data.days}</p>
+                <p><strong>Location:</strong> ${data.location}</p>
+                <p><strong>Request ID:</strong> ${data.requestId}</p>
+            </div>
+            
+            <p>Please log in to the system to review and approve/reject this request.</p>
+            
+            <a href="${process.env.NEXTAUTH_URL}/manager/wfh-approvals" class="button">Review Request</a>
+        </div>
+        <div class="footer">
+            <p>This is an automated message from the Leave Management System</p>
+        </div>
+    </div>
+</body>
+</html>`
+    
+    const text = `
+Work From Home Request
+
+Dear ${data.managerName},
+
+${data.employeeName} has submitted a work from home request that requires your approval.
+
+Request Details:
+- Period: ${data.startDate} - ${data.endDate}
+- Total Days: ${data.days}
+- Location: ${data.location}
+- Request ID: ${data.requestId}
+
+Please log in to the system to review and approve/reject this request.
+
+This is an automated message from the Leave Management System.
+`
+    
+    return { subject, html, text }
+  }
+
+  generateWFHApprovalEmail(data: {
+    employeeName: string
+    startDate: string
+    endDate: string
+    days: number
+    location: string
+    approved: boolean
+    managerName: string
+    comments?: string
+  }): EmailTemplate {
+    const status = data.approved ? 'Approved' : 'Rejected'
+    const subject = `Your Work From Home Request Has Been ${status}`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: ${data.approved ? '#10b981' : '#ef4444'}; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .status { font-weight: bold; color: ${data.approved ? '#10b981' : '#ef4444'}; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Work From Home Request ${status}</h2>
+        </div>
+        <div class="content">
+            <p>Dear ${data.employeeName},</p>
+            <p>Your work from home request has been <span class="status">${status.toLowerCase()}</span> by ${data.managerName}.</p>
+            
+            <div class="details">
+                <h3>Request Details:</h3>
+                <p><strong>Period:</strong> ${data.startDate} - ${data.endDate}</p>
+                <p><strong>Total Days:</strong> ${data.days}</p>
+                <p><strong>Location:</strong> ${data.location}</p>
+                ${data.comments ? `<p><strong>Manager's Comments:</strong> ${data.comments}</p>` : ''}
+            </div>
+            
+            ${data.approved ? 
+              '<p>You are approved to work from the specified location during the requested period.</p>' :
+              '<p>Please contact your manager if you need to discuss this decision.</p>'
+            }
+        </div>
+        <div class="footer">
+            <p>This is an automated message from the Leave Management System</p>
+        </div>
+    </div>
+</body>
+</html>`
+    
+    const text = `
+Work From Home Request ${status}
+
+Dear ${data.employeeName},
+
+Your work from home request has been ${status.toLowerCase()} by ${data.managerName}.
+
+Request Details:
+- Period: ${data.startDate} - ${data.endDate}
+- Total Days: ${data.days}
+- Location: ${data.location}
+${data.comments ? `- Manager's Comments: ${data.comments}` : ''}
+
+${data.approved ? 
+  'You are approved to work from the specified location during the requested period.' :
+  'Please contact your manager if you need to discuss this decision.'
+}
+
+This is an automated message from the Leave Management System.
+`
+    
+    return { subject, html, text }
+  }
+
+  async sendWFHRequestNotification(managerEmail: string, data: Parameters<EmailService['generateWFHRequestEmail']>[0]): Promise<boolean> {
+    const template = this.generateWFHRequestEmail(data)
+    return await this.sendEmail(managerEmail, template.subject, template.html, template.text)
+  }
+
+  async sendWFHApprovalNotification(employeeEmail: string, data: Parameters<EmailService['generateWFHApprovalEmail']>[0]): Promise<boolean> {
+    const template = this.generateWFHApprovalEmail(data)
+    return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
+  }
 }
 
 export const emailService = new EmailService()
