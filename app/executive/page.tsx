@@ -312,27 +312,27 @@ export default function ExecutiveDashboard() {
                     {executiveLeaveBalance.map((balance, index) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium">{balance.leaveType.name}</h3>
+                          <h3 className="font-medium">{balance.leaveType?.name || 'Unknown Leave Type'}</h3>
                           <Badge variant="outline" className="text-xs">
-                            {balance.available} {t.leaveForm.days}
+                            {balance.available || 0} {t.leaveForm.days}
                           </Badge>
                         </div>
                         <div className="text-sm text-gray-600 space-y-1">
                           <div className="flex justify-between">
                             <span>{t.leaveForm.entitled}:</span>
-                            <span>{balance.entitled}</span>
+                            <span>{balance.entitled || 0}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>{t.leaveForm.used}:</span>
-                            <span>{balance.used}</span>
+                            <span>{balance.used || 0}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>{t.leaveForm.pending}:</span>
-                            <span>{balance.pending}</span>
+                            <span>{balance.pending || 0}</span>
                           </div>
                           <div className="flex justify-between font-medium">
                             <span>{t.leaveForm.available}:</span>
-                            <span className="text-green-600">{balance.available}</span>
+                            <span className="text-green-600">{balance.available || 0}</span>
                           </div>
                         </div>
                         {balance.entitled > 0 && (
@@ -370,7 +370,7 @@ export default function ExecutiveDashboard() {
                       <div key={request.id} className="border rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-medium">{request.leaveType?.name}</h4>
+                            <h4 className="font-medium">{request.leaveType?.name || 'Leave Request'}</h4>
                             <p className="text-sm text-gray-600">
                               {format(new Date(request.startDate), 'MMM d')} - {format(new Date(request.endDate), 'MMM d')} 
                               ({request.totalDays} {t.leaveForm.days})
@@ -433,7 +433,7 @@ export default function ExecutiveDashboard() {
                               </div>
                             </div>
                             <div className="space-y-1">
-                              <p className="font-medium">{request.leaveType?.name}</p>
+                              <p className="font-medium">{request.leaveType?.name || 'Leave Request'}</p>
                               <p className="text-sm text-gray-600">
                                 {format(new Date(request.startDate), 'MMM d, yyyy')} - {format(new Date(request.endDate), 'MMM d, yyyy')}
                               </p>
@@ -454,7 +454,7 @@ export default function ExecutiveDashboard() {
                                   request: {
                                     id: request.id,
                                     employeeName: `${request.user?.firstName} ${request.user?.lastName}`,
-                                    type: request.leaveType?.name,
+                                    type: request.leaveType?.name || 'Leave Request',
                                     dates: `${format(new Date(request.startDate), 'MMM d')} - ${format(new Date(request.endDate), 'MMM d')}`,
                                     days: request.totalDays
                                   }
@@ -474,7 +474,7 @@ export default function ExecutiveDashboard() {
                                   request: {
                                     id: request.id,
                                     employeeName: `${request.user?.firstName} ${request.user?.lastName}`,
-                                    type: request.leaveType?.name,
+                                    type: request.leaveType?.name || 'Leave Request',
                                     dates: `${format(new Date(request.startDate), 'MMM d')} - ${format(new Date(request.endDate), 'MMM d')}`,
                                     days: request.totalDays
                                   }
