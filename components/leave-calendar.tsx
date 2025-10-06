@@ -14,6 +14,8 @@ import { subMonths } from "date-fns/subMonths"
 import { isWeekend } from "date-fns/isWeekend"
 import { isBefore } from "date-fns/isBefore"
 import { startOfDay } from "date-fns/startOfDay"
+import { startOfWeek } from "date-fns/startOfWeek"
+import { addWeeks } from "date-fns/addWeeks"
 import { cn } from "@/lib/utils"
 
 interface LeaveCalendarProps {
@@ -21,11 +23,13 @@ interface LeaveCalendarProps {
   onDateSelect: (date: Date) => void
   blockedDates?: string[]
   blockedDateDetails?: Record<string, { status: string; leaveType: string }>
+  isWFHCalendar?: boolean // Add prop to indicate if this is for WFH requests
 }
 
-export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {} }: LeaveCalendarProps) {
+export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false }: LeaveCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [companyHolidays, setCompanyHolidays] = useState<Date[]>([])
+  const [blockedHolidays, setBlockedHolidays] = useState<Date[]>([]) // Holidays where WFH is blocked
 
   useEffect(() => {
     fetchHolidays()
@@ -37,8 +41,13 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       const response = await fetch(`/api/holidays?year=${year}`)
       const data = await response.json()
       
-      const holidayDates = (data.holidays || []).map((holiday: any) => new Date(holiday.date))
+      const allHolidays = data.holidays || []
+      const holidayDates = allHolidays.map((holiday: any) => new Date(holiday.date))
+      const blockedForWFH = allHolidays
+        .filter((holiday: any) => holiday.isBlocked)
+        .map((holiday: any) => new Date(holiday.date))
       setCompanyHolidays(holidayDates)
+      setBlockedHolidays(blockedForWFH)
     } catch (error) {
       console.error('Failed to fetch holidays:', error)
       // Fallback to empty array
@@ -93,6 +102,22 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     return isBefore(date, startOfDay(new Date()))
   }
 
+  const isCurrentWeek = (date: Date) => {
+    const today = new Date()
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 }) // Monday
+    const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 })
+    return date >= weekStart && date < nextWeekStart
+  }
+
+  const isBlockedForWFH = (date: Date) => {
+    // For WFH calendar, block current week and holidays marked as blocked
+    if (!isWFHCalendar) return false
+    
+    if (isCurrentWeek(date)) return true
+    
+    return blockedHolidays.some((holiday) => isSameDay(holiday, date))
+  }
+
   const getDayClassName = (date: Date) => {
     const baseClasses =
       "h-10 w-10 text-sm font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-center"
@@ -103,6 +128,16 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
 
     if (isPastDate(date)) {
       return cn(baseClasses, "text-gray-400 cursor-not-allowed")
+    }
+
+    // For WFH calendar, show current week as blocked
+    if (isWFHCalendar && isCurrentWeek(date)) {
+      return cn(baseClasses, "bg-gray-200 text-gray-500 cursor-not-allowed")
+    }
+
+    // For WFH calendar, show blocked holidays differently
+    if (isWFHCalendar && isBlockedForWFH(date)) {
+      return cn(baseClasses, "bg-red-100 text-red-600 cursor-not-allowed")
     }
 
     if (isCompanyHoliday(date)) {
@@ -134,9 +169,23 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
   }
 
   const handleDateClick = (date: Date) => {
-    if (!isSameMonth(date, currentMonth) || isPastDate(date) || isCompanyHoliday(date) || isBlockedDate(date) || isWeekend(date)) {
+    // Common restrictions
+    if (!isSameMonth(date, currentMonth) || isPastDate(date) || isBlockedDate(date) || isWeekend(date)) {
       return
     }
+    
+    // WFH-specific restrictions
+    if (isWFHCalendar) {
+      if (isCurrentWeek(date) || isBlockedForWFH(date)) {
+        return
+      }
+    } else {
+      // Leave request restrictions
+      if (isCompanyHoliday(date)) {
+        return
+      }
+    }
+    
     onDateSelect(date)
   }
 
@@ -187,24 +236,46 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
             <div className="w-4 h-4 bg-blue-600 rounded"></div>
             <span>Selected</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-purple-100 border border-purple-200 rounded"></div>
-            <span>Company Holiday</span>
-          </div>
+          {isWFHCalendar ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gray-200 border border-gray-300 rounded"></div>
+              <span>Current Week (Not Allowed)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-purple-100 border border-purple-200 rounded"></div>
+              <span>Company Holiday</span>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
-            <span>Approved Leave</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded"></div>
-            <span>Pending Leave</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div>
-            <span>Team Member Away</span>
-          </div>
+          {isWFHCalendar ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
+                <span>Blocked Holiday</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-purple-100 border border-purple-200 rounded"></div>
+                <span>Company Holiday</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
+                <span>Approved Leave</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded"></div>
+                <span>Pending Leave</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div>
+                <span>Team Member Away</span>
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
             <span>Weekend</span>

@@ -210,7 +210,11 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <LeaveCalendar selectedDates={selectedDates} onDateSelect={handleDateSelect} />
+                <LeaveCalendar 
+                  selectedDates={selectedDates} 
+                  onDateSelect={handleDateSelect} 
+                  isWFHCalendar={true}
+                />
               </CardContent>
             </Card>
           </div>
