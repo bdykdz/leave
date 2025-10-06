@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { EmployeeList } from "@/components/hr/employee-list"
 import { LeaveCalendar } from "@/components/hr/leave-calendar"
 import { LeaveAnalytics } from "@/components/hr/leave-analytics"
