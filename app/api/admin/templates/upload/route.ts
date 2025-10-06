@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
     const leaveTypeId = formData.get('leaveTypeId') as string;
+    const category = formData.get('category') as string;
+    const isWFHTemplate = formData.get('isWFHTemplate') === 'true';
 
     // Validate file
     if (!file) {
@@ -40,8 +42,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    if (!name || !leaveTypeId) {
-      return NextResponse.json({ error: 'Name and leave type are required' }, { status: 400 });
+    if (!name || (!leaveTypeId && !isWFHTemplate)) {
+      return NextResponse.json({ error: 'Name and template category are required' }, { status: 400 });
     }
 
     // Generate unique filename
@@ -55,16 +57,22 @@ export async function POST(request: NextRequest) {
     const fileUrl = await uploadToMinio(buffer, uniqueFilename, file.type);
 
     // Create database entry
+    const templateData: any = {
+      name,
+      description: description || '',
+      fileUrl: fileUrl,
+      fileType: 'pdf',
+      category: category || (isWFHTemplate ? 'wfh' : 'leave_request'),
+      createdBy: session.user.id,
+    };
+
+    // Only add leaveTypeId if it's not a WFH template
+    if (!isWFHTemplate && leaveTypeId) {
+      templateData.leaveTypeId = leaveTypeId;
+    }
+
     const template = await prisma.documentTemplate.create({
-      data: {
-        name,
-        description: description || '',
-        fileUrl: fileUrl,
-        fileType: 'pdf',
-        category: 'leave_request', // Default category, could be derived from leave type
-        createdBy: session.user.id,
-        leaveTypeId: leaveTypeId,
-      },
+      data: templateData,
     });
 
     return NextResponse.json({
