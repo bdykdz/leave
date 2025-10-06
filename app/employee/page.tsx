@@ -140,7 +140,6 @@ export default function EmployeeDashboard() {
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       
       setAllRequests(combinedRequests)
-      }
     } catch (error) {
       console.error('Error fetching leave requests:', error)
     } finally {
