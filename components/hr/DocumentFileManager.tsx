@@ -86,15 +86,26 @@ export function DocumentFileManager() {
     try {
       setLoading(true)
       const response = await fetch('/api/hr/document-manager')
-      if (response.ok) {
-        const data = await response.json()
-        setDocuments(data.documents)
-      } else {
-        toast.error('Failed to load documents')
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Document fetch error:', errorData)
+        
+        if (response.status === 401) {
+          toast.error(errorData.message || 'Please log in to view documents')
+        } else if (response.status === 403) {
+          toast.error(errorData.message || 'You do not have permission to view HR documents')
+        } else {
+          toast.error(errorData.message || 'Failed to load documents')
+        }
+        return
       }
+      
+      const data = await response.json()
+      setDocuments(data.documents || [])
     } catch (error) {
       console.error('Error fetching documents:', error)
-      toast.error('Failed to load documents')
+      toast.error('Failed to connect to server. Please try again.')
     } finally {
       setLoading(false)
     }
