@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,7 @@ import { isSameDay } from "date-fns/isSameDay"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTranslations } from "@/components/language-provider"
+import { useSession } from "next-auth/react"
 
 interface WorkRemoteRequestFormProps {
   onBack: () => void
@@ -25,6 +26,7 @@ interface WorkRemoteRequestFormProps {
 
 export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
   const t = useTranslations()
+  const { data: session } = useSession()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [signature, setSignature] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -33,6 +35,37 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
   const [location, setLocation] = useState("home")
   const [otherLocation, setOtherLocation] = useState("")
+  const [managerInfo, setManagerInfo] = useState<{ name: string; id: string } | null>(null)
+  const [loadingManager, setLoadingManager] = useState(true)
+
+  // Fetch user's manager info
+  useEffect(() => {
+    const fetchManagerInfo = async () => {
+      if (!session?.user?.id) {
+        setLoadingManager(false)
+        return
+      }
+      
+      try {
+        const response = await fetch('/api/user/manager')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.manager) {
+            setManagerInfo({
+              name: `${data.manager.firstName} ${data.manager.lastName}`,
+              id: data.manager.id
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch manager info:', error)
+      } finally {
+        setLoadingManager(false)
+      }
+    }
+    
+    fetchManagerInfo()
+  }, [session])
 
   const handleDateSelect = (date: Date) => {
     setSelectedDates((prev) => {
@@ -312,8 +345,19 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   <div className="space-y-2">
                     <Label>Manager</Label>
                     <div className="p-3 bg-gray-50 rounded-md">
-                      <p className="font-medium">Michael Chen</p>
-                      <p className="text-sm text-gray-600">Your request will be sent for approval</p>
+                      {loadingManager ? (
+                        <p className="text-sm text-gray-500">Loading manager information...</p>
+                      ) : managerInfo ? (
+                        <>
+                          <p className="font-medium">{managerInfo.name}</p>
+                          <p className="text-sm text-gray-600">Your request will be sent for approval</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-gray-500">No Manager Assigned</p>
+                          <p className="text-sm text-gray-600">Please contact HR to assign a manager</p>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -333,10 +377,12 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   <div className="flex flex-col gap-2 pt-4">
                     <Button
                       type="submit"
-                      disabled={isSubmitting || selectedDates.length === 0 || !signature}
+                      disabled={isSubmitting || selectedDates.length === 0 || !signature || !managerInfo}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
-                      {isSubmitting ? "Submitting..." : `Submit Work From Home Request (${getTotalDays()} days)`}
+                      {isSubmitting ? "Submitting..." : 
+                        !managerInfo ? "No Manager Assigned" :
+                        `Submit Work From Home Request (${getTotalDays()} days)`}
                     </Button>
                     <Button type="button" variant="outline" onClick={onBack} className="w-full">
                       Cancel
@@ -357,7 +403,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
         details={{
           days: selectedDates.length,
           dates: formatDateGroups(groupConsecutiveDates(selectedDates)),
-          manager: "Michael Chen",
+          manager: managerInfo?.name || "No Manager",
         }}
       />
 
