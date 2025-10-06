@@ -6,6 +6,7 @@ import { SmartDocumentGenerator } from "@/lib/smart-document-generator"
 import { emailService } from "@/lib/email-service"
 import { format } from "date-fns"
 import { ValidationService } from "@/lib/validation-service"
+import { WFHValidationService } from "@/lib/wfh-validation-service"
 import { log } from "@/lib/logger"
 
 export async function POST(
@@ -21,9 +22,15 @@ export async function POST(
 
     const body = await request.json()
     const comment = body.comment || ''
+    const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
     const requestId = params.requestId
     
-    log.info('Processing approval request', { requestId, comment, userId: session.user.id })
+    log.info('Processing approval request', { requestId, requestType, comment, userId: session.user.id })
+
+    // Handle WFH requests separately
+    if (requestType === 'wfh') {
+      return handleWFHApproval(session, requestId, comment)
+    }
 
     // Get the leave request and verify manager has permission
     const leaveRequest = await prisma.leaveRequest.findUnique({
@@ -259,6 +266,105 @@ export async function POST(
       error: "Internal server error", 
       details: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 })
+  }
+}
+
+// Helper function to handle WFH approvals
+async function handleWFHApproval(session: any, requestId: string, comment: string) {
+  try {
+    // Get the WFH request
+    const wfhRequest = await prisma.workFromHomeRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        user: true,
+        approvals: {
+          where: {
+            approverId: session.user.id
+          }
+        }
+      }
+    })
+
+    if (!wfhRequest) {
+      return NextResponse.json({ error: "WFH request not found" }, { status: 404 })
+    }
+
+    // Validate approval permission
+    const validationErrors = await WFHValidationService.validateWFHApprovalPermission(
+      session.user.id,
+      wfhRequest.userId,
+      requestId
+    )
+    
+    if (validationErrors.length > 0) {
+      log.warn('WFH approval validation failed', {
+        approverId: session.user.id,
+        requesterId: wfhRequest.userId,
+        requestId,
+        errors: validationErrors
+      })
+      
+      return NextResponse.json(
+        { 
+          error: validationErrors[0].message,
+          code: validationErrors[0].code
+        },
+        { status: 403 }
+      )
+    }
+
+    // Get or create approval record
+    let approval = wfhRequest.approvals[0]
+    if (!approval) {
+      approval = await prisma.wFHApproval.create({
+        data: {
+          wfhRequestId: requestId,
+          approverId: session.user.id,
+          status: 'PENDING'
+        }
+      })
+    }
+
+    // Update approval
+    await prisma.wFHApproval.update({
+      where: { id: approval.id },
+      data: {
+        status: 'APPROVED',
+        comments: comment,
+        approvedAt: new Date()
+      }
+    })
+
+    // Update WFH request status
+    await prisma.workFromHomeRequest.update({
+      where: { id: requestId },
+      data: { status: 'APPROVED' }
+    })
+
+    // Send email to employee
+    await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
+      employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
+      startDate: format(wfhRequest.startDate, 'dd MMMM yyyy'),
+      endDate: format(wfhRequest.endDate, 'dd MMMM yyyy'),
+      days: wfhRequest.totalDays,
+      location: wfhRequest.location,
+      approved: true,
+      managerName: `${session.user.firstName} ${session.user.lastName}`,
+      comments: comment
+    })
+
+    log.info('WFH request approved', { requestId })
+
+    return NextResponse.json({
+      success: true,
+      message: "WFH request approved successfully"
+    })
+  } catch (error) {
+    console.error("Error approving WFH request:", error)
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }
 }

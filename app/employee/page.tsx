@@ -52,6 +52,8 @@ export default function EmployeeDashboard() {
   const [leaveBalances, setLeaveBalances] = useState<any[]>([])
   const [loadingBalances, setLoadingBalances] = useState(true)
   const [leaveRequests, setLeaveRequests] = useState<any[]>([])
+  const [wfhRequests, setWfhRequests] = useState<any[]>([])
+  const [allRequests, setAllRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(true)
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function EmployeeDashboard() {
     } else {
       // Fetch leave balances and requests
       fetchLeaveBalances()
-      fetchLeaveRequests()
+      fetchAllRequests()
     }
   }, [session, status, router])
 
@@ -100,24 +102,44 @@ export default function EmployeeDashboard() {
     }
   }
 
-  const fetchLeaveRequests = async () => {
+  const fetchAllRequests = async () => {
     try {
       setLoadingRequests(true)
-      // Fetch all requests without year filter to see all requests
-      const response = await fetch('/api/leave-requests?year=all')
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Fetched leave requests:', data.leaveRequests)
-        // Log the first request to debug the date issue
-        if (data.leaveRequests?.length > 0) {
-          console.log('First request details:', {
-            startDate: data.leaveRequests[0].startDate,
-            endDate: data.leaveRequests[0].endDate,
-            supportingDocuments: data.leaveRequests[0].supportingDocuments,
-            totalDays: data.leaveRequests[0].totalDays
-          })
-        }
-        setLeaveRequests(data.leaveRequests || [])
+      // Fetch both leave and WFH requests
+      const [leaveResponse, wfhResponse] = await Promise.all([
+        fetch('/api/leave-requests?year=all'),
+        fetch('/api/wfh-requests?year=all')
+      ])
+      
+      let leaveReqs: any[] = []
+      let wfhReqs: any[] = []
+      
+      if (leaveResponse.ok) {
+        const leaveData = await leaveResponse.json()
+        console.log('Fetched leave requests:', leaveData.leaveRequests)
+        leaveReqs = leaveData.leaveRequests || []
+        setLeaveRequests(leaveReqs)
+      }
+      
+      if (wfhResponse.ok) {
+        const wfhData = await wfhResponse.json()
+        console.log('Fetched WFH requests:', wfhData.wfhRequests)
+        wfhReqs = wfhData.wfhRequests || []
+        setWfhRequests(wfhReqs)
+      }
+      
+      // Combine and sort all requests by created date
+      const combinedRequests = [
+        ...leaveReqs.map(r => ({ ...r, requestType: 'leave' })),
+        ...wfhReqs.map(r => ({ 
+          ...r, 
+          requestType: 'wfh', 
+          leaveType: { name: 'Work From Home' },
+          reason: r.location // Map location to reason for display
+        }))
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      
+      setAllRequests(combinedRequests)
       }
     } catch (error) {
       console.error('Error fetching leave requests:', error)
@@ -211,10 +233,10 @@ export default function EmployeeDashboard() {
 
   // Pagination for requests
   const requestsPerPage = 5
-  const totalPages = Math.max(1, Math.ceil(leaveRequests.length / requestsPerPage))
+  const totalPages = Math.max(1, Math.ceil(allRequests.length / requestsPerPage))
   const startIndex = (requestsCurrentPage - 1) * requestsPerPage
   const endIndex = startIndex + requestsPerPage
-  const currentRequests = leaveRequests.slice(startIndex, endIndex)
+  const currentRequests = allRequests.slice(startIndex, endIndex)
 
   const getStatusIcon = (status: string) => {
     switch (status.toUpperCase()) {
@@ -449,7 +471,7 @@ export default function EmployeeDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle>Recent Requests</CardTitle>
-                      <CardDescription>Your latest leave and WFH requests and their status</CardDescription>
+                      <CardDescription>Your latest leave and work from home requests</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">
@@ -481,9 +503,9 @@ export default function EmployeeDashboard() {
                     <div className="flex items-center justify-center py-8">
                       <p className="text-gray-500">Loading requests...</p>
                     </div>
-                  ) : leaveRequests.length === 0 ? (
+                  ) : allRequests.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">No leave requests found</p>
+                      <p className="text-gray-500">No requests found</p>
                     </div>
                   ) : (
                     <>
@@ -495,6 +517,9 @@ export default function EmployeeDashboard() {
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium">{request.leaveType?.name || "Leave"}</p>
+                                  {request.requestType === 'wfh' && (
+                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
+                                  )}
                                   <span className="text-xs text-gray-500">• {request.totalDays} day{request.totalDays > 1 ? "s" : ""}</span>
                                 </div>
                                 <p className="text-sm text-gray-600">{formatRequestDates(request)}</p>
@@ -520,7 +545,7 @@ export default function EmployeeDashboard() {
                       {/* Pagination Footer */}
                       <div className="flex items-center justify-between mt-4 pt-4 border-t">
                         <p className="text-sm text-gray-500">
-                          Showing {startIndex + 1}-{Math.min(endIndex, leaveRequests.length)} of {leaveRequests.length} requests
+                          Showing {startIndex + 1}-{Math.min(endIndex, allRequests.length)} of {allRequests.length} requests
                         </p>
                         <div className="flex gap-2">
                           {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (

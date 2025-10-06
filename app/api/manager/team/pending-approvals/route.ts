@@ -21,8 +21,8 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    // Get pending requests from team members
-    const pendingRequests = await prisma.leaveRequest.findMany({
+    // Get pending leave requests from team members
+    const pendingLeaveRequests = await prisma.leaveRequest.findMany({
       where: {
         user: {
           managerId: session.user.id
@@ -54,11 +54,37 @@ export async function GET(request: Request) {
         createdAt: 'desc'
       },
       skip,
-      take: limit
+      take: Math.ceil(limit / 2) // Split limit between leave and WFH
     })
 
-    // Get total count for pagination
-    const totalCount = await prisma.leaveRequest.count({
+    // Get pending WFH requests from team members (excluding manager's own requests)
+    const pendingWFHRequests = await prisma.workFromHomeRequest.findMany({
+      where: {
+        user: {
+          managerId: session.user.id
+        },
+        userId: {
+          not: session.user.id // Exclude manager's own WFH requests
+        },
+        status: 'PENDING'
+      },
+      include: {
+        user: true,
+        approvals: {
+          where: {
+            approverId: session.user.id
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip,
+      take: Math.ceil(limit / 2) // Split limit between leave and WFH
+    })
+
+    // Get total counts for pagination
+    const totalLeaveCount = await prisma.leaveRequest.count({
       where: {
         user: {
           managerId: session.user.id
@@ -73,9 +99,24 @@ export async function GET(request: Request) {
       }
     })
 
-    // Transform data to match frontend format
-    const formattedRequests = pendingRequests.map(request => ({
+    const totalWFHCount = await prisma.workFromHomeRequest.count({
+      where: {
+        user: {
+          managerId: session.user.id
+        },
+        userId: {
+          not: session.user.id // Exclude manager's own WFH requests
+        },
+        status: 'PENDING'
+      }
+    })
+
+    const totalCount = totalLeaveCount + totalWFHCount
+
+    // Transform leave requests data
+    const formattedLeaveRequests = pendingLeaveRequests.map(request => ({
       id: request.id,
+      requestType: 'leave',
       employee: {
         name: `${request.user.firstName} ${request.user.lastName}`,
         avatar: request.user.image || '',
@@ -91,6 +132,32 @@ export async function GET(request: Request) {
       substitute: request.substitute ? `${request.substitute.firstName} ${request.substitute.lastName}` : null,
       status: 'pending'
     }))
+
+    // Transform WFH requests data
+    const formattedWFHRequests = pendingWFHRequests.map(request => ({
+      id: request.id,
+      requestType: 'wfh',
+      employee: {
+        name: `${request.user.firstName} ${request.user.lastName}`,
+        avatar: request.user.image || '',
+        department: request.user.department
+      },
+      type: 'Work From Home',
+      dates: `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate).toLocaleDateString()}`,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      days: request.totalDays,
+      reason: request.location,
+      location: request.location,
+      submittedDate: request.createdAt.toISOString(),
+      substitute: null,
+      status: 'pending'
+    }))
+
+    // Combine and sort all requests by submission date
+    const formattedRequests = [...formattedLeaveRequests, ...formattedWFHRequests]
+      .sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime())
+      .slice(0, limit)
 
     return NextResponse.json({
       requests: formattedRequests,

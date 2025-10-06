@@ -280,6 +280,50 @@ export default function ExecutiveDashboard() {
     remotePercentage: Math.round((dept.remoteToday / dept.employees) * 100),
   }))
 
+  // Generate report function
+  const generateReport = async (reportType: string, format: string) => {
+    try {
+      toast.info(`Generating ${reportType} report...`)
+      
+      const response = await fetch('/api/executive/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportType,
+          format,
+          timeframe,
+          data: {
+            companyMetrics,
+            departmentStats: departmentLeaveData,
+            monthlyPatterns: monthlyLeavePattern,
+            remoteTrends: remoteWorkTrends,
+            capacityData: departmentCapacity,
+            leaveUtilization: leaveUtilizationData,
+            peakPeriods: peakAbsencePeriods
+          }
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${reportType}-report-${new Date().toISOString().split('T')[0]}.${format}`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success('Report generated successfully!')
+      } else {
+        toast.error('Failed to generate report')
+      }
+    } catch (error) {
+      console.error('Error generating report:', error)
+      toast.error('Failed to generate report')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -316,10 +360,12 @@ export default function ExecutiveDashboard() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Department Summary</DropdownMenuItem>
-                <DropdownMenuItem>Leave Utilization Report</DropdownMenuItem>
-                <DropdownMenuItem>Capacity Planning Report</DropdownMenuItem>
-                <DropdownMenuItem>Manager Performance Report</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('department', 'pdf')}>Department Summary</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('utilization', 'pdf')}>Leave Utilization Report</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('capacity', 'pdf')}>Capacity Planning Report</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('manager-performance', 'pdf')}>Manager Performance Report</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => generateReport('full', 'csv')}>Export All Data (CSV)</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             {/* Back to Executive Dashboard Button */}

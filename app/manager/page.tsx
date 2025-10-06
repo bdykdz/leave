@@ -195,10 +195,11 @@ export default function ManagerDashboard() {
 
   const handleApprove = async (requestId: string, comment?: string) => {
     try {
+      const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/approve-request/${requestId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment })
+        body: JSON.stringify({ comment, requestType })
       })
       
       if (response.ok) {
@@ -223,10 +224,11 @@ export default function ManagerDashboard() {
 
   const handleDeny = async (requestId: string, comment?: string) => {
     try {
+      const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/deny-request/${requestId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment })
+        body: JSON.stringify({ comment, requestType })
       })
       
       if (response.ok) {
@@ -303,6 +305,7 @@ export default function ManagerDashboard() {
         type: request.type,
         dates: request.dates,
         days: request.days,
+        requestType: request.requestType || 'leave',
       },
     })
     setShowApprovalDialog(true)
@@ -317,6 +320,7 @@ export default function ManagerDashboard() {
         type: request.type,
         dates: request.dates,
         days: request.days,
+        requestType: request.requestType || 'leave',
       },
     })
     setShowApprovalDialog(true)
@@ -644,7 +648,13 @@ export default function ManagerDashboard() {
                               </Avatar>
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{request.employee.name}</p>
-                                <p className="text-xs text-gray-500">{request.type} • {request.days} day{request.days > 1 ? 's' : ''}</p>
+                                <div className="flex items-center gap-1">
+                                  <p className="text-xs text-gray-500">{request.type}</p>
+                                  {request.requestType === 'wfh' && (
+                                    <Badge variant="outline" className="text-xs h-4 px-1 bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
+                                  )}
+                                  <span className="text-xs text-gray-500">• {request.days} day{request.days > 1 ? 's' : ''}</span>
+                                </div>
                                 <p className="text-xs text-gray-400">{request.dates}</p>
                               </div>
                             </div>
@@ -926,7 +936,12 @@ export default function ManagerDashboard() {
                                 <Badge variant="outline" className="text-xs">
                                   {request.employee.department}
                                 </Badge>
-                                {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                                {(request.requestType === 'wfh' || request.type === "Work From Home") && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    <Home className="h-3 w-3 mr-1" />
+                                    WFH
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm text-gray-600 mb-1">
                                 <span className="font-medium">{request.type}</span> • {request.dates} ({request.days}{" "}

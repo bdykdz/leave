@@ -214,6 +214,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     }
 
     // Generate request number
+    const currentYear = new Date().getFullYear();
     const requestCount = await prisma.leaveRequest.count({
       where: {
         createdAt: {

@@ -40,31 +40,13 @@ export const GET = asyncHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  // Determine which users to show based on role
-  let userIds: string[] = [];
-  
-  if (session.user.role === 'MANAGER' && currentUser.subordinates.length > 0) {
-    // Show manager's direct reports
-    userIds = currentUser.subordinates.map(s => s.id);
-    userIds.push(session.user.id); // Include manager themselves
-  } else if (session.user.role === 'HR' || session.user.role === 'EXECUTIVE') {
-    // HR and executives can see everyone
-    const allUsers = await prisma.user.findMany({
-      where: { isActive: true },
-      select: { id: true },
-    });
-    userIds = allUsers.map(u => u.id);
-  } else {
-    // Regular employees see their department
-    const departmentUsers = await prisma.user.findMany({
-      where: { 
-        department: currentUser.department,
-        isActive: true 
-      },
-      select: { id: true },
-    });
-    userIds = departmentUsers.map(u => u.id);
-  }
+  // Everyone can see everyone in the company calendar
+  // This promotes transparency across all levels and teams
+  const allUsers = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  const userIds = allUsers.map(u => u.id);
 
   // Fetch leave requests
   const leaveRequests = await prisma.leaveRequest.findMany({

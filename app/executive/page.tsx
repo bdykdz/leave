@@ -268,14 +268,51 @@ export default function ExecutiveDashboard() {
       </header>
 
       <div className="p-6 space-y-6">
-        {/* Welcome Message */}
-        <div className="text-center py-4">
-          <h2 className="text-2xl font-bold text-gray-900">{t.dashboard.welcomeBack}, {session?.user?.firstName || session?.user?.name}</h2>
-          <p className="text-gray-600 mt-1">Executive - {session?.user?.department}</p>
+        {/* Tab Navigation */}
+        <div className="flex items-center justify-between border-b">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={`pb-3 px-1 border-b-2 transition-colors ${
+                activeTab === "dashboard"
+                  ? "border-purple-600 text-purple-600 font-medium"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Dashboard
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab("calendar")}
+              className={`pb-3 px-1 border-b-2 transition-colors ${
+                activeTab === "calendar"
+                  ? "border-purple-600 text-purple-600 font-medium"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Company Calendar
+              </div>
+            </button>
+          </div>
         </div>
 
-        {/* Quick Actions */}
-        <Card>
+        {/* Welcome Message - Only show on dashboard */}
+        {activeTab === "dashboard" && (
+          <div className="text-center py-4">
+            <h2 className="text-2xl font-bold text-gray-900">{t.dashboard.welcomeBack}, {session?.user?.firstName || session?.user?.name}</h2>
+            <p className="text-gray-600 mt-1">Executive - {session?.user?.department}</p>
+          </div>
+        )}
+
+        {/* Dashboard Tab Content */}
+        {activeTab === "dashboard" && (
+          <>
+            {/* Quick Actions */}
+            <Card>
           <CardHeader>
             <CardTitle>{t.dashboard.quickActions}</CardTitle>
           </CardHeader>
@@ -532,6 +569,11 @@ export default function ExecutiveDashboard() {
             </Card>
           </div>
         </div>
+          </>
+        )}
+
+        {/* Calendar Tab Content */}
+        {activeTab === "calendar" && <TeamCalendar />}
       </div>
 
       {/* Approval Dialog */}

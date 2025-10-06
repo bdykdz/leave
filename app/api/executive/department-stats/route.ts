@@ -54,10 +54,8 @@ export async function GET() {
         const remoteToday = await prisma.workFromHomeRequest.count({
           where: {
             status: 'APPROVED',
-            date: {
-              gte: today,
-              lt: tomorrow
-            },
+            startDate: { lte: tomorrow },
+            endDate: { gte: today },
             user: {
               department: dept.department
             }

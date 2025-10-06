@@ -326,7 +326,7 @@ ${process.env.NEXTAUTH_URL}/employee
             
             <p>Please log in to the system to review and approve/reject this request.</p>
             
-            <a href="${process.env.NEXTAUTH_URL}/manager/wfh-approvals" class="button">Review Request</a>
+            <a href="${process.env.NEXTAUTH_URL}/manager" class="button">Review Request</a>
         </div>
         <div class="footer">
             <p>This is an automated message from the Leave Management System</p>

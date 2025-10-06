@@ -4,6 +4,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { emailService } from "@/lib/email-service"
 import { format } from "date-fns"
+import { WFHValidationService } from "@/lib/wfh-validation-service"
+import { log } from "@/lib/logger"
 
 export async function POST(
   request: Request,
@@ -16,10 +18,17 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { comment } = await request.json()
+    const body = await request.json()
+    const comment = body.comment || ''
+    const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
     const requestId = params.requestId
     
-    console.log('Deny request:', { requestId, comment, userId: session.user.id })
+    console.log('Deny request:', { requestId, requestType, comment, userId: session.user.id })
+
+    // Handle WFH requests separately
+    if (requestType === 'wfh') {
+      return handleWFHDenial(session, requestId, comment)
+    }
 
     // Get the leave request and verify manager has permission
     const leaveRequest = await prisma.leaveRequest.findUnique({
@@ -144,6 +153,93 @@ export async function POST(
       error: "Internal server error", 
       details: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 })
+  }
+}
+
+// Helper function to handle WFH denials
+async function handleWFHDenial(session: any, requestId: string, comment: string) {
+  try {
+    // Get the WFH request
+    const wfhRequest = await prisma.workFromHomeRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        user: true,
+        approvals: {
+          where: {
+            approverId: session.user.id
+          }
+        }
+      }
+    })
+
+    if (!wfhRequest) {
+      return NextResponse.json({ error: "WFH request not found" }, { status: 404 })
+    }
+
+    // Validate permission (check for self-denial which shouldn't happen but check anyway)
+    if (wfhRequest.userId === session.user.id) {
+      return NextResponse.json({ error: "Cannot deny your own request" }, { status: 403 })
+    }
+
+    // Verify manager permission
+    if (wfhRequest.user.managerId !== session.user.id) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+    }
+
+    // Update approval if exists
+    const approval = wfhRequest.approvals[0]
+    if (approval) {
+      await prisma.wFHApproval.update({
+        where: { id: approval.id },
+        data: {
+          status: 'REJECTED',
+          comments: comment,
+          approvedAt: new Date()
+        }
+      })
+    } else {
+      // Create rejection approval record
+      await prisma.wFHApproval.create({
+        data: {
+          wfhRequestId: requestId,
+          approverId: session.user.id,
+          status: 'REJECTED',
+          comments: comment,
+          approvedAt: new Date()
+        }
+      })
+    }
+
+    // Update WFH request status
+    await prisma.workFromHomeRequest.update({
+      where: { id: requestId },
+      data: { status: 'REJECTED' }
+    })
+
+    // Send email to employee
+    await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
+      employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
+      startDate: format(wfhRequest.startDate, 'dd MMMM yyyy'),
+      endDate: format(wfhRequest.endDate, 'dd MMMM yyyy'),
+      days: wfhRequest.totalDays,
+      location: wfhRequest.location,
+      approved: false,
+      managerName: `${session.user.firstName} ${session.user.lastName}`,
+      comments: comment
+    })
+
+    log.info('WFH request rejected', { requestId })
+
+    return NextResponse.json({
+      success: true,
+      message: "WFH request rejected"
+    })
+  } catch (error) {
+    console.error("Error rejecting WFH request:", error)
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }
 }
