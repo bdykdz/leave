@@ -12,7 +12,9 @@ import { DepartmentsView } from "./DepartmentsView"
 import { OrgChart } from "./OrgChart"
 import { WorkflowRulesManager } from "./WorkflowRulesManager"
 import { PositionsManager } from "./PositionsManager"
-import { UserManagement } from "./UserManagement"
+import { UserManagementEnhanced } from "./UserManagementEnhanced"
+import { DepartmentManager } from "./DepartmentManager"
+import { ManualRequestEntry } from "./ManualRequestEntry"
 import { SystemSettings } from "./SystemSettings"
 import { HolidaysManager } from "./HolidaysManager"
 import { 
@@ -29,6 +31,7 @@ import {
   Network,
   LogOut,
   User,
+  ClipboardList,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -108,7 +111,19 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-11">
+            <TabsTrigger value="manual-requests" className="flex items-center gap-1">
+              <ClipboardList className="h-3 w-3" />
+              <span className="hidden sm:inline">Manual Entry</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              <span className="hidden sm:inline">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="departments" className="flex items-center gap-1">
+              <Building className="h-3 w-3" />
+              <span className="hidden sm:inline">Departments</span>
+            </TabsTrigger>
             <TabsTrigger value="templates" className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
               <span className="hidden sm:inline">Templates</span>
@@ -125,17 +140,9 @@ export function AdminPanel() {
               <Archive className="h-3 w-3" />
               <span className="hidden sm:inline">Retention</span>
             </TabsTrigger>
-            <TabsTrigger value="departments" className="flex items-center gap-1">
-              <Building className="h-3 w-3" />
-              <span className="hidden sm:inline">Departments</span>
-            </TabsTrigger>
             <TabsTrigger value="positions" className="flex items-center gap-1">
               <Briefcase className="h-3 w-3" />
               <span className="hidden sm:inline">Positions</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              <span className="hidden sm:inline">Users</span>
             </TabsTrigger>
             <TabsTrigger value="orgchart" className="flex items-center gap-1">
               <Network className="h-3 w-3" />
@@ -150,6 +157,18 @@ export function AdminPanel() {
               <span className="hidden sm:inline">Settings</span>
             </TabsTrigger>
           </TabsList>
+
+        <TabsContent value="manual-requests" className="space-y-4">
+          <ManualRequestEntry />
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-4">
+          <UserManagementEnhanced />
+        </TabsContent>
+
+        <TabsContent value="departments" className="space-y-4">
+          <DepartmentManager />
+        </TabsContent>
 
         <TabsContent value="templates" className="space-y-4">
           <TemplateManager />
@@ -167,16 +186,8 @@ export function AdminPanel() {
             <WorkflowRulesManager />
           </TabsContent>
 
-          <TabsContent value="departments" className="space-y-4">
-            <DepartmentsView />
-          </TabsContent>
-
           <TabsContent value="positions" className="space-y-4">
             <PositionsManager />
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-4">
-            <UserManagement />
           </TabsContent>
 
           <TabsContent value="orgchart" className="space-y-4">
