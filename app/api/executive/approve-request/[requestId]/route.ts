@@ -1,111 +1,72 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { requestId: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is an executive
-    if (!["EXECUTIVE", "HR"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    if (session.user.role !== 'EXECUTIVE' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const body = await request.json()
-    const comment = body.comment || ''
-    const requestId = params.requestId
-    
-    console.log('Executive approve request:', { requestId, comment, userId: session.user.id })
+    const { comment } = await request.json();
 
-    // Get the leave request
-    const leaveRequest = await prisma.leaveRequest.findUnique({
-      where: { id: requestId },
-      include: {
-        approvals: true
-      }
-    })
-
-    if (!leaveRequest) {
-      return NextResponse.json({ error: "Request not found" }, { status: 404 })
-    }
-
-    // Find the executive approval record
-    let executiveApproval = leaveRequest.approvals.find(a => a.level === 2 && a.status === 'PENDING')
-    
-    // If no approval record exists, create one
-    if (!executiveApproval) {
-      console.log(`Creating executive approval record for request ${requestId}`)
-      executiveApproval = await prisma.approval.create({
-        data: {
-          leaveRequestId: requestId,
-          approverId: session.user.id,
-          level: 2, // Executive level
-          status: 'PENDING'
-        }
-      })
-    }
-
-    // Extract signature from comment if present
-    let signature = null
-    let cleanComment = comment
-    
-    if (comment && comment.includes('[SIGNATURE:')) {
-      const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/)
-      if (signatureMatch) {
-        signature = signatureMatch[1]
-        cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim()
-      }
-    }
-
-    // Update the approval
-    await prisma.approval.update({
-      where: { id: executiveApproval.id },
+    // Update the leave request
+    const updatedRequest = await prisma.leaveRequest.update({
+      where: { id: params.requestId },
       data: {
         status: 'APPROVED',
-        comments: cleanComment,
-        signature: signature,
-        approvedAt: new Date(),
-        signedAt: signature ? new Date() : null,
-        approverId: session.user.id // Update approver in case it was created without one
+        executiveApprovedBy: session.user.id,
+        executiveApprovedAt: new Date(),
+        executiveComment: comment || null
+      },
+      include: {
+        user: true,
+        leaveType: true
       }
-    })
+    });
 
-    // Check if all approvals are complete
-    const allApprovals = await prisma.approval.findMany({
-      where: { leaveRequestId: requestId }
-    })
+    // Create an approval record
+    await prisma.approval.create({
+      data: {
+        leaveRequestId: params.requestId,
+        approverId: session.user.id,
+        status: 'APPROVED',
+        comment: comment || null,
+        approvedAt: new Date()
+      }
+    });
 
-    const allApproved = allApprovals.every(a => a.status === 'APPROVED')
-
-    // Update leave request status if all approvals are done
-    if (allApproved) {
-      await prisma.leaveRequest.update({
-        where: { id: requestId },
-        data: { status: 'APPROVED' }
-      })
-
-      // TODO: Send notification to employee
-      // TODO: Update calendar/integration systems
-    }
+    // Send notification to the employee
+    await prisma.notification.create({
+      data: {
+        userId: updatedRequest.userId,
+        type: 'LEAVE_APPROVED',
+        title: 'Leave Request Approved',
+        message: `Your ${updatedRequest.leaveType.name} request has been approved by executive management.`,
+        relatedEntityId: params.requestId,
+        relatedEntityType: 'LEAVE_REQUEST'
+      }
+    });
 
     return NextResponse.json({ 
-      success: true,
-      message: "Request approved successfully",
-      allApproved 
-    })
+      success: true, 
+      message: 'Request approved successfully',
+      request: updatedRequest 
+    });
   } catch (error) {
-    console.error("Error approving request:", error)
-    return NextResponse.json({ 
-      error: "Internal server error", 
-      details: error instanceof Error ? error.message : "Unknown error"
-    }, { status: 500 })
+    console.error('Error approving request:', error);
+    return NextResponse.json(
+      { error: 'Failed to approve request' },
+      { status: 500 }
+    );
   }
 }

@@ -1,86 +1,79 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { requestId: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is an executive
-    if (!["EXECUTIVE", "HR"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    if (session.user.role !== 'EXECUTIVE' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const body = await request.json()
-    const comment = body.comment || ''
-    const requestId = params.requestId
-    
-    console.log('Executive deny request:', { requestId, comment, userId: session.user.id })
+    const { comment } = await request.json();
 
-    // Get the leave request
-    const leaveRequest = await prisma.leaveRequest.findUnique({
-      where: { id: requestId },
-      include: {
-        approvals: true
-      }
-    })
-
-    if (!leaveRequest) {
-      return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    if (!comment || comment.trim() === '') {
+      return NextResponse.json(
+        { error: 'Comment is required when denying a request' },
+        { status: 400 }
+      );
     }
 
-    // Find the executive approval record
-    let executiveApproval = leaveRequest.approvals.find(a => a.level === 2 && a.status === 'PENDING')
-    
-    // If no approval record exists, create one
-    if (!executiveApproval) {
-      console.log(`Creating executive approval record for request ${requestId}`)
-      executiveApproval = await prisma.approval.create({
-        data: {
-          leaveRequestId: requestId,
-          approverId: session.user.id,
-          level: 2, // Executive level
-          status: 'PENDING'
-        }
-      })
-    }
-
-    // Update the approval
-    await prisma.approval.update({
-      where: { id: executiveApproval.id },
+    // Update the leave request
+    const updatedRequest = await prisma.leaveRequest.update({
+      where: { id: params.requestId },
       data: {
         status: 'REJECTED',
-        comments: comment,
-        approvedAt: new Date(),
-        approverId: session.user.id // Update approver in case it was created without one
+        executiveApprovedBy: session.user.id,
+        executiveApprovedAt: new Date(),
+        executiveComment: comment
+      },
+      include: {
+        user: true,
+        leaveType: true
       }
-    })
+    });
 
-    // Update leave request status to denied
-    await prisma.leaveRequest.update({
-      where: { id: requestId },
-      data: { status: 'REJECTED' }
-    })
+    // Create an approval record
+    await prisma.approval.create({
+      data: {
+        leaveRequestId: params.requestId,
+        approverId: session.user.id,
+        status: 'REJECTED',
+        comment: comment,
+        approvedAt: new Date()
+      }
+    });
 
-    // TODO: Send notification to employee
+    // Send notification to the employee
+    await prisma.notification.create({
+      data: {
+        userId: updatedRequest.userId,
+        type: 'LEAVE_REJECTED',
+        title: 'Leave Request Denied',
+        message: `Your ${updatedRequest.leaveType.name} request has been denied by executive management. Reason: ${comment}`,
+        relatedEntityId: params.requestId,
+        relatedEntityType: 'LEAVE_REQUEST'
+      }
+    });
 
     return NextResponse.json({ 
-      success: true,
-      message: "Request denied"
-    })
+      success: true, 
+      message: 'Request denied successfully',
+      request: updatedRequest 
+    });
   } catch (error) {
-    console.error("Error denying request:", error)
-    return NextResponse.json({ 
-      error: "Internal server error", 
-      details: error instanceof Error ? error.message : "Unknown error"
-    }, { status: 500 })
+    console.error('Error denying request:', error);
+    return NextResponse.json(
+      { error: 'Failed to deny request' },
+      { status: 500 }
+    );
   }
 }

@@ -1,115 +1,118 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is an executive
-    if (!["EXECUTIVE", "HR"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    // Only executives can access company-wide metrics
+    if (session.user.role !== 'EXECUTIVE' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    const today = new Date();
+    const monthStart = startOfMonth(today);
+    const monthEnd = endOfMonth(today);
+    const todayStart = startOfDay(today);
+    const todayEnd = endOfDay(today);
 
-    // Get total active employees
+    // Get total employees
     const totalEmployees = await prisma.user.count({
       where: { isActive: true }
-    })
+    });
 
     // Get employees on leave today
     const onLeaveToday = await prisma.leaveRequest.count({
       where: {
         status: 'APPROVED',
-        startDate: { lte: tomorrow },
-        endDate: { gte: today }
+        startDate: { lte: todayEnd },
+        endDate: { gte: todayStart }
       }
-    })
+    });
 
-    // Get employees working from home today
+    // Get employees working remote today
     const workingRemoteToday = await prisma.workFromHomeRequest.count({
       where: {
         status: 'APPROVED',
-        startDate: { lte: tomorrow },
-        endDate: { gte: today }
+        startDate: { lte: todayEnd },
+        endDate: { gte: todayStart }
       }
-    })
+    });
 
-    // Calculate in-office employees
-    const inOfficeToday = totalEmployees - onLeaveToday - workingRemoteToday
+    // Calculate in office today
+    const inOfficeToday = Math.max(0, totalEmployees - onLeaveToday - workingRemoteToday);
 
-    // Get pending executive approvals
-    const pendingApprovals = await prisma.approval.count({
+    // Get pending approvals (escalated to executive level)
+    const pendingApprovals = await prisma.leaveRequest.count({
       where: {
         status: 'PENDING',
-        level: 2 // Executive level approvals
+        requiresExecutiveApproval: true
       }
-    })
+    });
 
-    // Get current month stats
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-
-    // Total leave days this month
-    const approvedLeavesThisMonth = await prisma.leaveRequest.findMany({
+    // Get total leave days this month
+    const leaveRequestsThisMonth = await prisma.leaveRequest.findMany({
       where: {
         status: 'APPROVED',
-        startDate: { lte: lastDayOfMonth },
-        endDate: { gte: firstDayOfMonth }
+        startDate: { lte: monthEnd },
+        endDate: { gte: monthStart }
+      },
+      select: {
+        totalDays: true
       }
-    })
+    });
 
-    const totalLeaveDaysThisMonth = approvedLeavesThisMonth.reduce((total, leave) => {
-      const start = leave.startDate > firstDayOfMonth ? leave.startDate : firstDayOfMonth
-      const end = leave.endDate < lastDayOfMonth ? leave.endDate : lastDayOfMonth
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      return total + days
-    }, 0)
+    const totalLeaveDaysThisMonth = leaveRequestsThisMonth.reduce(
+      (sum, req) => sum + req.totalDays, 
+      0
+    );
 
-    // Total WFH days this month
-    const approvedWFHThisMonth = await prisma.workFromHomeRequest.findMany({
+    // Get total remote days this month
+    const remoteRequestsThisMonth = await prisma.workFromHomeRequest.findMany({
       where: {
         status: 'APPROVED',
-        startDate: { lte: lastDayOfMonth },
-        endDate: { gte: firstDayOfMonth }
+        startDate: { lte: monthEnd },
+        endDate: { gte: monthStart }
+      },
+      select: {
+        startDate: true,
+        endDate: true,
+        selectedDates: true
       }
-    })
+    });
 
-    const totalRemoteDaysThisMonth = approvedWFHThisMonth.reduce((total, wfh) => {
-      const start = wfh.startDate > firstDayOfMonth ? wfh.startDate : firstDayOfMonth
-      const end = wfh.endDate < lastDayOfMonth ? wfh.endDate : lastDayOfMonth
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      return total + days
-    }, 0)
-
-    // Calculate average leave days per employee (year to date)
-    const yearStart = new Date(today.getFullYear(), 0, 1)
-    const approvedLeavesYTD = await prisma.leaveRequest.findMany({
-      where: {
-        status: 'APPROVED',
-        startDate: { gte: yearStart }
+    // Calculate total remote days
+    let totalRemoteDaysThisMonth = 0;
+    remoteRequestsThisMonth.forEach(req => {
+      if (req.selectedDates && Array.isArray(req.selectedDates)) {
+        totalRemoteDaysThisMonth += req.selectedDates.length;
+      } else {
+        // Calculate days between start and end
+        const start = new Date(req.startDate);
+        const end = new Date(req.endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        totalRemoteDaysThisMonth += diffDays;
       }
-    })
+    });
 
-    const totalLeaveDaysYTD = approvedLeavesYTD.reduce((total, leave) => total + leave.totalDays, 0)
-    const averageLeaveDaysPerEmployee = totalEmployees > 0 ? (totalLeaveDaysYTD / totalEmployees).toFixed(1) : 0
+    // Calculate average leave days per employee
+    const averageLeaveDaysPerEmployee = totalEmployees > 0 
+      ? (totalLeaveDaysThisMonth / totalEmployees).toFixed(1) 
+      : 0;
 
     // Calculate leave utilization rate
-    // Assuming each employee gets 21 days of leave per year
-    const expectedLeavePerEmployee = 21
-    const expectedTotalLeave = totalEmployees * expectedLeavePerEmployee
-    const monthsElapsed = today.getMonth() + 1
-    const expectedLeaveYTD = (expectedTotalLeave * monthsElapsed) / 12
-    const leaveUtilizationRate = expectedLeaveYTD > 0 ? Math.round((totalLeaveDaysYTD / expectedLeaveYTD) * 100) : 0
+    // Assuming 21 working days per month and each employee has leave entitlement
+    const totalAvailableLeaveDays = totalEmployees * 21; // Working days in month
+    const leaveUtilizationRate = totalAvailableLeaveDays > 0
+      ? ((totalLeaveDaysThisMonth / totalAvailableLeaveDays) * 100).toFixed(1)
+      : 0;
 
     return NextResponse.json({
       totalEmployees,
@@ -119,11 +122,14 @@ export async function GET() {
       pendingApprovals,
       totalLeaveDaysThisMonth,
       totalRemoteDaysThisMonth,
-      averageLeaveDaysPerEmployee: Number(averageLeaveDaysPerEmployee),
-      leaveUtilizationRate
-    })
+      averageLeaveDaysPerEmployee: parseFloat(averageLeaveDaysPerEmployee as string),
+      leaveUtilizationRate: parseFloat(leaveUtilizationRate as string)
+    });
   } catch (error) {
-    console.error("Error fetching company metrics:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error('Error fetching company metrics:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch company metrics' },
+      { status: 500 }
+    );
   }
 }
