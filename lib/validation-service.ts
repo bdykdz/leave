@@ -164,14 +164,25 @@ export class ValidationService {
   }
   
   /**
-   * Validate substitute availability
+   * Validate substitute availability and check for circular references
    */
   static async validateSubstitute(
     substituteId: string,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    requestingUserId?: string
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
+    
+    // Check if substitute is the same as requesting user (self-substitution)
+    if (substituteId === requestingUserId) {
+      errors.push({
+        field: 'substituteId',
+        message: 'You cannot be your own substitute',
+        code: 'SELF_SUBSTITUTION',
+      });
+      return errors;
+    }
     
     // Check if substitute is on leave during the requested period
     const substituteOnLeave = await prisma.leaveRequest.findFirst({
@@ -193,6 +204,102 @@ export class ValidationService {
         message: 'Selected substitute is on leave during this period',
         code: 'SUBSTITUTE_UNAVAILABLE',
       });
+    }
+    
+    // Check if substitute is working from home (might be acceptable depending on policy)
+    const substituteWFH = await prisma.workFromHomeRequest.findFirst({
+      where: {
+        userId: substituteId,
+        status: { in: ['APPROVED'] },
+        OR: [
+          {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+        ],
+      },
+    });
+    
+    if (substituteWFH) {
+      // This is a warning, not an error - WFH substitutes might be acceptable
+      log.warn('Substitute is working from home during this period', {
+        substituteId,
+        wfhRequestId: substituteWFH.id
+      });
+    }
+    
+    // Check for circular substitution (A substitutes for B while B substitutes for A)
+    if (requestingUserId) {
+      const circularSubstitution = await prisma.leaveRequest.findFirst({
+        where: {
+          userId: substituteId,
+          substituteId: requestingUserId,
+          status: { in: ['PENDING', 'APPROVED'] },
+          OR: [
+            {
+              startDate: { lte: endDate },
+              endDate: { gte: startDate },
+            },
+          ],
+        },
+      });
+      
+      if (circularSubstitution) {
+        errors.push({
+          field: 'substituteId',
+          message: 'Circular substitution detected - this person has already selected you as their substitute',
+          code: 'CIRCULAR_SUBSTITUTION',
+        });
+      }
+    }
+    
+    // Check if substitute is inactive
+    const substitute = await prisma.user.findUnique({
+      where: { id: substituteId },
+      select: { isActive: true, firstName: true, lastName: true }
+    });
+    
+    if (!substitute?.isActive) {
+      errors.push({
+        field: 'substituteId',
+        message: 'Selected substitute is no longer active',
+        code: 'SUBSTITUTE_INACTIVE',
+      });
+    }
+    
+    return errors;
+  }
+  
+  /**
+   * Validate multiple substitutes (for complex coverage scenarios)
+   */
+  static async validateSubstitutes(
+    substituteIds: string[],
+    startDate: Date,
+    endDate: Date,
+    requestingUserId?: string
+  ): Promise<ValidationError[]> {
+    const errors: ValidationError[] = [];
+    
+    // Check for duplicates
+    const uniqueIds = new Set(substituteIds);
+    if (uniqueIds.size !== substituteIds.length) {
+      errors.push({
+        field: 'substituteIds',
+        message: 'Duplicate substitutes selected',
+        code: 'DUPLICATE_SUBSTITUTES',
+      });
+    }
+    
+    // Validate each substitute
+    for (const substituteId of substituteIds) {
+      const substituteErrors = await this.validateSubstitute(
+        substituteId,
+        startDate,
+        endDate,
+        requestingUserId
+      );
+      errors.push(...substituteErrors);
     }
     
     return errors;

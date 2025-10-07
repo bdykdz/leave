@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { addDays } from 'date-fns';
 
 const prisma = new PrismaClient();
 
@@ -6,6 +7,9 @@ export interface EscalationConfig {
   escalationDaysBeforeAutoApproval: number;
   escalationEnabled: boolean;
   requireSignatureForDenial: boolean;
+  autoSkipAbsentApprovers: boolean;
+  autoApproveAfterMaxEscalations: boolean;
+  maxEscalationLevels: number;
 }
 
 export class EscalationService {
@@ -16,7 +20,14 @@ export class EscalationService {
     const settings = await prisma.companySetting.findMany({
       where: {
         key: {
-          in: ['escalationDaysBeforeAutoApproval', 'escalationEnabled', 'requireSignatureForDenial']
+          in: [
+            'escalationDaysBeforeAutoApproval', 
+            'escalationEnabled', 
+            'requireSignatureForDenial',
+            'autoSkipAbsentApprovers',
+            'autoApproveAfterMaxEscalations',
+            'maxEscalationLevels'
+          ]
         }
       }
     });
@@ -25,17 +36,33 @@ export class EscalationService {
     const config: EscalationConfig = {
       escalationDaysBeforeAutoApproval: 3,
       escalationEnabled: true,
-      requireSignatureForDenial: false
+      requireSignatureForDenial: false,
+      autoSkipAbsentApprovers: true,
+      autoApproveAfterMaxEscalations: false,
+      maxEscalationLevels: 3
     };
 
     // Override with database values
     for (const setting of settings) {
-      if (setting.key === 'escalationDaysBeforeAutoApproval') {
-        config.escalationDaysBeforeAutoApproval = Number(setting.value);
-      } else if (setting.key === 'escalationEnabled') {
-        config.escalationEnabled = Boolean(setting.value);
-      } else if (setting.key === 'requireSignatureForDenial') {
-        config.requireSignatureForDenial = Boolean(setting.value);
+      switch(setting.key) {
+        case 'escalationDaysBeforeAutoApproval':
+          config.escalationDaysBeforeAutoApproval = Number(setting.value);
+          break;
+        case 'escalationEnabled':
+          config.escalationEnabled = setting.value === 'true';
+          break;
+        case 'requireSignatureForDenial':
+          config.requireSignatureForDenial = setting.value === 'true';
+          break;
+        case 'autoSkipAbsentApprovers':
+          config.autoSkipAbsentApprovers = setting.value === 'true';
+          break;
+        case 'autoApproveAfterMaxEscalations':
+          config.autoApproveAfterMaxEscalations = setting.value === 'true';
+          break;
+        case 'maxEscalationLevels':
+          config.maxEscalationLevels = Number(setting.value);
+          break;
       }
     }
 
@@ -88,32 +115,234 @@ export class EscalationService {
   }
 
   /**
+   * Check if an approver is absent (on leave or WFH)
+   */
+  private async isApproverAbsent(approverId: string, startDate: Date, endDate: Date): Promise<boolean> {
+    // Check if approver is on leave
+    const onLeave = await prisma.leaveRequest.findFirst({
+      where: {
+        userId: approverId,
+        status: 'APPROVED',
+        startDate: { lte: endDate },
+        endDate: { gte: startDate }
+      }
+    });
+
+    if (onLeave) {
+      console.log(`Approver ${approverId} is on leave from ${onLeave.startDate} to ${onLeave.endDate}`);
+      return true;
+    }
+
+    // Optionally check if approver has too many pending approvals (overloaded)
+    const pendingCount = await prisma.approval.count({
+      where: {
+        approverId: approverId,
+        status: 'PENDING',
+        createdAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+        }
+      }
+    });
+
+    if (pendingCount > 10) {
+      console.log(`Approver ${approverId} is overloaded with ${pendingCount} pending approvals`);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Find a delegate for an absent approver
+   */
+  private async findDelegate(approverId: string): Promise<string | null> {
+    // Check if the approver has set a delegate
+    const delegate = await prisma.approvalDelegate.findFirst({
+      where: {
+        delegatorId: approverId,
+        startDate: { lte: new Date() },
+        endDate: { gte: new Date() },
+        isActive: true
+      },
+      include: {
+        delegate: true
+      }
+    });
+
+    if (delegate && delegate.delegate.isActive) {
+      console.log(`Found delegate ${delegate.delegateId} for approver ${approverId}`);
+      return delegate.delegateId;
+    }
+
+    // If no delegate, try to find someone at the same level
+    const approver = await prisma.user.findUnique({
+      where: { id: approverId },
+      include: {
+        department: {
+          include: {
+            users: {
+              where: {
+                id: { not: approverId },
+                role: { in: ['MANAGER', 'HR', 'EXECUTIVE'] },
+                isActive: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (approver?.department?.users && approver.department.users.length > 0) {
+      // Return the first available manager in the same department
+      return approver.department.users[0].id;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the next approver in the chain, skipping absent ones
+   */
+  private async getNextAvailableApprover(
+    userId: string,
+    currentApproverId: string,
+    startDate: Date,
+    endDate: Date,
+    config: EscalationConfig
+  ): Promise<{ approverId: string | null; skippedApprovers: string[] }> {
+    const skippedApprovers: string[] = [];
+    
+    // Get user with full hierarchy
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        manager: true,
+        departmentDirector: true,
+        department: {
+          include: {
+            director: true
+          }
+        }
+      }
+    });
+
+    if (!user) return { approverId: null, skippedApprovers };
+
+    // Build approval chain
+    const approvalChain: string[] = [];
+    
+    if (user.managerId) approvalChain.push(user.managerId);
+    if (user.departmentDirectorId && user.departmentDirectorId !== user.managerId) {
+      approvalChain.push(user.departmentDirectorId);
+    }
+    
+    // Add HR or Executive as final escalation
+    const hrExecutive = await prisma.user.findFirst({
+      where: {
+        role: { in: ['HR', 'EXECUTIVE'] },
+        isActive: true,
+        id: { notIn: approvalChain }
+      }
+    });
+    
+    if (hrExecutive) approvalChain.push(hrExecutive.id);
+
+    // Find the current approver's position in the chain
+    const currentIndex = approvalChain.indexOf(currentApproverId);
+    
+    // Look for the next available approver
+    for (let i = currentIndex + 1; i < approvalChain.length; i++) {
+      const candidateId = approvalChain[i];
+      
+      // Check if this approver is available
+      if (config.autoSkipAbsentApprovers) {
+        const isAbsent = await this.isApproverAbsent(candidateId, startDate, endDate);
+        
+        if (isAbsent) {
+          // Try to find a delegate
+          const delegateId = await this.findDelegate(candidateId);
+          
+          if (delegateId) {
+            console.log(`Using delegate ${delegateId} for absent approver ${candidateId}`);
+            return { approverId: delegateId, skippedApprovers };
+          }
+          
+          // No delegate found, skip this approver
+          skippedApprovers.push(candidateId);
+          console.log(`Skipping absent approver ${candidateId} with no delegate`);
+          continue;
+        }
+      }
+      
+      // Found an available approver
+      return { approverId: candidateId, skippedApprovers };
+    }
+
+    // No more approvers in the chain
+    return { approverId: null, skippedApprovers };
+  }
+
+  /**
    * Escalate a single approval to the next level
    */
   private async escalateApproval(approval: any): Promise<void> {
     const leaveRequest = approval.leaveRequest;
     const currentApprover = approval.approver;
+    const config = await this.getEscalationConfig();
     
-    // Determine who to escalate to
-    let escalateToId: string | null = null;
-    let escalationReason = `Auto-escalated after ${(await this.getEscalationConfig()).escalationDaysBeforeAutoApproval} days of inactivity`;
+    // Get the next available approver, skipping absent ones if configured
+    const { approverId: escalateToId, skippedApprovers } = await this.getNextAvailableApprover(
+      leaveRequest.userId,
+      currentApprover.id,
+      leaveRequest.startDate,
+      leaveRequest.endDate,
+      config
+    );
 
-    // If current approver is the direct manager, escalate to department director
-    if (currentApprover.id === leaveRequest.user.managerId) {
-      escalateToId = leaveRequest.user.departmentDirectorId;
-    } 
-    // If current approver is department director, escalate to executive
-    else if (currentApprover.id === leaveRequest.user.departmentDirectorId) {
-      const executive = await prisma.user.findFirst({
-        where: { 
-          role: 'EXECUTIVE', 
-          isActive: true 
-        }
-      });
-      escalateToId = executive?.id || null;
+    // Build escalation reason
+    let escalationReason = `Auto-escalated after ${config.escalationDaysBeforeAutoApproval} days of inactivity`;
+    if (skippedApprovers.length > 0) {
+      escalationReason += `. Skipped absent approvers: ${skippedApprovers.length}`;
     }
 
+    // Check if we've reached max escalation levels
     if (!escalateToId) {
+      if (config.autoApproveAfterMaxEscalations && approval.level >= config.maxEscalationLevels) {
+        // Auto-approve the request
+        console.log(`Auto-approving request ${leaveRequest.id} after ${approval.level} escalations`);
+        
+        await prisma.leaveRequest.update({
+          where: { id: leaveRequest.id },
+          data: {
+            status: 'APPROVED',
+            approvedAt: new Date(),
+            approvedBy: 'SYSTEM'
+          }
+        });
+
+        await prisma.approval.update({
+          where: { id: approval.id },
+          data: {
+            status: 'APPROVED',
+            approvedAt: new Date(),
+            comments: 'Auto-approved by system after maximum escalations'
+          }
+        });
+
+        // Create notification for the employee
+        await prisma.notification.create({
+          data: {
+            userId: leaveRequest.userId,
+            type: 'LEAVE_APPROVED',
+            title: 'Leave Request Auto-Approved',
+            message: `Your leave request has been automatically approved after reaching maximum escalation levels`,
+            link: `/leave/${leaveRequest.id}`
+          }
+        });
+
+        return;
+      }
+
       console.log(`Cannot escalate approval ${approval.id} - no higher authority found`);
       return;
     }
@@ -171,21 +400,39 @@ export class EscalationService {
     const defaultSettings = [
       {
         key: 'escalationDaysBeforeAutoApproval',
-        value: 3,
+        value: '3',
         category: 'escalation',
         description: 'Number of days before a pending approval is escalated to the next level'
       },
       {
         key: 'escalationEnabled',
-        value: true,
+        value: 'true',
         category: 'escalation',
         description: 'Whether automatic escalation is enabled'
       },
       {
         key: 'requireSignatureForDenial',
-        value: false,
+        value: 'false',
         category: 'approval',
         description: 'Whether denials require a digital signature'
+      },
+      {
+        key: 'autoSkipAbsentApprovers',
+        value: 'true',
+        category: 'escalation',
+        description: 'Automatically skip approvers who are on leave'
+      },
+      {
+        key: 'autoApproveAfterMaxEscalations',
+        value: 'false',
+        category: 'escalation',
+        description: 'Automatically approve requests after maximum escalation levels'
+      },
+      {
+        key: 'maxEscalationLevels',
+        value: '3',
+        category: 'escalation',
+        description: 'Maximum number of escalation levels before auto-approval'
       }
     ];
 
@@ -196,5 +443,82 @@ export class EscalationService {
         create: setting
       });
     }
+  }
+
+  /**
+   * Process new leave requests and set up initial approvals
+   */
+  async processNewLeaveRequest(leaveRequestId: string): Promise<void> {
+    const leaveRequest = await prisma.leaveRequest.findUnique({
+      where: { id: leaveRequestId },
+      include: {
+        user: {
+          include: {
+            manager: true,
+            departmentDirector: true
+          }
+        }
+      }
+    });
+
+    if (!leaveRequest) {
+      console.error(`Leave request ${leaveRequestId} not found`);
+      return;
+    }
+
+    const config = await this.getEscalationConfig();
+    
+    // Find the first available approver
+    let initialApproverId = leaveRequest.user.managerId;
+    
+    if (initialApproverId && config.autoSkipAbsentApprovers) {
+      const isAbsent = await this.isApproverAbsent(
+        initialApproverId,
+        leaveRequest.startDate,
+        leaveRequest.endDate
+      );
+      
+      if (isAbsent) {
+        // Find next available approver
+        const { approverId, skippedApprovers } = await this.getNextAvailableApprover(
+          leaveRequest.userId,
+          'INITIAL', // Special case for initial approval
+          leaveRequest.startDate,
+          leaveRequest.endDate,
+          config
+        );
+        
+        if (approverId) {
+          initialApproverId = approverId;
+          console.log(`Initial approver is absent, using ${approverId} instead. Skipped: ${skippedApprovers.join(', ')}`);
+        }
+      }
+    }
+
+    if (!initialApproverId) {
+      console.error(`No approver found for leave request ${leaveRequestId}`);
+      return;
+    }
+
+    // Create initial approval record
+    await prisma.approval.create({
+      data: {
+        leaveRequestId: leaveRequestId,
+        approverId: initialApproverId,
+        level: 1,
+        status: 'PENDING'
+      }
+    });
+
+    // Create notification for approver
+    await prisma.notification.create({
+      data: {
+        userId: initialApproverId,
+        type: 'APPROVAL_REQUIRED',
+        title: 'Leave Request Approval Required',
+        message: `New leave request from ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} requires your approval`,
+        link: `/manager/approvals/${leaveRequestId}`
+      }
+    });
   }
 }
