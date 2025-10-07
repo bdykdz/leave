@@ -15,6 +15,7 @@ import { PositionsManager } from "./PositionsManager"
 import { UserManagementEnhanced } from "./UserManagementEnhanced"
 import { DepartmentManager } from "./DepartmentManager"
 import { ManualRequestEntry } from "./ManualRequestEntry"
+import { OverlapManager } from "./OverlapManager"
 import { SystemSettings } from "./SystemSettings"
 import { HolidaysManager } from "./HolidaysManager"
 import { 
@@ -32,6 +33,7 @@ import {
   LogOut,
   User,
   ClipboardList,
+  AlertTriangle,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -111,7 +113,11 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-11">
+          <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12">
+            <TabsTrigger value="overlaps" className="flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              <span className="hidden sm:inline">Overlaps</span>
+            </TabsTrigger>
             <TabsTrigger value="manual-requests" className="flex items-center gap-1">
               <ClipboardList className="h-3 w-3" />
               <span className="hidden sm:inline">Manual Entry</span>
@@ -157,6 +163,10 @@ export function AdminPanel() {
               <span className="hidden sm:inline">Settings</span>
             </TabsTrigger>
           </TabsList>
+
+        <TabsContent value="overlaps" className="space-y-4">
+          <OverlapManager />
+        </TabsContent>
 
         <TabsContent value="manual-requests" className="space-y-4">
           <ManualRequestEntry />

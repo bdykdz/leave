@@ -113,6 +113,53 @@ export const POST = asyncHandler(async (request: NextRequest) => {
   const totalDays = validatedData.selectedDates?.length || 
     Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+  // Check for overlapping requests
+  const overlappingWFH = await prisma.workFromHomeRequest.findFirst({
+    where: {
+      userId: session.user.id,
+      status: { in: ['APPROVED', 'PENDING'] },
+      OR: [
+        {
+          startDate: { lte: endDate },
+          endDate: { gte: startDate }
+        }
+      ]
+    }
+  });
+
+  const overlappingLeave = await prisma.leaveRequest.findFirst({
+    where: {
+      userId: session.user.id,
+      status: { in: ['APPROVED', 'PENDING'] },
+      OR: [
+        {
+          startDate: { lte: endDate },
+          endDate: { gte: startDate }
+        }
+      ]
+    }
+  });
+
+  if (overlappingWFH) {
+    return NextResponse.json(
+      { 
+        error: 'Date conflict',
+        message: `You already have a work from home request from ${overlappingWFH.startDate.toLocaleDateString()} to ${overlappingWFH.endDate.toLocaleDateString()}. Please choose different dates or cancel the existing request.`
+      },
+      { status: 400 }
+    );
+  }
+
+  if (overlappingLeave) {
+    return NextResponse.json(
+      { 
+        error: 'Date conflict',
+        message: `You have a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. You cannot work from home while on leave.`
+      },
+      { status: 400 }
+    );
+  }
+
   // Perform validation
   const validationErrors = await WFHValidationService.validateWFHRequest(
     session.user.id,
