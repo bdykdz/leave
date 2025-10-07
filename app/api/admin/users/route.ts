@@ -28,13 +28,13 @@ export async function GET(request: NextRequest) {
         email: true,
         firstName: true,
         lastName: true,
-        phone: true,
+        phoneNumber: true, // Changed from phone
         employeeId: true,
-        jobTitle: true,
+        position: true, // Changed from jobTitle
         role: true,
         isActive: true,
-        joinDate: true,
-        departmentId: true,
+        joiningDate: true, // Changed from joinDate
+        department: true, // This is a string field, not a relation
         managerId: true,
         departmentDirectorId: true,
         createdAt: true,
@@ -62,22 +62,7 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    // Fetch department details for each user
-    const departments = await prisma.department.findMany({
-      select: {
-        id: true,
-        name: true
-      }
-    });
-    
-    const departmentMap = new Map(departments.map(d => [d.id, d.name]));
-    
-    const usersWithDepartment = users.map(user => ({
-      ...user,
-      department: user.departmentId ? departmentMap.get(user.departmentId) || null : null
-    }));
-
-    return NextResponse.json({ users: usersWithDepartment });
+    return NextResponse.json({ users });
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
@@ -131,6 +116,9 @@ export async function POST(request: NextRequest) {
     const password = data.password || `${data.firstName.toLowerCase()}${Math.floor(Math.random() * 10000)}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Generate employee ID if not provided
+    const employeeId = data.employeeId || `EMP${Date.now().toString().slice(-6)}`;
+
     // Create the user
     const newUser = await prisma.user.create({
       data: {
@@ -138,18 +126,27 @@ export async function POST(request: NextRequest) {
         firstName: data.firstName,
         lastName: data.lastName,
         password: hashedPassword,
-        phone: data.phone,
-        employeeId: data.employeeId,
-        jobTitle: data.jobTitle,
+        phoneNumber: data.phoneNumber || '',
+        employeeId: employeeId,
+        position: data.position || 'Employee',
+        department: data.department || 'General',
         role: data.role || 'EMPLOYEE',
-        departmentId: data.departmentId || null,
         managerId: data.managerId || null,
         departmentDirectorId: data.departmentDirectorId || null,
         isActive: data.isActive !== undefined ? data.isActive : true,
-        joinDate: data.joinDate ? new Date(data.joinDate) : new Date()
+        joiningDate: data.joiningDate ? new Date(data.joiningDate) : new Date()
       },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        employeeId: true,
+        position: true,
         department: true,
+        role: true,
+        isActive: true,
+        joiningDate: true,
         manager: {
           select: {
             firstName: true,

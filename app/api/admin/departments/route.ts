@@ -17,63 +17,35 @@ export async function GET(request: NextRequest) {
         name: true,
         description: true,
         code: true,
-        managerId: true,
-        directorId: true,
-        parentDepartmentId: true,
         isActive: true,
+        order: true,
         createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            users: true,
-            childDepartments: true
-          }
-        }
+        updatedAt: true
       },
       orderBy: {
         name: 'asc'
       }
     });
-    
-    // Fetch manager and director details separately if needed
-    const departmentsWithDetails = await Promise.all(
+
+    // Since Department doesn't have manager/director fields,
+    // we need to count users per department separately
+    const departmentsWithCounts = await Promise.all(
       departments.map(async (dept) => {
-        let manager = null;
-        let director = null;
-        
-        if (dept.managerId) {
-          manager = await prisma.user.findUnique({
-            where: { id: dept.managerId },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          });
-        }
-        
-        if (dept.directorId) {
-          director = await prisma.user.findUnique({
-            where: { id: dept.directorId },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          });
-        }
+        const userCount = await prisma.user.count({
+          where: { department: dept.name }
+        });
         
         return {
           ...dept,
-          manager,
-          director
+          _count: {
+            users: userCount,
+            childDepartments: 0 // No parent-child relationship in this schema
+          }
         };
       })
     );
 
-    return NextResponse.json(departmentsWithDetails);
+    return NextResponse.json(departmentsWithCounts);
   } catch (error) {
     console.error('Error fetching departments:', error);
     return NextResponse.json(
@@ -128,58 +100,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate a unique code if not provided
+    const code = data.code || data.name.toUpperCase().replace(/\s+/g, '_').substring(0, 10);
+
     // Create department
     const department = await prisma.department.create({
       data: {
         name: data.name,
         description: data.description,
-        code: data.code,
-        managerId: data.managerId || null,
-        directorId: data.directorId || null,
-        parentDepartmentId: data.parentDepartmentId || null,
-        isActive: data.isActive !== undefined ? data.isActive : true
-      },
-      include: {
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        director: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        parentDepartment: true
+        code: code,
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        order: data.order || 0
       }
     });
-
-    // Update users if manager or director roles are assigned
-    if (data.managerId) {
-      await prisma.user.update({
-        where: { id: data.managerId },
-        data: { 
-          role: 'MANAGER',
-          departmentId: department.id
-        }
-      });
-    }
-
-    if (data.directorId) {
-      await prisma.user.update({
-        where: { id: data.directorId },
-        data: { 
-          role: 'MANAGER',
-          departmentId: department.id
-        }
-      });
-    }
 
     return NextResponse.json({
       message: 'Department created successfully',

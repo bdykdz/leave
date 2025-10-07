@@ -24,11 +24,6 @@ export async function GET(request: NextRequest) {
     // Fetch all users with related data
     const users = await prisma.user.findMany({
       include: {
-        department: {
-          select: {
-            name: true
-          }
-        },
         manager: {
           select: {
             firstName: true,
@@ -57,7 +52,7 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: [
-        { department: { name: 'asc' } },
+        { department: 'asc' },
         { lastName: 'asc' },
         { firstName: 'asc' }
       ]
@@ -69,12 +64,12 @@ export async function GET(request: NextRequest) {
       'First Name': user.firstName,
       'Last Name': user.lastName,
       'Email': user.email,
-      'Phone': user.phone || 'N/A',
-      'Department': user.department?.name || 'N/A',
-      'Job Title': user.jobTitle || 'N/A',
+      'Phone': user.phoneNumber || 'N/A',
+      'Department': user.department || 'N/A',
+      'Job Title': user.position || 'N/A',
       'Role': user.role,
       'Status': user.isActive ? 'Active' : 'Inactive',
-      'Join Date': user.joinDate ? new Date(user.joinDate).toLocaleDateString() : 'N/A',
+      'Join Date': user.joiningDate ? new Date(user.joiningDate).toLocaleDateString() : 'N/A',
       'Manager': user.manager ? `${user.manager.firstName} ${user.manager.lastName}` : 'N/A',
       'Manager Email': user.manager?.email || 'N/A',
       'Department Director': user.departmentDirector ? `${user.departmentDirector.firstName} ${user.departmentDirector.lastName}` : 'N/A',
@@ -135,7 +130,7 @@ export async function GET(request: NextRequest) {
 
     // Count by department
     const departmentCounts = users.reduce((acc, user) => {
-      const deptName = user.department?.name || 'Unassigned';
+      const deptName = user.department || 'Unassigned';
       acc[deptName] = (acc[deptName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
