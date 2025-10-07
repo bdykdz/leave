@@ -45,6 +45,8 @@ import {
   Phone,
   Calendar,
   Shield,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -85,6 +87,7 @@ export function UserManagementEnhanced() {
   const [filterDepartment, setFilterDepartment] = useState("ALL")
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false)
   
   // Form states
@@ -150,6 +153,50 @@ export function UserManagementEnhanced() {
       isActive: user.isActive,
     })
     setIsEditDialogOpen(true)
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const response = await fetch('/api/admin/users/export')
+      
+      if (!response.ok) {
+        throw new Error('Failed to export users')
+      }
+      
+      // Get the filename from the Content-Disposition header if available
+      const contentDisposition = response.headers.get('Content-Disposition')
+      let filename = 'users_export.xlsx'
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+      
+      // Convert response to blob
+      const blob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // Clean up
+      window.URL.revokeObjectURL(url)
+      
+      toast.success('Users exported successfully')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Failed to export users. Please try again.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleNewUser = () => {
@@ -278,10 +325,30 @@ export function UserManagementEnhanced() {
                 Manage all users, their roles, departments, and permissions
               </CardDescription>
             </div>
-            <Button onClick={handleNewUser} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add New User
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleExport} 
+                className="flex items-center gap-2"
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <>
+                    <Download className="h-4 w-4 animate-pulse" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Export to Excel
+                  </>
+                )}
+              </Button>
+              <Button onClick={handleNewUser} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add New User
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
