@@ -56,11 +56,12 @@ interface User {
   email: string
   firstName: string
   lastName: string
+  employeeId: string
   role: string
   department: string
   position: string
   phoneNumber?: string
-  hireDate?: string
+  joiningDate?: string
   isActive: boolean
   createdAt: string
   managerId?: string | null
@@ -69,11 +70,13 @@ interface User {
     id: string
     firstName: string
     lastName: string
+    email: string
   } | null
   departmentDirector?: {
     id: string
     firstName: string
     lastName: string
+    email: string
   } | null
   leaveBalances?: any[]
 }
@@ -95,11 +98,12 @@ export function UserManagementEnhanced() {
     firstName: "",
     lastName: "",
     email: "",
+    employeeId: "",
     role: "EMPLOYEE",
     department: "",
     position: "",
     phoneNumber: "",
-    hireDate: "",
+    joiningDate: "",
     managerId: "",
     departmentDirectorId: "",
     isActive: true,
@@ -144,11 +148,12 @@ export function UserManagementEnhanced() {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      employeeId: user.employeeId,
       role: user.role,
       department: user.department || "",
       position: user.position || "",
       phoneNumber: user.phoneNumber || "",
-      hireDate: user.hireDate ? format(new Date(user.hireDate), 'yyyy-MM-dd') : "",
+      joiningDate: user.joiningDate ? format(new Date(user.joiningDate), 'yyyy-MM-dd') : "",
       managerId: user.managerId || "",
       departmentDirectorId: user.departmentDirectorId || "",
       isActive: user.isActive,
@@ -206,11 +211,12 @@ export function UserManagementEnhanced() {
       firstName: "",
       lastName: "",
       email: "",
+      employeeId: "",
       role: "EMPLOYEE",
       department: "",
       position: "",
       phoneNumber: "",
-      hireDate: "",
+      joiningDate: "",
       managerId: "",
       departmentDirectorId: "",
       isActive: true,
@@ -269,7 +275,7 @@ export function UserManagementEnhanced() {
 
   const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}/status`, {
+      const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !currentStatus })
@@ -278,6 +284,8 @@ export function UserManagementEnhanced() {
       if (response.ok) {
         toast.success(`User ${currentStatus ? 'deactivated' : 'activated'}`)
         fetchUsers()
+      } else {
+        toast.error('Failed to update user status')
       }
     } catch (error) {
       toast.error('Failed to update user status')
@@ -519,6 +527,14 @@ export function UserManagementEnhanced() {
                   />
                 </div>
                 <div>
+                  <Label>Employee ID</Label>
+                  <Input 
+                    value={formData.employeeId}
+                    onChange={(e) => setFormData({...formData, employeeId: e.target.value})}
+                    placeholder="e.g., EMP001"
+                  />
+                </div>
+                <div>
                   <Label>Phone Number</Label>
                   <Input 
                     value={formData.phoneNumber}
@@ -526,11 +542,19 @@ export function UserManagementEnhanced() {
                   />
                 </div>
                 <div>
-                  <Label>Hire Date</Label>
+                  <Label>Joining Date</Label>
                   <Input 
                     type="date"
-                    value={formData.hireDate}
-                    onChange={(e) => setFormData({...formData, hireDate: e.target.value})}
+                    value={formData.joiningDate}
+                    onChange={(e) => setFormData({...formData, joiningDate: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Position</Label>
+                  <Input 
+                    value={formData.position}
+                    onChange={(e) => setFormData({...formData, position: e.target.value})}
+                    placeholder="e.g., Software Engineer"
                   />
                 </div>
                 <div>

@@ -100,20 +100,16 @@ export async function PATCH(
     if (data.firstName !== undefined) updateData.firstName = data.firstName;
     if (data.lastName !== undefined) updateData.lastName = data.lastName;
     if (data.email !== undefined) updateData.email = data.email;
-    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber;
     if (data.employeeId !== undefined) updateData.employeeId = data.employeeId;
-    if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle;
+    if (data.position !== undefined) updateData.position = data.position;
+    if (data.department !== undefined) updateData.department = data.department;
     if (data.role !== undefined) updateData.role = data.role;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     
     // Date fields
-    if (data.joinDate !== undefined) {
-      updateData.joinDate = data.joinDate ? new Date(data.joinDate) : null;
-    }
-    
-    // Relationship fields
-    if (data.departmentId !== undefined) {
-      updateData.departmentId = data.departmentId || null;
+    if (data.joiningDate !== undefined) {
+      updateData.joiningDate = data.joiningDate ? new Date(data.joiningDate) : null;
     }
     if (data.managerId !== undefined) {
       updateData.managerId = data.managerId || null;
@@ -132,8 +128,16 @@ export async function PATCH(
     const updatedUser = await prisma.user.update({
       where: { id: params.userId },
       data: updateData,
-      include: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        employeeId: true,
         department: true,
+        position: true,
+        role: true,
+        isActive: true,
         manager: {
           select: {
             id: true,
