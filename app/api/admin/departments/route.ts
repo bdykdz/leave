@@ -12,29 +12,17 @@ export async function GET(request: NextRequest) {
     }
 
     const departments = await prisma.department.findMany({
-      include: {
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        director: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        parentDepartment: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        code: true,
+        managerId: true,
+        directorId: true,
+        parentDepartmentId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             users: true,
@@ -46,8 +34,46 @@ export async function GET(request: NextRequest) {
         name: 'asc'
       }
     });
+    
+    // Fetch manager and director details separately if needed
+    const departmentsWithDetails = await Promise.all(
+      departments.map(async (dept) => {
+        let manager = null;
+        let director = null;
+        
+        if (dept.managerId) {
+          manager = await prisma.user.findUnique({
+            where: { id: dept.managerId },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          });
+        }
+        
+        if (dept.directorId) {
+          director = await prisma.user.findUnique({
+            where: { id: dept.directorId },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          });
+        }
+        
+        return {
+          ...dept,
+          manager,
+          director
+        };
+      })
+    );
 
-    return NextResponse.json(departments);
+    return NextResponse.json(departmentsWithDetails);
   } catch (error) {
     console.error('Error fetching departments:', error);
     return NextResponse.json(

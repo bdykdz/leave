@@ -130,7 +130,8 @@ export function UserManagementEnhanced() {
       const response = await fetch('/api/admin/departments')
       if (response.ok) {
         const data = await response.json()
-        setDepartments(data.departments?.map((d: any) => d.name) || [])
+        // data is already an array of departments, not wrapped in an object
+        setDepartments(data.map((d: any) => d.name) || [])
       }
     } catch (error) {
       console.error('Failed to load departments')

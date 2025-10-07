@@ -23,13 +23,22 @@ export async function GET(request: NextRequest) {
     }
 
     const users = await prisma.user.findMany({
-      include: {
-        department: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        employeeId: true,
+        jobTitle: true,
+        role: true,
+        isActive: true,
+        joinDate: true,
+        departmentId: true,
+        managerId: true,
+        departmentDirectorId: true,
+        createdAt: true,
+        updatedAt: true,
         manager: {
           select: {
             id: true,
@@ -53,7 +62,22 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    return NextResponse.json({ users });
+    // Fetch department details for each user
+    const departments = await prisma.department.findMany({
+      select: {
+        id: true,
+        name: true
+      }
+    });
+    
+    const departmentMap = new Map(departments.map(d => [d.id, d.name]));
+    
+    const usersWithDepartment = users.map(user => ({
+      ...user,
+      department: user.departmentId ? departmentMap.get(user.departmentId) || null : null
+    }));
+
+    return NextResponse.json({ users: usersWithDepartment });
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
