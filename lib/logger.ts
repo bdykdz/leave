@@ -134,8 +134,19 @@ class Logger {
       console.error(formatted);
       
       // In production, send to error tracking service (e.g., Sentry)
-      if (!this.isDevelopment && process.env.SENTRY_DSN) {
-        // TODO: Integrate with Sentry or similar service
+      if (!this.isDevelopment && (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)) {
+        // Dynamic import to avoid issues in environments without Sentry
+        if (typeof window !== 'undefined') {
+          import('@sentry/nextjs').then((Sentry) => {
+            Sentry.captureException(error instanceof Error ? error : new Error(message), {
+              level: 'error',
+              extra: this.sanitize(context)
+            });
+          }).catch(() => {
+            // Sentry not available, fallback to console
+            console.error('Failed to send error to Sentry');
+          });
+        }
       }
     }
   }

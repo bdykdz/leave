@@ -51,9 +51,25 @@ export class ErrorBoundary extends Component<Props, State> {
       errorCount: prevState.errorCount + 1,
     }));
 
-    // In production, you might want to send this to an error tracking service
+    // In production, send to Sentry error tracking service
     if (process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      // TODO: Send to Sentry or similar service
+      // Dynamic import to avoid issues in environments without Sentry
+      import('@sentry/nextjs').then((Sentry) => {
+        Sentry.captureException(error, {
+          contexts: {
+            react: {
+              componentStack: errorInfo.componentStack,
+            },
+          },
+          tags: {
+            component: 'ErrorBoundary',
+            errorCount: String(this.state.errorCount + 1),
+          },
+        });
+      }).catch(() => {
+        // Sentry not available, already logged via logger
+        console.error('Failed to send error to Sentry from ErrorBoundary');
+      });
     }
   }
 

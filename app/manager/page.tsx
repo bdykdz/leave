@@ -118,6 +118,21 @@ export default function ManagerDashboard() {
     }
   }, [deniedRequestsPage, teamRequestsTab])
 
+  // Fetch manager's WFH stats
+  useEffect(() => {
+    fetchManagerWfhStats()
+  }, [])
+
+  // Fetch manager's own requests
+  useEffect(() => {
+    fetchManagerOwnRequests()
+  }, [myRequestsPage])
+
+  // Fetch team WFH stats
+  useEffect(() => {
+    fetchTeamWfhStats()
+  }, [])
+
   const fetchManagerLeaveBalance = async () => {
     try {
       const response = await fetch('/api/manager/leave-balance')
@@ -175,6 +190,43 @@ export default function ManagerDashboard() {
       toast.error('Failed to load approved requests')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchManagerWfhStats = async () => {
+    try {
+      const response = await fetch('/api/manager/wfh-stats')
+      if (response.ok) {
+        const data = await response.json()
+        setManagerWfhStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching manager WFH stats:', error)
+    }
+  }
+
+  const fetchManagerOwnRequests = async () => {
+    try {
+      const response = await fetch(`/api/manager/own-requests?page=${myRequestsPage}&limit=${myRequestsPerPage}`)
+      if (response.ok) {
+        const data = await response.json()
+        setManagerRequests(data.requests)
+        setMyRequestsTotalPages(data.pagination.totalPages)
+      }
+    } catch (error) {
+      console.error('Error fetching manager requests:', error)
+    }
+  }
+
+  const fetchTeamWfhStats = async () => {
+    try {
+      const response = await fetch('/api/manager/team/wfh-stats')
+      if (response.ok) {
+        const data = await response.json()
+        setTeamWfhStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching team WFH stats:', error)
     }
   }
 
@@ -251,26 +303,32 @@ export default function ManagerDashboard() {
     }
   }
 
-  // TODO: Add manager's WFH stats API endpoint
-  const managerWfhStats = { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
+  // Manager's WFH stats
+  const [managerWfhStats, setManagerWfhStats] = useState({ 
+    daysUsed: 0, 
+    workingDaysInMonth: 22, 
+    percentage: 0 
+  })
 
-  // TODO: Add manager's own requests API endpoint
-  const managerRequests: any[] = []
+  // Manager's own requests
+  const [managerRequests, setManagerRequests] = useState<any[]>([])
+  const [myRequestsTotalPages, setMyRequestsTotalPages] = useState(1)
   const myRequestsPerPage = 3
-  const myRequestsTotalPages = Math.ceil(managerRequests.length / myRequestsPerPage) || 1
 
-  // Mock team WFH data - TODO: Create API endpoint
-  const teamWfhStats = { averageWfhPercentage: 0, totalWfhDays: 0, totalWorkingDays: 160 }
+  // Team WFH stats
+  const [teamWfhStats, setTeamWfhStats] = useState({ 
+    averageWfhPercentage: 0, 
+    totalWfhDays: 0, 
+    totalWorkingDays: 0 
+  })
 
   // Pagination for pending requests
   const pendingRequestsPerPage = 4
   const startIndex = (pendingRequestsPage - 1) * pendingRequestsPerPage
   const paginatedPendingRequests = pendingRequests.slice(startIndex, startIndex + pendingRequestsPerPage)
 
-  // Pagination for manager's own requests
-  const myRequestsStartIndex = (myRequestsPage - 1) * myRequestsPerPage
-  const myRequestsEndIndex = myRequestsStartIndex + myRequestsPerPage
-  const currentMyRequests = managerRequests.slice(myRequestsStartIndex, myRequestsEndIndex)
+  // Manager's own requests are already paginated from the API
+  const currentMyRequests = managerRequests
 
   const getStatusIcon = (status: string) => {
     switch (status) {
