@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch settings from database or return defaults
-    const settings = await prisma.escalationSettings.findFirst({
-      where: { id: 'default' }
+    const settings = await prisma.companySetting.findFirst({
+      where: { key: 'ESCALATION_SETTINGS' }
     });
 
     // If no settings exist, return default configuration
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json({ 
-      settings: settings?.config || defaultSettings 
+      settings: settings?.value || defaultSettings 
     });
   } catch (error) {
     console.error('Error fetching escalation settings:', error);
@@ -91,17 +91,16 @@ export async function PUT(request: NextRequest) {
     }
 
     // Upsert settings
-    const savedSettings = await prisma.escalationSettings.upsert({
-      where: { id: 'default' },
+    const savedSettings = await prisma.companySetting.upsert({
+      where: { key: 'ESCALATION_SETTINGS' },
       update: {
-        config: settings,
-        updatedAt: new Date(),
-        updatedById: session.user.id
+        value: settings,
+        updatedAt: new Date()
       },
       create: {
-        id: 'default',
-        config: settings,
-        updatedById: session.user.id
+        key: 'ESCALATION_SETTINGS',
+        value: settings,
+        description: 'Automatic approval escalation rules and timeouts'
       }
     });
 
@@ -120,7 +119,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ 
       message: 'Escalation settings updated successfully',
-      settings: savedSettings.config
+      settings: savedSettings.value
     });
   } catch (error) {
     console.error('Error updating escalation settings:', error);
