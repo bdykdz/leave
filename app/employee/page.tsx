@@ -24,6 +24,7 @@ import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { TeamCalendar } from "@/components/team-calendar"
 import { HolidaysList } from "@/components/HolidaysList"
+import { SubstituteRequestManager } from "@/components/substitute/SubstituteRequestManager"
 import { format } from "date-fns/format"
 import { addMonths } from "date-fns/addMonths"
 import { subMonths } from "date-fns/subMonths"
@@ -564,6 +565,9 @@ export default function EmployeeDashboard() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Substitute Requests Section */}
+              <SubstituteRequestManager />
             </div>
 
             {/* Upcoming Company Holidays */}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
   Building, 
@@ -42,42 +44,23 @@ import {
   AlertCircle,
   Save,
   X,
+  UserPlus,
+  UserMinus,
+  Network,
+  FolderTree,
 } from "lucide-react"
 import { toast } from "sonner"
 
 interface Department {
   id: string
   name: string
+  code: string
   description?: string
-  managerId?: string | null
-  directorId?: string | null
-  parentDepartmentId?: string | null
-  manager?: {
-    id: string
-    firstName: string
-    lastName: string
-    email: string
-  } | null
-  director?: {
-    id: string
-    firstName: string
-    lastName: string
-    email: string
-  } | null
-  parentDepartment?: {
-    id: string
-    name: string
-  } | null
-  employees: {
-    id: string
-    firstName: string
-    lastName: string
-    email: string
-    position: string
-    role: string
-  }[]
+  isActive: boolean
+  order?: number
+  createdAt?: string
   _count?: {
-    employees: number
+    users: number
     childDepartments: number
   }
 }
@@ -87,8 +70,11 @@ interface User {
   firstName: string
   lastName: string
   email: string
+  employeeId: string
   role: string
   department?: string
+  position?: string
+  isActive: boolean
 }
 
 export function DepartmentManager() {
@@ -98,21 +84,16 @@ export function DepartmentManager() {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false)
-  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
-  const [expandedDepartments, setExpandedDepartments] = useState<string[]>([])
+  const [isAssignUsersDialogOpen, setIsAssignUsersDialogOpen] = useState(false)
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   
   // Form data
   const [formData, setFormData] = useState({
     name: "",
+    code: "",
     description: "",
-    managerId: "",
-    directorId: "",
-    parentDepartmentId: "",
-  })
-
-  const [assignData, setAssignData] = useState({
-    userId: "",
-    role: "EMPLOYEE",
+    order: 0,
+    isActive: true,
   })
 
   useEffect(() => {
@@ -126,10 +107,13 @@ export function DepartmentManager() {
       const response = await fetch('/api/admin/departments')
       if (response.ok) {
         const data = await response.json()
-        setDepartments(data.departments || [])
+        setDepartments(data)
+      } else {
+        toast.error('Failed to load departments')
       }
     } catch (error) {
-      toast.error('Failed to load departments')
+      console.error('Error fetching departments:', error)
+      toast.error('Error loading departments')
     } finally {
       setLoading(false)
     }
@@ -143,17 +127,17 @@ export function DepartmentManager() {
         setAllUsers(data.users || [])
       }
     } catch (error) {
-      console.error('Failed to load users')
+      console.error('Error fetching users:', error)
     }
   }
 
   const handleNewDepartment = () => {
     setFormData({
       name: "",
+      code: "",
       description: "",
-      managerId: "",
-      directorId: "",
-      parentDepartmentId: "",
+      order: 0,
+      isActive: true,
     })
     setIsNewDialogOpen(true)
   }
@@ -162,17 +146,17 @@ export function DepartmentManager() {
     setSelectedDepartment(dept)
     setFormData({
       name: dept.name,
+      code: dept.code,
       description: dept.description || "",
-      managerId: dept.managerId || "",
-      directorId: dept.directorId || "",
-      parentDepartmentId: dept.parentDepartmentId || "",
+      order: dept.order || 0,
+      isActive: dept.isActive,
     })
     setIsEditDialogOpen(true)
   }
 
   const handleSaveDepartment = async () => {
     try {
-      const url = selectedDepartment
+      const url = selectedDepartment 
         ? `/api/admin/departments/${selectedDepartment.id}`
         : '/api/admin/departments'
       
@@ -185,21 +169,23 @@ export function DepartmentManager() {
       })
 
       if (response.ok) {
-        toast.success(selectedDepartment ? 'Department updated' : 'Department created')
+        toast.success(selectedDepartment ? 'Department updated successfully' : 'Department created successfully')
         fetchDepartments()
         setIsEditDialogOpen(false)
         setIsNewDialogOpen(false)
+        setSelectedDepartment(null)
       } else {
         const error = await response.json()
-        toast.error(error.message || 'Failed to save department')
+        toast.error(error.error || 'Failed to save department')
       }
     } catch (error) {
-      toast.error('An error occurred')
+      console.error('Error saving department:', error)
+      toast.error('Failed to save department')
     }
   }
 
   const handleDeleteDepartment = async (deptId: string) => {
-    if (!confirm('Are you sure? This will remove the department and reassign all employees.')) {
+    if (!confirm('Are you sure you want to delete this department? This action cannot be undone.')) {
       return
     }
 
@@ -209,77 +195,88 @@ export function DepartmentManager() {
       })
 
       if (response.ok) {
-        toast.success('Department deleted')
+        toast.success('Department deleted successfully')
         fetchDepartments()
       } else {
-        toast.error('Failed to delete department')
+        const error = await response.json()
+        toast.error(error.error || 'Failed to delete department')
       }
     } catch (error) {
-      toast.error('An error occurred')
+      console.error('Error deleting department:', error)
+      toast.error('Failed to delete department')
     }
   }
 
-  const handleAssignPeople = (dept: Department) => {
+  const handleAssignUsers = (dept: Department) => {
     setSelectedDepartment(dept)
-    setAssignData({ userId: "", role: "EMPLOYEE" })
-    setIsAssignDialogOpen(true)
+    // Pre-select users already in this department
+    const deptUsers = allUsers
+      .filter(user => user.department === dept.name)
+      .map(user => user.id)
+    setSelectedUsers(deptUsers)
+    setIsAssignUsersDialogOpen(true)
   }
 
-  const handleAssignUser = async () => {
-    if (!selectedDepartment || !assignData.userId) return
+  const handleSaveUserAssignments = async () => {
+    if (!selectedDepartment) return
 
     try {
-      const response = await fetch(`/api/admin/departments/${selectedDepartment.id}/assign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: assignData.userId,
-          role: assignData.role,
+      // First, remove users no longer selected
+      const currentDeptUsers = allUsers.filter(u => u.department === selectedDepartment.name)
+      const usersToRemove = currentDeptUsers
+        .filter(u => !selectedUsers.includes(u.id))
+        .map(u => u.id)
+
+      if (usersToRemove.length > 0) {
+        await fetch(`/api/admin/departments/${selectedDepartment.id}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userIds: usersToRemove,
+            action: 'remove'
+          })
         })
-      })
-
-      if (response.ok) {
-        toast.success('User assigned to department')
-        fetchDepartments()
-        setIsAssignDialogOpen(false)
-      } else {
-        toast.error('Failed to assign user')
       }
+
+      // Then, add newly selected users
+      const newUsers = selectedUsers.filter(
+        userId => !currentDeptUsers.some(u => u.id === userId)
+      )
+
+      if (newUsers.length > 0) {
+        // Update users to set their department
+        for (const userId of newUsers) {
+          await fetch(`/api/admin/users/${userId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              department: selectedDepartment.name
+            })
+          })
+        }
+      }
+
+      toast.success('User assignments updated successfully')
+      fetchDepartments()
+      fetchUsers()
+      setIsAssignUsersDialogOpen(false)
+      setSelectedUsers([])
     } catch (error) {
-      toast.error('An error occurred')
+      console.error('Error updating user assignments:', error)
+      toast.error('Failed to update user assignments')
     }
   }
 
-  const handleRemoveUser = async (deptId: string, userId: string) => {
-    try {
-      const response = await fetch(`/api/admin/departments/${deptId}/remove-user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      })
-
-      if (response.ok) {
-        toast.success('User removed from department')
-        fetchDepartments()
-      } else {
-        toast.error('Failed to remove user')
-      }
-    } catch (error) {
-      toast.error('An error occurred')
-    }
+  const getUsersInDepartment = (deptName: string) => {
+    return allUsers.filter(user => user.department === deptName)
   }
 
-  const toggleExpanded = (deptId: string) => {
-    setExpandedDepartments(prev =>
-      prev.includes(deptId)
-        ? prev.filter(id => id !== deptId)
-        : [...prev, deptId]
-    )
+  const getDepartmentBadgeColor = (userCount: number) => {
+    if (userCount === 0) return "secondary"
+    if (userCount < 5) return "default"
+    if (userCount < 10) return "outline"
+    return "default"
   }
-
-  const managers = allUsers.filter(u => ['MANAGER', 'DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(u.role))
-  const directors = allUsers.filter(u => ['DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(u.role))
-  const availableUsers = allUsers.filter(u => !selectedDepartment?.employees.some(e => e.id === u.id))
 
   return (
     <div className="space-y-6">
@@ -292,369 +289,325 @@ export function DepartmentManager() {
                 Department Management
               </CardTitle>
               <CardDescription>
-                Manage departments, assign managers, directors, and employees
+                Manage organizational departments and their assignments
               </CardDescription>
             </div>
             <Button onClick={handleNewDepartment} className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              New Department
+              Add Department
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="text-center py-8">Loading departments...</div>
-          ) : departments.length === 0 ? (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No departments found. Create your first department to get started.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <div className="space-y-4">
-              {departments.map((dept) => (
-                <Card key={dept.id} className="border-l-4 border-l-blue-500">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold">{dept.name}</h3>
-                          <Badge variant="outline">
-                            {dept.employees?.length || 0} employees
-                          </Badge>
-                        </div>
-                        {dept.description && (
-                          <p className="text-sm text-gray-600 mb-2">{dept.description}</p>
-                        )}
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          {dept.manager && (
-                            <div className="flex items-center gap-1">
-                              <UserCog className="h-4 w-4 text-green-600" />
-                              <span>Manager: {dept.manager.firstName} {dept.manager.lastName}</span>
-                            </div>
-                          )}
-                          {dept.director && (
-                            <div className="flex items-center gap-1">
-                              <UserCog className="h-4 w-4 text-blue-600" />
-                              <span>Director: {dept.director.firstName} {dept.director.lastName}</span>
-                            </div>
-                          )}
-                          {dept.parentDepartment && (
-                            <div className="flex items-center gap-1">
-                              <Building className="h-4 w-4 text-gray-600" />
-                              <span>Parent: {dept.parentDepartment.name}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAssignPeople(dept)}
-                        >
-                          <Users className="h-4 w-4 mr-1" />
-                          Assign
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditDepartment(dept)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600"
-                          onClick={() => handleDeleteDepartment(dept.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  {dept.employees && dept.employees.length > 0 && (
-                    <CardContent>
-                      <div className="space-y-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleExpanded(dept.id)}
-                          className="mb-2"
-                        >
-                          <ChevronRight 
-                            className={`h-4 w-4 mr-1 transition-transform ${
-                              expandedDepartments.includes(dept.id) ? 'rotate-90' : ''
-                            }`}
-                          />
-                          View Employees ({dept.employees.length})
-                        </Button>
-                        
-                        {expandedDepartments.includes(dept.id) && (
-                          <div className="rounded-md border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Name</TableHead>
-                                  <TableHead>Email</TableHead>
-                                  <TableHead>Position</TableHead>
-                                  <TableHead>Role</TableHead>
-                                  <TableHead className="text-right">Action</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {dept.employees.map((emp) => (
-                                  <TableRow key={emp.id}>
-                                    <TableCell>{emp.firstName} {emp.lastName}</TableCell>
-                                    <TableCell>{emp.email}</TableCell>
-                                    <TableCell>{emp.position || '-'}</TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline">{emp.role}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="text-red-600"
-                                        onClick={() => handleRemoveUser(dept.id, emp.id)}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{departments.length}</div>
+                  <div className="text-sm text-gray-600">Total Departments</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">
+                    {departments.filter(d => d.isActive).length}
+                  </div>
+                  <div className="text-sm text-gray-600">Active</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{allUsers.length}</div>
+                  <div className="text-sm text-gray-600">Total Employees</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">
+                    {allUsers.filter(u => !u.department || u.department === "").length}
+                  </div>
+                  <div className="text-sm text-gray-600">Unassigned</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Departments Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Employees</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      Loading departments...
+                    </TableCell>
+                  </TableRow>
+                ) : departments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      No departments found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  departments.map((dept) => {
+                    const userCount = dept._count?.users || 0
+                    return (
+                      <TableRow key={dept.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{dept.name}</div>
+                            {dept.description && (
+                              <div className="text-sm text-gray-600">{dept.description}</div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              ))}
-            </div>
-          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{dept.code}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getDepartmentBadgeColor(userCount)}>
+                            {userCount} {userCount === 1 ? 'employee' : 'employees'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={dept.isActive ? "default" : "secondary"}>
+                            {dept.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleAssignUsers(dept)}
+                              title="Manage Users"
+                            >
+                              <Users className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditDepartment(dept)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600"
+                              onClick={() => handleDeleteDepartment(dept.id)}
+                              disabled={userCount > 0}
+                              title={userCount > 0 ? "Cannot delete department with employees" : "Delete department"}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* New Department Dialog */}
-      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-        <DialogContent>
+      {/* Create/Edit Department Dialog */}
+      <Dialog open={isNewDialogOpen || isEditDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsNewDialogOpen(false)
+          setIsEditDialogOpen(false)
+          setSelectedDepartment(null)
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create New Department</DialogTitle>
+            <DialogTitle>
+              {selectedDepartment ? 'Edit Department' : 'Create New Department'}
+            </DialogTitle>
             <DialogDescription>
-              Set up a new department in your organization
+              {selectedDepartment ? 'Update department information' : 'Add a new department to your organization'}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <Label>Department Name *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="e.g., Engineering, Sales, HR"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Department Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="e.g., Engineering"
+                />
+              </div>
+              <div>
+                <Label htmlFor="code">Department Code *</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData({...formData, code: e.target.value})}
+                  placeholder="e.g., ENG"
+                />
+              </div>
             </div>
-            
+
             <div>
-              <Label>Description</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
+                id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 placeholder="Brief description of the department"
                 rows={3}
               />
             </div>
-            
-            <div>
-              <Label>Department Manager</Label>
-              <Select value={formData.managerId} onValueChange={(value) => setFormData({...formData, managerId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Manager</SelectItem>
-                  {managers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Department Director</Label>
-              <Select value={formData.directorId} onValueChange={(value) => setFormData({...formData, directorId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select director" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Director</SelectItem>
-                  {directors.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Parent Department</Label>
-              <Select value={formData.parentDepartmentId} onValueChange={(value) => setFormData({...formData, parentDepartmentId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select parent department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Parent (Top Level)</SelectItem>
-                  {departments.map(dept => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="order">Display Order</Label>
+                <Input
+                  id="order"
+                  type="number"
+                  value={formData.order}
+                  onChange={(e) => setFormData({...formData, order: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={formData.isActive.toString()}
+                  onValueChange={(value) => setFormData({...formData, isActive: value === 'true'})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Active</SelectItem>
+                    <SelectItem value="false">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setIsNewDialogOpen(false)
+              setIsEditDialogOpen(false)
+              setSelectedDepartment(null)
+            }}>
               Cancel
             </Button>
             <Button onClick={handleSaveDepartment}>
-              Create Department
+              {selectedDepartment ? 'Update' : 'Create'} Department
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Department Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+      {/* Assign Users Dialog */}
+      <Dialog open={isAssignUsersDialogOpen} onOpenChange={setIsAssignUsersDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Department</DialogTitle>
+            <DialogTitle>Assign Users to {selectedDepartment?.name}</DialogTitle>
             <DialogDescription>
-              Update department information
+              Select users to assign to this department
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label>Department Name *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-              />
-            </div>
-            
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                rows={3}
-              />
-            </div>
-            
-            <div>
-              <Label>Department Manager</Label>
-              <Select value={formData.managerId} onValueChange={(value) => setFormData({...formData, managerId: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Manager</SelectItem>
-                  {managers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Department Director</Label>
-              <Select value={formData.directorId} onValueChange={(value) => setFormData({...formData, directorId: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Director</SelectItem>
-                  {directors.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveDepartment}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Assign People Dialog */}
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign User to {selectedDepartment?.name}</DialogTitle>
-            <DialogDescription>
-              Add a user to this department
-            </DialogDescription>
-          </DialogHeader>
-          
           <div className="space-y-4">
-            <div>
-              <Label>Select User</Label>
-              <Select value={assignData.userId} onValueChange={(value) => setAssignData({...assignData, userId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} - {user.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Role in Department</Label>
-              <Select value={assignData.role} onValueChange={(value) => setAssignData({...assignData, role: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                  <SelectItem value="MANAGER">Manager</SelectItem>
-                  <SelectItem value="DEPARTMENT_DIRECTOR">Director</SelectItem>
-                </SelectContent>
-              </Select>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Selected: {selectedUsers.length} users
+              </AlertDescription>
+            </Alert>
+
+            <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={selectedUsers.length === allUsers.filter(u => u.isActive).length}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedUsers(allUsers.filter(u => u.isActive).map(u => u.id))
+                          } else {
+                            setSelectedUsers([])
+                          }
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Current Department</TableHead>
+                    <TableHead>Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allUsers
+                    .filter(user => user.isActive)
+                    .map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedUsers.includes(user.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedUsers([...selectedUsers, user.id])
+                              } else {
+                                setSelectedUsers(selectedUsers.filter(id => id !== user.id))
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {user.firstName} {user.lastName}
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.department === selectedDepartment?.name ? "default" : "outline"}>
+                            {user.department || 'Unassigned'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge>{user.role}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setIsAssignUsersDialogOpen(false)
+              setSelectedUsers([])
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleAssignUser}>
-              Assign User
+            <Button onClick={handleSaveUserAssignments}>
+              Save Assignments
             </Button>
           </DialogFooter>
         </DialogContent>

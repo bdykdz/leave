@@ -25,6 +25,7 @@ import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
+import { DelegationManager } from "@/components/manager/DelegationManager"
 import { format, addMonths, subMonths } from "date-fns"
 import {
   DropdownMenu,
@@ -458,6 +459,9 @@ export default function ManagerDashboard() {
           </Button>
           <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
             {t.dashboard.teamCalendar}
+          </Button>
+          <Button variant={activeTab === "delegation" ? "default" : "outline"} onClick={() => setActiveTab("delegation")}>
+            Delegation
           </Button>
         </div>
 
@@ -1145,6 +1149,8 @@ export default function ManagerDashboard() {
         )}
 
         {activeTab === "calendar" && <TeamCalendar />}
+
+        {activeTab === "delegation" && <DelegationManager />}
       </div>
 
       {/* Approval Dialog */}

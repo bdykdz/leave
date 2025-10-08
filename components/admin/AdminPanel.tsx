@@ -18,6 +18,8 @@ import { ManualRequestEntry } from "./ManualRequestEntry"
 import { OverlapManager } from "./OverlapManager"
 import { SystemSettings } from "./SystemSettings"
 import { HolidaysManager } from "./HolidaysManager"
+import { EscalationSettings } from "./EscalationSettings"
+import { AuditLogViewer } from "./AuditLogViewer"
 import { 
   FileText,
   Calendar,
@@ -34,6 +36,8 @@ import {
   User,
   ClipboardList,
   AlertTriangle,
+  TrendingUp,
+  History,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -113,7 +117,7 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12">
+          <TabsList className="grid w-full grid-cols-7 lg:grid-cols-14">
             <TabsTrigger value="overlaps" className="flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               <span className="hidden sm:inline">Overlaps</span>
@@ -142,6 +146,10 @@ export function AdminPanel() {
               <GitBranch className="h-3 w-3" />
               <span className="hidden sm:inline">Workflows</span>
             </TabsTrigger>
+            <TabsTrigger value="escalation" className="flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
+              <span className="hidden sm:inline">Escalation</span>
+            </TabsTrigger>
             <TabsTrigger value="retention" className="flex items-center gap-1">
               <Archive className="h-3 w-3" />
               <span className="hidden sm:inline">Retention</span>
@@ -161,6 +169,10 @@ export function AdminPanel() {
             <TabsTrigger value="settings" className="flex items-center gap-1">
               <Settings className="h-3 w-3" />
               <span className="hidden sm:inline">Settings</span>
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="flex items-center gap-1">
+              <History className="h-3 w-3" />
+              <span className="hidden sm:inline">Audit Logs</span>
             </TabsTrigger>
           </TabsList>
 
@@ -196,6 +208,10 @@ export function AdminPanel() {
             <WorkflowRulesManager />
           </TabsContent>
 
+          <TabsContent value="escalation" className="space-y-4">
+            <EscalationSettings />
+          </TabsContent>
+
           <TabsContent value="positions" className="space-y-4">
             <PositionsManager />
           </TabsContent>
@@ -210,6 +226,10 @@ export function AdminPanel() {
 
           <TabsContent value="settings" className="space-y-4">
             <SystemSettings />
+          </TabsContent>
+
+          <TabsContent value="audit" className="space-y-4">
+            <AuditLogViewer />
           </TabsContent>
         </Tabs>
       </div>
