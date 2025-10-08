@@ -20,6 +20,7 @@ import {
   Plus,
   Heart,
   AlertTriangle,
+  CalendarDays,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
@@ -391,13 +392,31 @@ export default function ManagerDashboard() {
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
-              <p className="text-gray-600">
-                {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
-              </p>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push("/employee")}
+                title="Back to Personal Dashboard"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
+                <p className="text-gray-600">
+                  {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button 
+                onClick={() => router.push("/employee")} 
+                variant="outline" 
+                className="flex items-center gap-2"
+              >
+                <CalendarDays className="h-4 w-4" />
+                My Dashboard
+              </Button>
               <Badge
                 variant="outline"
                 className="text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"

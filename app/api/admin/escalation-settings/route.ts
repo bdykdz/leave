@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { canModifySystemSettings } from '@/lib/auth-helpers';
 
 // GET: Fetch escalation settings
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       select: { role: true }
     });
 
-    if (!user || user.role !== 'ADMIN') {
+    if (!user || !canModifySystemSettings(user.role)) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
@@ -68,7 +69,7 @@ export async function PUT(request: NextRequest) {
       select: { role: true }
     });
 
-    if (!user || user.role !== 'ADMIN') {
+    if (!user || !canModifySystemSettings(user.role)) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 

@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Shield,
   TrendingUp,
+  Building,
 } from "lucide-react"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
@@ -56,6 +57,7 @@ export default function EmployeeDashboard() {
   const [wfhRequests, setWfhRequests] = useState<any[]>([])
   const [allRequests, setAllRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(true)
+  const [hasDirectReports, setHasDirectReports] = useState(false)
 
   useEffect(() => {
     if (status === "loading") return
@@ -65,27 +67,13 @@ export default function EmployeeDashboard() {
       return
     }
 
-    // Only allow EMPLOYEE and ADMIN roles on this page
-    if (session.user.role !== "EMPLOYEE" && session.user.role !== "ADMIN") {
-      // Redirect to appropriate dashboard
-      switch (session.user.role) {
-        case "MANAGER":
-          router.push("/manager")
-          break
-        case "HR":
-          router.push("/hr")
-          break
-        case "EXECUTIVE":
-          router.push("/executive")
-          break
-        default:
-          router.push("/login")
-      }
-    } else {
-      // Fetch leave balances and requests
-      fetchLeaveBalances()
-      fetchAllRequests()
-    }
+    // All authenticated users can see their personal dashboard
+    // No need to redirect based on role
+    
+    // Fetch leave balances and requests
+    fetchLeaveBalances()
+    fetchAllRequests()
+    checkManagementStatus()
   }, [session, status, router])
 
   const fetchLeaveBalances = async () => {
@@ -100,6 +88,20 @@ export default function EmployeeDashboard() {
       console.error('Error fetching leave balances:', error)
     } finally {
       setLoadingBalances(false)
+    }
+  }
+
+  const checkManagementStatus = async () => {
+    // Check if current user has any direct reports
+    try {
+      const response = await fetch('/api/manager/team-members')
+      if (response.ok) {
+        const data = await response.json()
+        // If user has team members, they have management responsibilities
+        setHasDirectReports(data.teamMembers && data.teamMembers.length > 0)
+      }
+    } catch (error) {
+      console.error('Error checking management status:', error)
     }
   }
 
@@ -152,7 +154,7 @@ export default function EmployeeDashboard() {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
 
-  if (!session || (session.user.role !== "EMPLOYEE" && session.user.role !== "ADMIN")) {
+  if (!session) {
     return null
   }
 
@@ -314,10 +316,50 @@ export default function EmployeeDashboard() {
               <p className="text-gray-600">{t.dashboard.welcomeBack}, {userName}</p>
             </div>
             <div className="flex items-center gap-3">
-              {session.user.role === "ADMIN" && (
+              {(session.user.role === "ADMIN" || session.user.role === "EXECUTIVE") && (
                 <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
                   Admin Dashboard
+                </Button>
+              )}
+              {session.user.role === "HR" && (
+                <>
+                  <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    HR Dashboard
+                  </Button>
+                  {hasDirectReports && (
+                    <>
+                      <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Admin Dashboard
+                      </Button>
+                      <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Manager Dashboard
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+              {session.user.role === "EXECUTIVE" && (
+                <>
+                  <Button onClick={() => router.push("/executive")} variant="outline" className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Executive Dashboard
+                  </Button>
+                  {hasDirectReports && (
+                    <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Manager Dashboard
+                    </Button>
+                  )}
+                </>
+              )}
+              {session.user.role === "MANAGER" && (
+                <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Manager Dashboard
                 </Button>
               )}
               <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">

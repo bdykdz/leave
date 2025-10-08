@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { startOfDay, endOfDay, isAfter, isBefore, isWithinInterval, addDays } from 'date-fns';
 import { log } from './logger';
+import { WorkingDaysService } from './services/working-days-service';
 
 const prisma = new PrismaClient();
+const workingDaysService = WorkingDaysService.getInstance();
 
 export interface ValidationError {
   field: string;
@@ -380,10 +382,15 @@ export class ValidationService {
   static async validateLeaveBalance(
     userId: string,
     leaveTypeId: string,
-    requestedDays: number
+    requestedDays: number,
+    startDate: Date,
+    endDate: Date
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
     const currentYear = new Date().getFullYear();
+    
+    // Calculate actual working days
+    const actualWorkingDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
     
     const balance = await prisma.leaveBalance.findUnique({
       where: {
@@ -404,11 +411,22 @@ export class ValidationService {
       return errors;
     }
     
-    if (balance.available < requestedDays) {
+    // Use actual working days for validation, not the requested days
+    if (balance.available < actualWorkingDays) {
       errors.push({
         field: 'totalDays',
-        message: `Insufficient leave balance. Available: ${balance.available} days`,
+        message: `Insufficient leave balance. Available: ${balance.available} days, Required: ${actualWorkingDays} working days`,
         code: 'INSUFFICIENT_BALANCE',
+      });
+    }
+    
+    // Strict enforcement - prevent negative balances
+    const remainingBalance = balance.available - actualWorkingDays;
+    if (remainingBalance < 0) {
+      errors.push({
+        field: 'totalDays',
+        message: `This request would result in a negative balance (${remainingBalance} days)`,
+        code: 'NEGATIVE_BALANCE_NOT_ALLOWED',
       });
     }
     
@@ -450,11 +468,13 @@ export class ValidationService {
     );
     errors.push(...dateErrors);
     
-    // Balance validation
+    // Balance validation with working days calculation
     const balanceErrors = await this.validateLeaveBalance(
       userId,
       data.leaveTypeId,
-      data.totalDays
+      data.totalDays,
+      data.startDate,
+      data.endDate
     );
     errors.push(...balanceErrors);
     

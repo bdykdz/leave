@@ -20,6 +20,7 @@ import { SystemSettings } from "./SystemSettings"
 import { HolidaysManager } from "./HolidaysManager"
 import { EscalationSettings } from "./EscalationSettings"
 import { AuditLogViewer } from "./AuditLogViewer"
+import { LeaveBalanceSettings } from "./LeaveBalanceSettings"
 import { 
   FileText,
   Calendar,
@@ -38,6 +39,7 @@ import {
   AlertTriangle,
   TrendingUp,
   History,
+  Calculator,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -117,7 +119,7 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:grid-cols-14">
+          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-15">
             <TabsTrigger value="overlaps" className="flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               <span className="hidden sm:inline">Overlaps</span>
@@ -141,6 +143,10 @@ export function AdminPanel() {
             <TabsTrigger value="leave-types" className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               <span className="hidden sm:inline">Leave Types</span>
+            </TabsTrigger>
+            <TabsTrigger value="leave-balance" className="flex items-center gap-1">
+              <Calculator className="h-3 w-3" />
+              <span className="hidden sm:inline">Balance</span>
             </TabsTrigger>
             <TabsTrigger value="workflows" className="flex items-center gap-1">
               <GitBranch className="h-3 w-3" />
@@ -198,6 +204,10 @@ export function AdminPanel() {
 
         <TabsContent value="leave-types" className="space-y-4">
           <LeaveTypesManager />
+        </TabsContent>
+
+        <TabsContent value="leave-balance" className="space-y-4">
+          <LeaveBalanceSettings />
         </TabsContent>
 
         <TabsContent value="retention" className="space-y-4">

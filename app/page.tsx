@@ -10,13 +10,15 @@ export default async function HomePage() {
 
   // Redirect based on user role
   switch (user.role) {
-    case 'EMPLOYEE':
-    case 'ADMIN': // ADMIN users see employee dashboard with extra button
-    case 'EXECUTIVE': // EXECUTIVES also see employee dashboard first
-    case 'HR': // HR also sees employee dashboard first
-      redirect('/employee')
     case 'MANAGER':
+      // Managers should see their manager dashboard first (pending approvals, team overview)
       redirect('/manager')
+    case 'EMPLOYEE':
+    case 'ADMIN':
+    case 'HR':
+    case 'EXECUTIVE':
+      // These roles start at personal dashboard
+      redirect('/employee')
     default:
       redirect('/employee')
   }

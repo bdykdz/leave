@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       select: { role: true }
     });
 
-    if (!user || !['ADMIN', 'HR'].includes(user.role)) {
+    if (!user || !['ADMIN', 'HR', 'EXECUTIVE'].includes(user.role)) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
