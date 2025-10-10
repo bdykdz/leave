@@ -131,8 +131,8 @@ export async function POST(request: NextRequest) {
         position: data.position || 'Employee',
         department: data.department || 'General',
         role: data.role || 'EMPLOYEE',
-        managerId: data.managerId || null,
-        departmentDirectorId: data.departmentDirectorId || null,
+        managerId: (data.managerId === 'none' || !data.managerId) ? null : data.managerId,
+        departmentDirectorId: (data.departmentDirectorId === 'none' || !data.departmentDirectorId) ? null : data.departmentDirectorId,
         isActive: data.isActive !== undefined ? data.isActive : true,
         joiningDate: data.joiningDate ? new Date(data.joiningDate) : new Date()
       },

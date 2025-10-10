@@ -104,8 +104,8 @@ export function UserManagementEnhanced() {
     position: "",
     phoneNumber: "",
     joiningDate: "",
-    managerId: "",
-    departmentDirectorId: "",
+    managerId: "none",
+    departmentDirectorId: "none",
     isActive: true,
   })
 
@@ -154,8 +154,8 @@ export function UserManagementEnhanced() {
       position: user.position || "",
       phoneNumber: user.phoneNumber || "",
       joiningDate: user.joiningDate ? format(new Date(user.joiningDate), 'yyyy-MM-dd') : "",
-      managerId: user.managerId || "",
-      departmentDirectorId: user.departmentDirectorId || "",
+      managerId: user.managerId || "none",
+      departmentDirectorId: user.departmentDirectorId || "none",
       isActive: user.isActive,
     })
     setIsEditDialogOpen(true)
@@ -626,7 +626,7 @@ export function UserManagementEnhanced() {
                       <SelectValue placeholder="Select manager" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Manager</SelectItem>
+                      <SelectItem value="none">No Manager</SelectItem>
                       {managers.filter(m => m.id !== editingUser?.id).map(manager => (
                         <SelectItem key={manager.id} value={manager.id}>
                           {manager.firstName} {manager.lastName} ({manager.role})
@@ -642,7 +642,7 @@ export function UserManagementEnhanced() {
                       <SelectValue placeholder="Select director" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No Director</SelectItem>
+                      <SelectItem value="none">No Director</SelectItem>
                       {directors.filter(d => d.id !== editingUser?.id).map(director => (
                         <SelectItem key={director.id} value={director.id}>
                           {director.firstName} {director.lastName} ({director.role})

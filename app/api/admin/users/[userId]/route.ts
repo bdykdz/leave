@@ -112,10 +112,10 @@ export async function PATCH(
       updateData.joiningDate = data.joiningDate ? new Date(data.joiningDate) : null;
     }
     if (data.managerId !== undefined) {
-      updateData.managerId = data.managerId || null;
+      updateData.managerId = (data.managerId === 'none' || !data.managerId) ? null : data.managerId;
     }
     if (data.departmentDirectorId !== undefined) {
-      updateData.departmentDirectorId = data.departmentDirectorId || null;
+      updateData.departmentDirectorId = (data.departmentDirectorId === 'none' || !data.departmentDirectorId) ? null : data.departmentDirectorId;
     }
 
     // Password update (optional)
