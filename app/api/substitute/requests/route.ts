@@ -7,14 +7,24 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session || !session.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get the current user from the database
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Get pending substitute requests
     const pendingRequests = await prisma.substituteRequest.findMany({
       where: {
-        substituteId: session.user.id,
+        substituteId: currentUser.id,
         status: 'PENDING'
       },
       include: {
@@ -45,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Get accepted substitute requests
     const acceptedRequests = await prisma.substituteRequest.findMany({
       where: {
-        substituteId: session.user.id,
+        substituteId: currentUser.id,
         status: 'ACCEPTED'
       },
       include: {
@@ -72,7 +82,7 @@ export async function GET(request: NextRequest) {
     // Get declined substitute requests (recent)
     const declinedRequests = await prisma.substituteRequest.findMany({
       where: {
-        substituteId: session.user.id,
+        substituteId: currentUser.id,
         status: 'DECLINED',
         updatedAt: {
           gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
@@ -113,8 +123,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session || !session.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get the current user from the database
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, firstName: true, lastName: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const { requestId, action, reason } = await request.json();
@@ -145,7 +165,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (substituteRequest.substituteId !== session.user.id) {
+    if (substituteRequest.substituteId !== currentUser.id) {
       return NextResponse.json(
         { error: 'Not authorized to respond to this request' },
         { status: 403 }
@@ -163,7 +183,7 @@ export async function POST(request: NextRequest) {
     if (action === 'accept') {
       const conflictingLeave = await prisma.leaveRequest.findFirst({
         where: {
-          userId: session.user.id,
+          userId: currentUser.id,
           status: { in: ['APPROVED', 'PENDING'] },
           startDate: { lte: substituteRequest.leaveRequest.endDate },
           endDate: { gte: substituteRequest.leaveRequest.startDate }
@@ -197,8 +217,8 @@ export async function POST(request: NextRequest) {
           ? 'Substitute Request Accepted' 
           : 'Substitute Request Declined',
         message: action === 'accept'
-          ? `${session.user.firstName} ${session.user.lastName} has accepted to be your substitute`
-          : `${session.user.firstName} ${session.user.lastName} has declined to be your substitute${reason ? ': ' + reason : ''}`,
+          ? `${currentUser.firstName} ${currentUser.lastName} has accepted to be your substitute`
+          : `${currentUser.firstName} ${currentUser.lastName} has declined to be your substitute${reason ? ': ' + reason : ''}`,
         link: `/leave/${substituteRequest.leaveRequestId}`
       }
     });
