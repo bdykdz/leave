@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 
 // GET: Fetch substitute requests for the current user
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get the current user from the database
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true }
-    });
-
+    const currentUser = await getCurrentUser();
+    
     if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get pending substitute requests
@@ -122,19 +112,10 @@ export async function GET(request: NextRequest) {
 // POST: Accept or decline a substitute request
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get the current user from the database
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, firstName: true, lastName: true }
-    });
-
+    const currentUser = await getCurrentUser();
+    
     if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { requestId, action, reason } = await request.json();
