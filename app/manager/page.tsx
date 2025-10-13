@@ -88,10 +88,13 @@ export default function ManagerDashboard() {
   const [teamRequestsTab, setTeamRequestsTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [approvedRequestsPage, setApprovedRequestsPage] = useState(1)
   const [deniedRequestsPage, setDeniedRequestsPage] = useState(1)
+  const [superior, setSuperior] = useState<any>(null)
+  const [loadingSuperior, setLoadingSuperior] = useState(true)
 
   // Fetch manager's leave balance
   useEffect(() => {
     fetchManagerLeaveBalance()
+    fetchSuperior()
   }, [])
 
   // Fetch team stats
@@ -132,6 +135,21 @@ export default function ManagerDashboard() {
   useEffect(() => {
     fetchTeamWfhStats()
   }, [])
+
+  const fetchSuperior = async () => {
+    try {
+      setLoadingSuperior(true)
+      const response = await fetch('/api/manager/superior')
+      if (response.ok) {
+        const data = await response.json()
+        setSuperior(data.superior)
+      }
+    } catch (error) {
+      console.error('Error fetching superior:', error)
+    } finally {
+      setLoadingSuperior(false)
+    }
+  }
 
   const fetchManagerLeaveBalance = async () => {
     try {
@@ -818,21 +836,32 @@ export default function ManagerDashboard() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h4 className="font-semibold">
-                        {session?.user?.role === 'MANAGER' 
-                          ? 'Department Director' 
-                          : session?.user?.role === 'DEPARTMENT_DIRECTOR'
-                          ? 'HR Director'
-                          : 'Executive Team'}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {session?.user?.role === 'MANAGER' 
-                          ? 'Submit requests to your department director' 
-                          : session?.user?.role === 'DEPARTMENT_DIRECTOR'
-                          ? 'Submit requests to HR leadership'
-                          : 'Submit requests to executive team'}
-                      </p>
-                      <p className="text-xs text-gray-500">For leave approvals</p>
+                      {loadingSuperior ? (
+                        <div className="space-y-2">
+                          <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+                        </div>
+                      ) : superior ? (
+                        <>
+                          <h4 className="font-semibold">
+                            {superior.displayTitle || superior.role}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {superior.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {superior.description || 'For leave approvals'}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="font-semibold">No Superior Assigned</h4>
+                          <p className="text-sm text-gray-600">
+                            Please contact HR to assign your reporting manager
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>

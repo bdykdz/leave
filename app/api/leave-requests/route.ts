@@ -160,7 +160,28 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     const body = await request.json();
     
     // Validate request body
-    const validatedData = createLeaveRequestSchema.parse(body);
+    let validatedData;
+    try {
+      validatedData = createLeaveRequestSchema.parse(body);
+    } catch (error) {
+      log.error('Request validation failed', { error, body });
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { 
+            error: 'Invalid request data',
+            details: error.errors.map(e => ({
+              field: e.path.join('.'),
+              message: e.message
+            }))
+          },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Invalid request data' },
+        { status: 400 }
+      );
+    }
     
     // Extract signature separately (not in validated data)
     const signature = body.signature || null;

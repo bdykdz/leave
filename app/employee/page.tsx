@@ -99,9 +99,13 @@ export default function EmployeeDashboard() {
         const data = await response.json()
         // If user has team members, they have management responsibilities
         setHasDirectReports(data.teamMembers && data.teamMembers.length > 0)
+      } else if (response.status === 403) {
+        // User is not a manager, so they don't have direct reports
+        setHasDirectReports(false)
       }
     } catch (error) {
       console.error('Error checking management status:', error)
+      setHasDirectReports(false)
     }
   }
 
@@ -295,7 +299,7 @@ export default function EmployeeDashboard() {
       setShowRequestForm(false)
       // Refresh data when returning from form
       fetchLeaveBalances()
-      fetchLeaveRequests()
+      fetchAllRequests()
     }} />
   }
 

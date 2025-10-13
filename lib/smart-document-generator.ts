@@ -637,6 +637,12 @@ export class SmartDocumentGenerator {
   }
 
   private getSubstitutesString(leaveRequest: AnyObj): string {
+    // Check if this is an executive request
+    if (leaveRequest.supportingDocuments?.isExecutiveRequest) {
+      console.log('Executive request - no substitute needed')
+      return 'N/A (Executive Request)'
+    }
+    
     if (leaveRequest.substitutes && leaveRequest.substitutes.length > 0) {
       console.log(
         `Found ${leaveRequest.substitutes.length} substitutes:`,
@@ -662,17 +668,22 @@ export class SmartDocumentGenerator {
       return `${leaveRequest.substitute.firstName || ''} ${leaveRequest.substitute.lastName || ''}`.trim()
     }
     console.log('No substitutes found')
-    return ''
+    return 'Not specified'
   }
 
   private getSubstitutesEmails(leaveRequest: AnyObj): string {
+    // Check if this is an executive request
+    if (leaveRequest.supportingDocuments?.isExecutiveRequest) {
+      return 'N/A (Executive Request)'
+    }
+    
     if (leaveRequest.substitutes && leaveRequest.substitutes.length > 0) {
       return leaveRequest.substitutes
         .map((sub: AnyObj) => sub.user.email)
         .filter((email: string) => email)
         .join(', ')
     }
-    return leaveRequest.substitute?.email || ''
+    return leaveRequest.substitute?.email || 'Not specified'
   }
 
   private getFieldValue(data: AnyObj, fieldKey: string): string {

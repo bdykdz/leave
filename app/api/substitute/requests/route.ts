@@ -26,11 +26,7 @@ export async function GET(request: NextRequest) {
                 firstName: true,
                 lastName: true,
                 email: true,
-                department: {
-                  select: {
-                    name: true
-                  }
-                }
+                department: true
               }
             },
             leaveType: true

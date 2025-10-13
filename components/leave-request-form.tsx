@@ -192,14 +192,22 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
       const startDate = sortedDates[0]
       const endDate = sortedDates[sortedDates.length - 1]
 
+      // Helper to format date as YYYY-MM-DD in local time
+      const toLocalDateString = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
       // Prepare request body
       const requestBody = {
         leaveTypeId: leaveType,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+        startDate: toLocalDateString(startDate),
+        endDate: toLocalDateString(endDate),
         reason: reason.trim() || " ", // Send a space if empty to avoid template issues
         substituteIds: [selectedSubstitute], // API still expects array
-        selectedDates: selectedDates.map(date => date.toISOString()),
+        selectedDates: selectedDates.map(date => toLocalDateString(date)),
         signature: signature, // Include the signature
       }
 
@@ -215,7 +223,21 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit leave request')
+        // Handle validation errors with detailed messages
+        if (data.details && Array.isArray(data.details)) {
+          const errorMessages = data.details.map((d: any) => 
+            `${d.field}: ${d.message}`
+          ).join('\n')
+          throw new Error(`Validation failed:\n${errorMessages}`)
+        } else if (data.message) {
+          // Handle specific error messages (like date conflicts)
+          throw new Error(data.message)
+        } else if (data.errors && Array.isArray(data.errors)) {
+          // Handle validation service errors
+          throw new Error(data.errors.join('\n'))
+        } else {
+          throw new Error(data.error || 'Failed to submit leave request')
+        }
       }
 
       // Show success dialog
@@ -231,9 +253,10 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         onBack()
       }, 3000)
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
       showError(
         "Submission Failed",
-        "There was an error submitting your request. Please check your connection and try again.",
+        errorMessage,
       )
     } finally {
       setIsSubmitting(false)

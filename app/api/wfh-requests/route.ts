@@ -20,6 +20,59 @@ const createWFHRequestSchema = z.object({
   signature: z.string().optional(),
 });
 
+// Format WFH dates for display (e.g., "1-5 July 2024" or "9, 17-24 July 2024")
+function formatWFHDates(startDate: Date, endDate: Date, selectedDates?: string[] | null): string {
+  if (selectedDates && selectedDates.length > 0) {
+    // Parse selected dates and group consecutive ones
+    const dates = selectedDates.map(d => new Date(d)).sort((a, b) => a.getTime() - b.getTime());
+    const groups: string[] = [];
+    let currentGroup = [dates[0]];
+    
+    for (let i = 1; i < dates.length; i++) {
+      const prevDate = dates[i - 1];
+      const currDate = dates[i];
+      const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      if (dayDiff === 1) {
+        currentGroup.push(currDate);
+      } else {
+        groups.push(formatDateGroup(currentGroup));
+        currentGroup = [currDate];
+      }
+    }
+    groups.push(formatDateGroup(currentGroup));
+    
+    return groups.join(', ');
+  } else {
+    // Simple date range
+    const start = format(startDate, 'dd MMMM yyyy');
+    const end = format(endDate, 'dd MMMM yyyy');
+    
+    // Single day
+    if (startDate.toDateString() === endDate.toDateString()) {
+      return start;
+    }
+    
+    // Multiple days in same month
+    if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+      return `${startDate.getDate()}-${endDate.getDate()} ${format(startDate, 'MMMM yyyy')}`;
+    }
+    
+    return `${start} - ${end}`;
+  }
+}
+
+function formatDateGroup(dates: Date[]): string {
+  if (dates.length === 1) {
+    return format(dates[0], 'dd MMMM yyyy');
+  } else {
+    const first = dates[0].getDate();
+    const last = dates[dates.length - 1].getDate();
+    const month = format(dates[0], 'MMMM yyyy');
+    return `${first}-${last} ${month}`;
+  }
+}
+
 // GET /api/wfh-requests - Get user's WFH requests
 export const GET = asyncHandler(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
@@ -246,10 +299,13 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         to: user.manager!.email,
       });
       
+      // Format dates properly for email
+      const formattedDates = formatWFHDates(startDate, endDate, validatedData.selectedDates);
+      
       await emailService.sendWFHRequestNotification(user.manager!.email, {
         employeeName: `${user.firstName} ${user.lastName}`,
-        startDate: format(startDate, 'dd MMMM yyyy'),
-        endDate: format(endDate, 'dd MMMM yyyy'),
+        startDate: formattedDates,  // Use formatted dates string
+        endDate: '',  // Not needed when using formatted dates
         days: totalDays,
         location: validatedData.location,
         managerName: `${user.manager!.firstName} ${user.manager!.lastName}`,

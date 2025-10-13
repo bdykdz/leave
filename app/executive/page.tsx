@@ -21,9 +21,11 @@ import {
   Heart,
   AlertTriangle,
   Shield,
+  Building,
+  UserCog,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
-import { LeaveRequestForm } from "@/components/leave-request-form"
+import { ExecutiveLeaveRequestForm } from "@/components/executive-leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
 import { format, addMonths, subMonths } from "date-fns"
@@ -69,6 +71,10 @@ export default function ExecutiveDashboard() {
   const [totalEscalatedPages, setTotalEscalatedPages] = useState(0)
   const [myRequests, setMyRequests] = useState<any[]>([])
   const [loadingMyRequests, setLoadingMyRequests] = useState(true)
+  const [directReportRequests, setDirectReportRequests] = useState<any[]>([])
+  const [directReportPage, setDirectReportPage] = useState(1)
+  const [totalDirectReportPages, setTotalDirectReportPages] = useState(0)
+  const [loadingDirectReports, setLoadingDirectReports] = useState(true)
 
   useEffect(() => {
     if (status === "loading") return
@@ -99,6 +105,7 @@ export default function ExecutiveDashboard() {
       fetchExecutiveLeaveBalance()
       fetchMyRequests()
       fetchEscalatedRequests()
+      fetchDirectReportRequests()
     }
   }, [session, status, router])
 
@@ -148,9 +155,29 @@ export default function ExecutiveDashboard() {
     }
   }
 
-  const handleApprove = async (requestId: string, comment?: string) => {
+  const fetchDirectReportRequests = async () => {
     try {
-      const response = await fetch(`/api/executive/approve-request/${requestId}`, {
+      setLoadingDirectReports(true)
+      const response = await fetch(`/api/manager/team/pending-approvals?page=${directReportPage}&limit=5`)
+      if (response.ok) {
+        const data = await response.json()
+        setDirectReportRequests(data.requests || [])
+        setTotalDirectReportPages(data.pagination?.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching direct report requests:', error)
+    } finally {
+      setLoadingDirectReports(false)
+    }
+  }
+
+  const handleApprove = async (requestId: string, comment?: string, isDirectReport: boolean = false) => {
+    try {
+      const endpoint = isDirectReport 
+        ? `/api/manager/approve-request/${requestId}`
+        : `/api/executive/approve-request/${requestId}`
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: comment || '' })
@@ -158,7 +185,11 @@ export default function ExecutiveDashboard() {
       
       if (response.ok) {
         toast.success('Request approved successfully')
-        fetchEscalatedRequests() // Refresh the list
+        if (isDirectReport) {
+          fetchDirectReportRequests()
+        } else {
+          fetchEscalatedRequests()
+        }
         setShowApprovalDialog(false)
       } else {
         toast.error('Failed to approve request')
@@ -169,9 +200,13 @@ export default function ExecutiveDashboard() {
     }
   }
 
-  const handleDeny = async (requestId: string, comment: string) => {
+  const handleDeny = async (requestId: string, comment: string, isDirectReport: boolean = false) => {
     try {
-      const response = await fetch(`/api/executive/deny-request/${requestId}`, {
+      const endpoint = isDirectReport
+        ? `/api/manager/deny-request/${requestId}`
+        : `/api/executive/deny-request/${requestId}`
+        
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment })
@@ -179,7 +214,11 @@ export default function ExecutiveDashboard() {
       
       if (response.ok) {
         toast.success('Request denied successfully')
-        fetchEscalatedRequests() // Refresh the list
+        if (isDirectReport) {
+          fetchDirectReportRequests()
+        } else {
+          fetchEscalatedRequests()
+        }
         setShowApprovalDialog(false)
       } else {
         toast.error('Failed to deny request')
@@ -199,7 +238,7 @@ export default function ExecutiveDashboard() {
   }
 
   if (showRequestForm) {
-    return <LeaveRequestForm onBack={() => setShowRequestForm(false)} />
+    return <ExecutiveLeaveRequestForm onBack={() => setShowRequestForm(false)} />
   }
 
   if (showRemoteForm) {
@@ -222,10 +261,18 @@ export default function ExecutiveDashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Executive Analytics Button */}
+            {/* Navigation Buttons */}
+            <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              HR Dashboard
+            </Button>
+            <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
+              <UserCog className="h-4 w-4" />
+              Admin Panel
+            </Button>
             <Button onClick={() => router.push("/executive/analytics")} variant="outline" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Executive Analytics
+              Analytics
             </Button>
             <LanguageToggle />
             {/* Profile Dropdown */}
@@ -431,8 +478,145 @@ export default function ExecutiveDashboard() {
             </Card>
           </div>
 
-          {/* Middle Column - Escalated Requests */}
+          {/* Middle Column - Direct Reports & Escalated Requests */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Direct Report Requests */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-500" />
+                  Direct Report Approvals
+                </CardTitle>
+                <CardDescription>Requests from your direct team members</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingDirectReports ? (
+                  <div className="space-y-3">
+                    <div className="animate-pulse bg-gray-200 h-24 rounded"></div>
+                    <div className="animate-pulse bg-gray-200 h-24 rounded"></div>
+                  </div>
+                ) : directReportRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                    <p className="text-gray-500">No pending requests from your team</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {directReportRequests.map((request: any) => (
+                      <div key={request.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>
+                                  {request.employee?.name?.split(' ').map((n: string) => n[0]).join('') || 'NA'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h3 className="font-medium">{request.employee?.name}</h3>
+                                <p className="text-sm text-gray-600">{request.employee?.department}</p>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium">{request.type}</p>
+                              <p className="text-sm text-gray-600">{request.dates}</p>
+                              <p className="text-sm">
+                                <strong>{request.days}</strong> {t.leaveForm.days}
+                              </p>
+                              {request.reason && (
+                                <p className="text-sm text-gray-600 italic">"{request.reason}"</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setApprovalDetails({
+                                  action: "approve",
+                                  request: {
+                                    id: request.id,
+                                    employeeName: request.employee?.name || 'Unknown',
+                                    type: request.type,
+                                    dates: request.dates,
+                                    days: request.days,
+                                    isDirectReport: true
+                                  } as any
+                                })
+                                setShowApprovalDialog(true)
+                              }}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setApprovalDetails({
+                                  action: "deny",
+                                  request: {
+                                    id: request.id,
+                                    employeeName: request.employee?.name || 'Unknown',
+                                    type: request.type,
+                                    dates: request.dates,
+                                    days: request.days,
+                                    isDirectReport: true
+                                  } as any
+                                })
+                                setShowApprovalDialog(true)
+                              }}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Deny
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Pagination */}
+                    {totalDirectReportPages > 1 && (
+                      <div className="flex items-center justify-center space-x-2 pt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (directReportPage > 1) {
+                              setDirectReportPage(directReportPage - 1)
+                              fetchDirectReportRequests()
+                            }
+                          }}
+                          disabled={directReportPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Previous
+                        </Button>
+                        <span className="text-sm text-gray-600">
+                          Page {directReportPage} of {totalDirectReportPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (directReportPage < totalDirectReportPages) {
+                              setDirectReportPage(directReportPage + 1)
+                              fetchDirectReportRequests()
+                            }
+                          }}
+                          disabled={directReportPage === totalDirectReportPages}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Escalated Requests */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -584,8 +768,8 @@ export default function ExecutiveDashboard() {
             setShowApprovalDialog(false)
             setApprovalDetails(null)
           }}
-          onApprove={handleApprove}
-          onDeny={handleDeny}
+          onApprove={(requestId, comment) => handleApprove(requestId, comment, approvalDetails.request.isDirectReport)}
+          onDeny={(requestId, comment) => handleDeny(requestId, comment, approvalDetails.request.isDirectReport)}
           request={approvalDetails.request}
           action={approvalDetails.action}
         />

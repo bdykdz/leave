@@ -8,6 +8,55 @@ import { format } from "date-fns";
 import { log } from "@/lib/logger";
 import { asyncHandler } from "@/lib/async-handler";
 
+// Format WFH dates for display
+function formatWFHDates(startDate: Date, endDate: Date, selectedDates?: string[] | null): string {
+  if (selectedDates && selectedDates.length > 0) {
+    const dates = selectedDates.map(d => new Date(d)).sort((a, b) => a.getTime() - b.getTime());
+    const groups: string[] = [];
+    let currentGroup = [dates[0]];
+    
+    for (let i = 1; i < dates.length; i++) {
+      const prevDate = dates[i - 1];
+      const currDate = dates[i];
+      const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      if (dayDiff === 1) {
+        currentGroup.push(currDate);
+      } else {
+        groups.push(formatDateGroup(currentGroup));
+        currentGroup = [currDate];
+      }
+    }
+    groups.push(formatDateGroup(currentGroup));
+    
+    return groups.join(', ');
+  } else {
+    const start = format(startDate, 'dd MMMM yyyy');
+    const end = format(endDate, 'dd MMMM yyyy');
+    
+    if (startDate.toDateString() === endDate.toDateString()) {
+      return start;
+    }
+    
+    if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+      return `${startDate.getDate()}-${endDate.getDate()} ${format(startDate, 'MMMM yyyy')}`;
+    }
+    
+    return `${start} - ${end}`;
+  }
+}
+
+function formatDateGroup(dates: Date[]): string {
+  if (dates.length === 1) {
+    return format(dates[0], 'dd MMMM yyyy');
+  } else {
+    const first = dates[0].getDate();
+    const last = dates[dates.length - 1].getDate();
+    const month = format(dates[0], 'MMMM yyyy');
+    return `${first}-${last} ${month}`;
+  }
+}
+
 export const POST = asyncHandler(async (
   request: Request,
   { params }: { params: { requestId: string } }
@@ -136,10 +185,12 @@ export const POST = asyncHandler(async (
   });
 
   // Send email to employee
+  const formattedDates = formatWFHDates(wfhRequest.startDate, wfhRequest.endDate, wfhRequest.selectedDates as string[] | null);
+  
   await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
     employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
-    startDate: format(wfhRequest.startDate, 'dd MMMM yyyy'),
-    endDate: format(wfhRequest.endDate, 'dd MMMM yyyy'),
+    startDate: formattedDates,
+    endDate: '',  // Not needed when using formatted dates
     days: wfhRequest.totalDays,
     location: wfhRequest.location,
     approved: true,
@@ -228,10 +279,12 @@ export const DELETE = asyncHandler(async (
   });
 
   // Send email to employee
+  const formattedDates = formatWFHDates(wfhRequest.startDate, wfhRequest.endDate, wfhRequest.selectedDates as string[] | null);
+  
   await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
     employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
-    startDate: format(wfhRequest.startDate, 'dd MMMM yyyy'),
-    endDate: format(wfhRequest.endDate, 'dd MMMM yyyy'),
+    startDate: formattedDates,
+    endDate: '',  // Not needed when using formatted dates
     days: wfhRequest.totalDays,
     location: wfhRequest.location,
     approved: false,

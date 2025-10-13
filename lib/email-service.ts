@@ -318,7 +318,7 @@ ${process.env.NEXTAUTH_URL}/employee
             
             <div class="details">
                 <h3>Request Details:</h3>
-                <p><strong>Period:</strong> ${data.startDate} - ${data.endDate}</p>
+                <p><strong>Period:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
                 <p><strong>Total Days:</strong> ${data.days}</p>
                 <p><strong>Location:</strong> ${data.location}</p>
                 <p><strong>Request ID:</strong> ${data.requestId}</p>
@@ -343,7 +343,7 @@ Dear ${data.managerName},
 ${data.employeeName} has submitted a work from home request that requires your approval.
 
 Request Details:
-- Period: ${data.startDate} - ${data.endDate}
+- Period: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
 - Total Days: ${data.days}
 - Location: ${data.location}
 - Request ID: ${data.requestId}
@@ -395,7 +395,7 @@ This is an automated message from the Leave Management System.
             
             <div class="details">
                 <h3>Request Details:</h3>
-                <p><strong>Period:</strong> ${data.startDate} - ${data.endDate}</p>
+                <p><strong>Period:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
                 <p><strong>Total Days:</strong> ${data.days}</p>
                 <p><strong>Location:</strong> ${data.location}</p>
                 ${data.comments ? `<p><strong>Manager's Comments:</strong> ${data.comments}</p>` : ''}
@@ -421,7 +421,7 @@ Dear ${data.employeeName},
 Your work from home request has been ${status.toLowerCase()} by ${data.managerName}.
 
 Request Details:
-- Period: ${data.startDate} - ${data.endDate}
+- Period: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
 - Total Days: ${data.days}
 - Location: ${data.location}
 ${data.comments ? `- Manager's Comments: ${data.comments}` : ''}
