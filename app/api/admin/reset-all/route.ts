@@ -5,11 +5,11 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 
 export async function POST() {
   try {
-    // For development - remove this check in production
-    // const session = await getServerSession(authOptions)
-    // if (!session || session.user.role !== 'ADMIN') {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    // }
+    // CRITICAL: Role check required for destructive operation
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized - ADMIN role required' }, { status: 403 })
+    }
 
     console.log('Starting complete system reset...')
 

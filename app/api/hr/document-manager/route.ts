@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       }, { status: 403 })
     }
 
-    if (!['HR', 'ADMIN'].includes(session.user.role)) {
+    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
       return NextResponse.json({ 
         error: 'Insufficient permissions',
         message: `Access denied. Your role (${session.user.role}) does not have permission to access HR documents. Required roles: HR or ADMIN`

@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is HR or ADMIN
-    if (!['HR', 'ADMIN'].includes(session.user?.role || '')) {
+    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user?.role || '')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 

@@ -67,6 +67,7 @@ export default function ExecutiveDashboard() {
   const [loading, setLoading] = useState(true)
   const [executiveLeaveBalance, setExecutiveLeaveBalance] = useState<any[]>([])
   const [loadingBalances, setLoadingBalances] = useState(true)
+  const [calendarKey, setCalendarKey] = useState(0)
   const [escalatedRequests, setEscalatedRequests] = useState<any[]>([])
   const [totalEscalatedPages, setTotalEscalatedPages] = useState(0)
   const [myRequests, setMyRequests] = useState<any[]>([])
@@ -185,6 +186,8 @@ export default function ExecutiveDashboard() {
       
       if (response.ok) {
         toast.success('Request approved successfully')
+        // Force calendar refresh
+        setCalendarKey(prev => prev + 1)
         if (isDirectReport) {
           fetchDirectReportRequests()
         } else {
@@ -214,6 +217,8 @@ export default function ExecutiveDashboard() {
       
       if (response.ok) {
         toast.success('Request denied successfully')
+        // Force calendar refresh
+        setCalendarKey(prev => prev + 1)
         if (isDirectReport) {
           fetchDirectReportRequests()
         } else {
@@ -757,7 +762,7 @@ export default function ExecutiveDashboard() {
         )}
 
         {/* Calendar Tab Content */}
-        {activeTab === "calendar" && <TeamCalendar />}
+        {activeTab === "calendar" && <TeamCalendar key={calendarKey} />}
       </div>
 
       {/* Approval Dialog */}

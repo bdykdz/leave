@@ -20,11 +20,22 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Get escalated leave requests that require executive approval
+    // OR requests where this executive is a pending approver
     const [requests, totalCount] = await Promise.all([
       prisma.leaveRequest.findMany({
         where: {
           status: 'PENDING',
-          requiresExecutiveApproval: true
+          OR: [
+            { requiresExecutiveApproval: true },
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            }
+          ]
         },
         include: {
           user: {
@@ -37,7 +48,20 @@ export async function GET(request: NextRequest) {
               role: true
             }
           },
-          leaveType: true
+          leaveType: true,
+          approvals: {
+            include: {
+              approver: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true
+                }
+              }
+            },
+            orderBy: { createdAt: 'asc' }
+          }
         },
         skip,
         take: limit,
@@ -46,7 +70,17 @@ export async function GET(request: NextRequest) {
       prisma.leaveRequest.count({
         where: {
           status: 'PENDING',
-          requiresExecutiveApproval: true
+          OR: [
+            { requiresExecutiveApproval: true },
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            }
+          ]
         }
       })
     ]);
