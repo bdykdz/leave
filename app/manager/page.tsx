@@ -693,29 +693,43 @@ export default function ManagerDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {currentMyRequests.map((request) => (
-                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          {getStatusIcon(request.status)}
-                          <div className="flex items-center gap-2">
-                            {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
-                            <div>
-                              <p className="font-medium">{request.type}</p>
-                              <p className="text-sm text-gray-600">{request.dates}</p>
-                              <p className="text-xs text-gray-500">To: {request.approver}</p>
+                    {currentMyRequests.map((request) => {
+                      const formatDateRange = (startDate: any, endDate: any) => {
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+                        if (start.getTime() === end.getTime()) {
+                          return start.toLocaleDateString('en-US', options);
+                        }
+                        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', options)}`;
+                      };
+
+                      return (
+                        <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            {getStatusIcon(request.status)}
+                            <div className="flex items-center gap-2">
+                              {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                              <div>
+                                <p className="font-medium">{request.type}</p>
+                                <p className="text-sm text-gray-600">
+                                  {formatDateRange(request.startDate, request.endDate)}
+                                </p>
+                                <p className="text-xs text-gray-500">To: {request.approver?.name || 'Pending assignment'}</p>
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-gray-600">
+                              {request.totalDays || request.days} day{(request.totalDays || request.days) > 1 ? "s" : ""}
+                            </span>
+                            <Badge className={getStatusColor(request.status)}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-gray-600">
-                            {request.days} day{request.days > 1 ? "s" : ""}
-                          </span>
-                          <Badge className={getStatusColor(request.status)}>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

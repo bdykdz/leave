@@ -458,6 +458,14 @@ async function getSubstituteNames(substituteIds: string[]): Promise<string> {
 
 // Helper function to generate approval workflow based on rules
 async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: number) {
+  console.log('[generateApprovalWorkflow] Starting for user:', {
+    id: user.id,
+    name: `${user.firstName} ${user.lastName}`,
+    role: user.role,
+    managerId: user.managerId || user.manager?.id,
+    departmentDirectorId: user.departmentDirectorId || user.departmentDirector?.id
+  });
+  
   // Determine approval requirements based on user role
   let approvalLevels = [];
   
@@ -473,9 +481,10 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
       const managerApprovals = [];
       
       // Check if the manager's direct manager is an executive
-      if (user.managerId) {
+      const managerId = user.managerId || user.manager?.id;
+      if (managerId) {
         const directManager = await prisma.user.findUnique({
-          where: { id: user.managerId },
+          where: { id: managerId },
           select: { role: true }
         });
         
@@ -487,11 +496,12 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
           managerApprovals.push({ role: 'DIRECT_MANAGER', required: true });
           
           // Add department director if different from direct manager
-          if (user.departmentDirectorId && user.departmentDirectorId !== user.managerId) {
+          const deptDirectorId = user.departmentDirectorId || user.departmentDirector?.id;
+          if (deptDirectorId && deptDirectorId !== managerId) {
             managerApprovals.push({ role: 'DEPARTMENT_HEAD', required: true });
           }
         }
-      } else if (user.departmentDirectorId) {
+      } else if (user.departmentDirectorId || user.departmentDirector?.id) {
         // No direct manager but has department director
         managerApprovals.push({ role: 'DEPARTMENT_HEAD', required: true });
       } else {
@@ -559,10 +569,10 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
 
     switch (approvalLevel.role) {
       case 'DIRECT_MANAGER':
-        approverId = user.managerId;
+        approverId = user.managerId || user.manager?.id;
         break;
       case 'DEPARTMENT_HEAD':
-        approverId = user.departmentDirectorId;
+        approverId = user.departmentDirectorId || user.departmentDirector?.id;
         break;
       case 'HR':
         // Find an HR user
@@ -599,14 +609,26 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
       // Check for duplicate signatures
       const isDuplicate = approvals.some(a => a.approverId === approverId);
       if (!isDuplicate || !applicableRule?.skipDuplicateSignatures) {
+        console.log('[generateApprovalWorkflow] Adding approval:', {
+          role: approvalLevel.role,
+          approverId,
+          level
+        });
         approvals.push({
           approverId,
           level: level++,
           status: 'PENDING',
         });
       }
+    } else {
+      console.warn('[generateApprovalWorkflow] No approver found for role:', {
+        role: approvalLevel.role,
+        required: approvalLevel.required,
+        approverId
+      });
     }
   }
 
+  console.log('[generateApprovalWorkflow] Final approvals:', approvals);
   return approvals;
 }
