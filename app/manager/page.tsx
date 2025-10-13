@@ -832,7 +832,7 @@ export default function ManagerDashboard() {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback>
-                        {session?.user?.role === 'MANAGER' ? 'DD' : 'HR'}
+                        {superior ? superior.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'NA'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
@@ -845,10 +845,10 @@ export default function ManagerDashboard() {
                       ) : superior ? (
                         <>
                           <h4 className="font-semibold">
-                            {superior.displayTitle || superior.role}
+                            {superior.name}
                           </h4>
                           <p className="text-sm text-gray-600">
-                            {superior.name}
+                            {superior.displayTitle || superior.position || superior.role}
                           </p>
                           <p className="text-xs text-gray-500">
                             {superior.description || 'For leave approvals'}

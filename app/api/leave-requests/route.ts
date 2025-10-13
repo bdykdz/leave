@@ -468,18 +468,37 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
       break;
       
     case 'MANAGER':
-      // Managers need their own manager's approval first, then department director if applicable
+      // Managers need their own manager's approval
+      // If their manager is an executive, only one approval is needed
       const managerApprovals = [];
+      
+      // Check if the manager's direct manager is an executive
       if (user.managerId) {
-        managerApprovals.push({ role: 'DIRECT_MANAGER', required: true });
-      }
-      if (user.departmentDirectorId && user.departmentDirectorId !== user.managerId) {
+        const directManager = await prisma.user.findUnique({
+          where: { id: user.managerId },
+          select: { role: true }
+        });
+        
+        if (directManager?.role === 'EXECUTIVE') {
+          // If reporting to an executive, only need that executive's approval
+          managerApprovals.push({ role: 'DIRECT_MANAGER', required: true });
+        } else {
+          // Otherwise, need manager approval and potentially department director
+          managerApprovals.push({ role: 'DIRECT_MANAGER', required: true });
+          
+          // Add department director if different from direct manager
+          if (user.departmentDirectorId && user.departmentDirectorId !== user.managerId) {
+            managerApprovals.push({ role: 'DEPARTMENT_HEAD', required: true });
+          }
+        }
+      } else if (user.departmentDirectorId) {
+        // No direct manager but has department director
         managerApprovals.push({ role: 'DEPARTMENT_HEAD', required: true });
-      }
-      // If no manager or director set, try to find an executive
-      if (managerApprovals.length === 0) {
+      } else {
+        // No manager or director set, try to find an executive
         managerApprovals.push({ role: 'EXECUTIVE', required: true });
       }
+      
       approvalLevels = managerApprovals;
       break;
       

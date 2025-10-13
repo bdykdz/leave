@@ -33,21 +33,22 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         leaveType: true,
-        approver: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+        approvals: {
+          include: {
+            approver: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            level: 'asc'
           }
         },
-        documents: {
-          select: {
-            id: true,
-            fileName: true,
-            uploadedAt: true
-          }
-        }
+        generatedDocument: true
       },
       orderBy: {
         createdAt: 'desc'
@@ -57,29 +58,35 @@ export async function GET(request: NextRequest) {
     });
 
     // Format the response
-    const formattedRequests = requests.map(request => ({
-      id: request.id,
-      type: request.leaveType.name,
-      typeCode: request.leaveType.code,
-      startDate: request.startDate,
-      endDate: request.endDate,
-      reason: request.reason,
-      status: request.status.toLowerCase(),
-      totalDays: request.totalDays,
-      createdAt: request.createdAt,
-      approver: request.approver ? {
-        id: request.approver.id,
-        name: `${request.approver.firstName} ${request.approver.lastName}`,
-        email: request.approver.email
-      } : null,
-      approverComments: request.approverComments,
-      approvedAt: request.approvedAt,
-      documents: request.documents.map(doc => ({
-        id: doc.id,
-        fileName: doc.fileName,
-        uploadedAt: doc.uploadedAt
-      }))
-    }));
+    const formattedRequests = requests.map(request => {
+      // Get the first approver (primary approver)
+      const primaryApproval = request.approvals?.[0];
+      
+      return {
+        id: request.id,
+        type: request.leaveType.name,
+        typeCode: request.leaveType.code,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        reason: request.reason,
+        status: request.status.toLowerCase(),
+        totalDays: request.totalDays,
+        createdAt: request.createdAt,
+        approver: primaryApproval?.approver ? {
+          id: primaryApproval.approver.id,
+          name: `${primaryApproval.approver.firstName} ${primaryApproval.approver.lastName}`,
+          email: primaryApproval.approver.email
+        } : null,
+        approvals: request.approvals,
+        approverComments: primaryApproval?.comments,
+        approvedAt: primaryApproval?.approvedAt,
+        documents: request.generatedDocument ? [{
+          id: request.generatedDocument.id,
+          fileName: 'Leave Request Document',
+          uploadedAt: request.generatedDocument.createdAt
+        }] : []
+      };
+    });
 
     return NextResponse.json({
       requests: formattedRequests,
