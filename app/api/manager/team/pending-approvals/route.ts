@@ -21,12 +21,9 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    // Get pending leave requests from team members
+    // Get pending leave requests where this user is an approver
     const pendingLeaveRequests = await prisma.leaveRequest.findMany({
       where: {
-        user: {
-          managerId: session.user.id
-        },
         status: 'PENDING',
         approvals: {
           some: {
@@ -57,16 +54,16 @@ export async function GET(request: Request) {
       take: Math.ceil(limit / 2) // Split limit between leave and WFH
     })
 
-    // Get pending WFH requests from team members (excluding manager's own requests)
+    // Get pending WFH requests where this user needs to approve
     const pendingWFHRequests = await prisma.workFromHomeRequest.findMany({
       where: {
-        user: {
-          managerId: session.user.id
-        },
-        userId: {
-          not: session.user.id // Exclude manager's own WFH requests
-        },
-        status: 'PENDING'
+        status: 'PENDING',
+        approvals: {
+          some: {
+            approverId: session.user.id,
+            status: 'PENDING'
+          }
+        }
       },
       include: {
         user: true,
@@ -86,9 +83,6 @@ export async function GET(request: Request) {
     // Get total counts for pagination
     const totalLeaveCount = await prisma.leaveRequest.count({
       where: {
-        user: {
-          managerId: session.user.id
-        },
         status: 'PENDING',
         approvals: {
           some: {
@@ -101,13 +95,13 @@ export async function GET(request: Request) {
 
     const totalWFHCount = await prisma.workFromHomeRequest.count({
       where: {
-        user: {
-          managerId: session.user.id
-        },
-        userId: {
-          not: session.user.id // Exclude manager's own WFH requests
-        },
-        status: 'PENDING'
+        status: 'PENDING',
+        approvals: {
+          some: {
+            approverId: session.user.id,
+            status: 'PENDING'
+          }
+        }
       }
     })
 

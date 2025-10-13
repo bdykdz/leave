@@ -43,6 +43,28 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(true)
+  
+  // Helper to check if dates are same day
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate()
+  }
+  
+  // Handle date selection toggling
+  const handleDateSelect = (date: Date) => {
+    setSelectedDates((prev) => {
+      const isAlreadySelected = prev.some((selectedDate) => isSameDay(selectedDate, date))
+      
+      if (isAlreadySelected) {
+        // Remove the date if it's already selected
+        return prev.filter((selectedDate) => !isSameDay(selectedDate, date))
+      } else {
+        // Add the date if it's not selected
+        return [...prev, date].sort((a, b) => a.getTime() - b.getTime())
+      }
+    })
+  }
 
   useEffect(() => {
     fetchLeaveTypes()
@@ -226,7 +248,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
             <CardContent>
               <LeaveCalendar
                 selectedDates={selectedDates}
-                onDateSelect={setSelectedDates}
+                onDateSelect={handleDateSelect}
               />
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center justify-between">

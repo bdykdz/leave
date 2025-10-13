@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { emailService } from '@/lib/email-service';
+import { WorkingDaysService } from '@/lib/services/working-days-service';
 
 // Validation schema for executive leave request
 const createExecutiveLeaveRequestSchema = z.object({
@@ -88,11 +89,34 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     return NextResponse.json({ error: 'Selected approver must be an executive' }, { status: 400 });
   }
 
-  // Calculate dates and total days
+  // Calculate dates and total days (excluding weekends and holidays)
   const startDate = new Date(validatedData.startDate);
   const endDate = new Date(validatedData.endDate);
-  const totalDays = validatedData.selectedDates?.length || 
-    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  
+  let totalDays: number;
+  if (validatedData.selectedDates?.length) {
+    // If specific dates are selected, count only the working days among them
+    const workingDaysService = WorkingDaysService.getInstance();
+    totalDays = 0;
+    
+    for (const dateStr of validatedData.selectedDates) {
+      const date = new Date(dateStr);
+      if (await workingDaysService.isWorkingDay(date)) {
+        totalDays++;
+      }
+    }
+    
+    if (totalDays === 0) {
+      return NextResponse.json(
+        { error: 'No working days selected. Please select at least one working day.' },
+        { status: 400 }
+      );
+    }
+  } else {
+    // For date range, calculate working days between start and end
+    const workingDaysService = WorkingDaysService.getInstance();
+    totalDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
+  }
 
   // Check for overlapping leave requests
   const overlappingLeave = await prisma.leaveRequest.findFirst({
