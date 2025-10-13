@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
+import { WorkingDaysService } from '@/lib/services/working-days-service';
 
 const prisma = new PrismaClient();
 const documentGenerator = new SmartDocumentGenerator();
@@ -204,8 +205,33 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     const endDate = new Date(validatedData.endDate);
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    // If specific dates are selected (non-consecutive), use that count instead
-    const actualDays = validatedData.selectedDates?.length || totalDays;
+    // Calculate actual working days, excluding weekends and holidays
+    let actualDays: number;
+    
+    if (validatedData.selectedDates?.length) {
+      // If specific dates are selected, count only the working days among them
+      const workingDaysService = WorkingDaysService.getInstance();
+      actualDays = 0;
+      
+      for (const dateStr of validatedData.selectedDates) {
+        const date = new Date(dateStr);
+        if (await workingDaysService.isWorkingDay(date)) {
+          actualDays++;
+        }
+      }
+      
+      // If no working days selected, reject the request
+      if (actualDays === 0) {
+        return NextResponse.json(
+          { error: 'No working days selected. Please select at least one working day.' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // For date range, calculate working days between start and end
+      const workingDaysService = WorkingDaysService.getInstance();
+      actualDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
+    }
 
     // Check for overlapping requests
     const overlappingLeave = await prisma.leaveRequest.findFirst({
@@ -490,6 +516,7 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
         
         if (directManager?.role === 'EXECUTIVE') {
           // If reporting to an executive, only need that executive's approval
+          // No additional levels needed when manager is already an executive
           managerApprovals.push({ role: 'DIRECT_MANAGER', required: true });
         } else {
           // Otherwise, need manager approval and potentially department director

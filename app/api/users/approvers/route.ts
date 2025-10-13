@@ -44,14 +44,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // If manager is an executive, don't include department head in the workflow
+    const shouldIncludeDepartmentHead = user.manager?.role !== 'EXECUTIVE' && user.departmentDirector;
+    
     const approvers = {
       manager: user.manager ? {
         ...user.manager,
         name: `${user.manager.firstName} ${user.manager.lastName}`
       } : null,
-      departmentHead: user.departmentDirector ? {
+      departmentHead: shouldIncludeDepartmentHead ? {
         ...user.departmentDirector,
-        name: `${user.departmentDirector.firstName} ${user.departmentDirector.lastName}`
+        name: `${user.departmentDirector!.firstName} ${user.departmentDirector!.lastName}`
       } : null,
     };
 

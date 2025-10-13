@@ -508,35 +508,31 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                               </Badge>
                             </div>
 
-                            {/* Department Head */}
-                            <div className="flex items-center gap-3">
-                              <div className="flex-shrink-0">
-                                <Avatar className="h-8 w-8">
-                                  {approvers.departmentHead ? (
-                                    <>
-                                      <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${approvers.departmentHead.name.split(' ').map(n => n[0]).join('')}`} />
-                                      <AvatarFallback>{approvers.departmentHead.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                    </>
-                                  ) : (
-                                    <AvatarFallback>?</AvatarFallback>
-                                  )}
-                                </Avatar>
+                            {/* Department Head - Only show if it exists (not when manager is executive) */}
+                            {approvers.departmentHead && (
+                              <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${approvers.departmentHead.name.split(' ').map(n => n[0]).join('')}`} />
+                                    <AvatarFallback>{approvers.departmentHead.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                  </Avatar>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">
+                                    Department Head: {approvers.departmentHead.name}
+                                  </p>
+                                </div>
+                                <Badge variant="secondary" className="text-xs">
+                                  Level 2
+                                </Badge>
                               </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">
-                                  Department Head: {approvers.departmentHead ? approvers.departmentHead.name : <span className="text-red-600">Not Assigned</span>}
-                                </p>
-                              </div>
-                              <Badge variant={approvers.departmentHead ? "secondary" : "destructive"} className="text-xs">
-                                Level 2
-                              </Badge>
-                            </div>
+                            )}
 
-                            {(!approvers.manager || !approvers.departmentHead) && (
+                            {!approvers.manager && (
                               <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
                                 <p className="text-xs text-amber-800">
                                   <AlertCircle className="h-3 w-3 inline mr-1" />
-                                  Some approvers are not assigned. Your request may require HR intervention.
+                                  Manager not assigned. Your request may require HR intervention.
                                 </p>
                               </div>
                             )}
