@@ -180,7 +180,8 @@ export default function ManagerDashboard() {
   const fetchPendingRequests = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=4`)
+      // Fetch more requests per page to ensure nothing is missed
+      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=10`)
       if (response.ok) {
         const data = await response.json()
         setPendingRequests(data.requests)
@@ -197,7 +198,7 @@ export default function ManagerDashboard() {
   const fetchApprovedRequests = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/manager/team/approved-requests?page=${approvedRequestsPage}&limit=4`)
+      const response = await fetch(`/api/manager/team/approved-requests?page=${approvedRequestsPage}&limit=10`)
       if (response.ok) {
         const data = await response.json()
         setApprovedRequests(data.requests)
@@ -251,7 +252,7 @@ export default function ManagerDashboard() {
   const fetchDeniedRequests = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/manager/team/denied-requests?page=${deniedRequestsPage}&limit=4`)
+      const response = await fetch(`/api/manager/team/denied-requests?page=${deniedRequestsPage}&limit=10`)
       if (response.ok) {
         const data = await response.json()
         setDeniedRequests(data.requests)
@@ -1016,11 +1017,11 @@ export default function ManagerDashboard() {
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-sm text-gray-500">
                           {totalPendingPages > 0 
-                            ? `Page ${pendingRequestsPage} of ${totalPendingPages}`
+                            ? `Showing ${pendingRequests.length} request${pendingRequests.length !== 1 ? 's' : ''} - Page ${pendingRequestsPage} of ${totalPendingPages}`
                             : 'No pending requests'}
                         </span>
-                        {totalPendingPages > 0 && (
-                          <div className="flex gap-1">
+                        {totalPendingPages > 1 && (
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1029,11 +1030,39 @@ export default function ManagerDashboard() {
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </Button>
+                            
+                            {/* Page numbers */}
+                            <div className="flex gap-1">
+                              {Array.from({ length: Math.min(5, totalPendingPages) }, (_, i) => {
+                                let pageNum;
+                                if (totalPendingPages <= 5) {
+                                  pageNum = i + 1;
+                                } else if (pendingRequestsPage <= 3) {
+                                  pageNum = i + 1;
+                                } else if (pendingRequestsPage >= totalPendingPages - 2) {
+                                  pageNum = totalPendingPages - 4 + i;
+                                } else {
+                                  pageNum = pendingRequestsPage - 2 + i;
+                                }
+                                return (
+                                  <Button
+                                    key={i}
+                                    variant={pageNum === pendingRequestsPage ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setPendingRequestsPage(pageNum)}
+                                    className="w-8 h-8 p-0"
+                                  >
+                                    {pageNum}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                            
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={nextRequestsPage}
-                              disabled={pendingRequestsPage === totalPendingPages || totalPendingPages === 0}
+                              disabled={pendingRequestsPage === totalPendingPages}
                             >
                               <ChevronRight className="h-4 w-4" />
                             </Button>
@@ -1095,6 +1124,35 @@ export default function ManagerDashboard() {
                           ))
                         )}
                       </div>
+                      
+                      {/* Bottom pagination for better UX */}
+                      {totalPendingPages > 1 && pendingRequests.length > 0 && (
+                        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={previousRequestsPage}
+                            disabled={pendingRequestsPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          
+                          <span className="text-sm text-gray-500 mx-2">
+                            Page {pendingRequestsPage} of {totalPendingPages}
+                          </span>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={nextRequestsPage}
+                            disabled={pendingRequestsPage === totalPendingPages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
                     </>
                   )}
 
