@@ -68,8 +68,19 @@ export const POST = asyncHandler(async (
   }
 
   const body = await request.json();
-  const comment = body.comment || '';
-  const signature = body.signature || null;
+  let comment = body.comment || '';
+  
+  // Extract signature from comment if it exists
+  let signature = body.signature || null;
+  if (comment.includes('[SIGNATURE:')) {
+    const signatureMatch = comment.match(/\[SIGNATURE:([^\]]+)\]/);
+    if (signatureMatch) {
+      signature = signatureMatch[1];
+      // Remove signature from comment
+      comment = comment.replace(/\[SIGNATURE:[^\]]+\]/, '').trim();
+    }
+  }
+  
   const requestId = params.requestId;
   
   log.info('Processing WFH approval request', { 

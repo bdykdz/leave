@@ -159,6 +159,12 @@ export async function POST(
 
 // Helper function to handle WFH denials
 async function handleWFHDenial(session: any, requestId: string, comment: string) {
+  // Extract signature from comment if present (though usually not needed for denials)
+  let cleanComment = comment
+  
+  if (comment && comment.includes('[SIGNATURE:')) {
+    cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
+  }
   try {
     // Get the WFH request
     const wfhRequest = await prisma.workFromHomeRequest.findUnique({
@@ -194,7 +200,7 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
         where: { id: approval.id },
         data: {
           status: 'REJECTED',
-          comments: comment,
+          comments: cleanComment,
           approvedAt: new Date()
         }
       })
@@ -205,7 +211,7 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
           wfhRequestId: requestId,
           approverId: session.user.id,
           status: 'REJECTED',
-          comments: comment,
+          comments: cleanComment,
           approvedAt: new Date()
         }
       })
@@ -226,7 +232,7 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
       location: wfhRequest.location,
       approved: false,
       managerName: `${session.user.firstName} ${session.user.lastName}`,
-      comments: comment
+      comments: cleanComment
     })
 
     log.info('WFH request rejected', { requestId })

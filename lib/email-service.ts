@@ -288,7 +288,7 @@ ${process.env.NEXTAUTH_URL}/employee
     days: number
     location: string
     managerName: string
-    requestId: string
+    requestId?: string
   }): EmailTemplate {
     const subject = `New Work From Home Request - ${data.employeeName}`
     
@@ -321,7 +321,6 @@ ${process.env.NEXTAUTH_URL}/employee
                 <p><strong>Period:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
                 <p><strong>Total Days:</strong> ${data.days}</p>
                 <p><strong>Location:</strong> ${data.location}</p>
-                <p><strong>Request ID:</strong> ${data.requestId}</p>
             </div>
             
             <p>Please log in to the system to review and approve/reject this request.</p>
@@ -346,7 +345,6 @@ Request Details:
 - Period: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
 - Total Days: ${data.days}
 - Location: ${data.location}
-- Request ID: ${data.requestId}
 
 Please log in to the system to review and approve/reject this request.
 
@@ -398,7 +396,7 @@ This is an automated message from the Leave Management System.
                 <p><strong>Period:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
                 <p><strong>Total Days:</strong> ${data.days}</p>
                 <p><strong>Location:</strong> ${data.location}</p>
-                ${data.comments ? `<p><strong>Manager's Comments:</strong> ${data.comments}</p>` : ''}
+                ${data.comments && !data.comments.includes('[SIGNATURE:') ? `<p><strong>Manager's Comments:</strong> ${data.comments}</p>` : ''}
             </div>
             
             ${data.approved ? 
@@ -424,7 +422,7 @@ Request Details:
 - Period: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
 - Total Days: ${data.days}
 - Location: ${data.location}
-${data.comments ? `- Manager's Comments: ${data.comments}` : ''}
+${data.comments && !data.comments.includes('[SIGNATURE:') ? `- Manager's Comments: ${data.comments}` : ''}
 
 ${data.approved ? 
   'You are approved to work from the specified location during the requested period.' :

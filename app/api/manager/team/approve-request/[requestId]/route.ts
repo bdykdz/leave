@@ -272,6 +272,17 @@ export async function POST(
 
 // Helper function to handle WFH approvals
 async function handleWFHApproval(session: any, requestId: string, comment: string) {
+  // Extract signature from comment if present
+  let signature = null
+  let cleanComment = comment
+  
+  if (comment && comment.includes('[SIGNATURE:')) {
+    const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/);
+    if (signatureMatch) {
+      signature = signatureMatch[1];
+      cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
+    }
+  }
   try {
     // Get the WFH request
     const wfhRequest = await prisma.workFromHomeRequest.findUnique({
@@ -331,7 +342,8 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       where: { id: approval.id },
       data: {
         status: 'APPROVED',
-        comments: comment,
+        comments: cleanComment,
+        signature: signature,
         approvedAt: new Date()
       }
     })
@@ -351,7 +363,7 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       location: wfhRequest.location,
       approved: true,
       managerName: `${session.user.firstName} ${session.user.lastName}`,
-      comments: comment
+      comments: cleanComment
     })
 
     log.info('WFH request approved', { requestId })
