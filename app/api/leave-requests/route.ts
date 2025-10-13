@@ -557,7 +557,14 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
 
   // Use rule-based workflow if available
   if (applicableRule?.approvalLevels) {
+    console.log('[generateApprovalWorkflow] Using workflow rule:', {
+      ruleId: applicableRule.id,
+      ruleName: applicableRule.name,
+      approvalLevels: applicableRule.approvalLevels
+    });
     approvalLevels = applicableRule.approvalLevels as any[];
+  } else {
+    console.log('[generateApprovalWorkflow] Using default approval levels:', approvalLevels);
   }
 
   // Convert workflow roles to actual approvers
@@ -569,9 +576,12 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
 
     switch (approvalLevel.role) {
       case 'DIRECT_MANAGER':
+      case 'employee': // Workflow rule uses lowercase
+      case 'manager':  // Workflow rule might use this
         approverId = user.managerId || user.manager?.id;
         break;
       case 'DEPARTMENT_HEAD':
+      case 'department_director': // Workflow rule uses this
         approverId = user.departmentDirectorId || user.departmentDirector?.id;
         break;
       case 'HR':
