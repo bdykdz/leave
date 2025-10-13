@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { SignaturePad } from "@/components/signature-pad"
-import { CalendarPicker } from "@/components/calendar-picker"
+import { LeaveCalendar } from "@/components/leave-calendar"
 import { ExecutiveApproverPicker } from "@/components/executive-approver-picker"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
@@ -224,10 +224,9 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <CalendarPicker
+              <LeaveCalendar
                 selectedDates={selectedDates}
                 onDateSelect={setSelectedDates}
-                displayMode="month"
               />
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center justify-between">
