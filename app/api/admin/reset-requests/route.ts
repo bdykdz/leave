@@ -91,6 +91,17 @@ export async function POST(request: NextRequest) {
         // Delete only leave requests
         const deletedLeaveRequests = await tx.leaveRequest.deleteMany({})
         deletionStats.leaveRequests = deletedLeaveRequests.count
+        
+        // Reset leave balances for leave requests
+        await tx.leaveBalance.updateMany({
+          data: {
+            used: 0,
+            pending: 0,
+            available: { increment: 0 } // Recalculate: entitled - used - pending
+          }
+        })
+        // Update available correctly
+        await tx.$executeRaw`UPDATE "LeaveBalance" SET available = entitled - used - pending`
       } else if (resetType === 'WFH_ONLY') {
         // Delete only WFH requests
         const deletedWfhRequests = await tx.workFromHomeRequest.deleteMany({})
@@ -102,6 +113,17 @@ export async function POST(request: NextRequest) {
 
         const deletedWfhRequests = await tx.workFromHomeRequest.deleteMany({})
         deletionStats.wfhRequests = deletedWfhRequests.count
+        
+        // Reset leave balances for all requests
+        await tx.leaveBalance.updateMany({
+          data: {
+            used: 0,
+            pending: 0,
+            available: { increment: 0 } // Will be recalculated below
+          }
+        })
+        // Update available correctly
+        await tx.$executeRaw`UPDATE "LeaveBalance" SET available = entitled - used - pending`
       }
 
       console.log('✅ Database cleanup completed:', deletionStats)
