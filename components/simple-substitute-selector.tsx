@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -84,7 +84,7 @@ export function SimpleSubstituteSelector({
     }
   }
 
-  const toggleSubstitute = (substituteId: string) => {
+  const toggleSubstitute = useCallback((substituteId: string) => {
     if (disabled) return
     
     const updated = selectedSubstitutes.includes(substituteId)
@@ -92,7 +92,7 @@ export function SimpleSubstituteSelector({
       : [...selectedSubstitutes, substituteId]
     
     onSubstitutesChange(updated)
-  }
+  }, [disabled, selectedSubstitutes, onSubstitutesChange])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -120,9 +120,11 @@ export function SimpleSubstituteSelector({
     }
   }
 
-  const availableSubstitutes = substitutes.filter(s => s.availabilityStatus === 'available')
-  const partialSubstitutes = substitutes.filter(s => s.availabilityStatus === 'partial')
-  const unavailableSubstitutes = substitutes.filter(s => s.availabilityStatus === 'unavailable')
+  const { availableSubstitutes, partialSubstitutes, unavailableSubstitutes } = useMemo(() => ({
+    availableSubstitutes: substitutes.filter(s => s.availabilityStatus === 'available'),
+    partialSubstitutes: substitutes.filter(s => s.availabilityStatus === 'partial'),
+    unavailableSubstitutes: substitutes.filter(s => s.availabilityStatus === 'unavailable')
+  }), [substitutes])
 
   if (!startDate || !endDate) {
     return (
