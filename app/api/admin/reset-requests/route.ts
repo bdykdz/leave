@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       deletionStats.substituteLinks = deletedSubstituteLinks.count
 
       // Delete leave approvals
-      const deletedApprovals = await tx.leaveApproval.deleteMany({})
+      const deletedApprovals = await tx.approval.deleteMany({})
       deletionStats.approvals = deletedApprovals.count
 
       // Delete WFH approvals
@@ -146,7 +146,7 @@ export async function GET() {
     const counts = {
       leaveRequests: await prisma.leaveRequest.count(),
       wfhRequests: await prisma.workFromHomeRequest.count(),
-      approvals: await prisma.leaveApproval.count(),
+      approvals: await prisma.approval.count(),
       wfhApprovals: await prisma.wFHApproval.count(),
       substituteLinks: await prisma.leaveRequestSubstitute.count(),
       documents: await prisma.generatedDocument.count(),
