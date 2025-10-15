@@ -16,7 +16,7 @@ import { SuccessDialog } from "@/components/success-dialog"
 import { ErrorDialog } from "@/components/error-dialog"
 import { format } from "date-fns/format"
 import { isSameDay } from "date-fns/isSameDay"
-import { SubstitutePicker } from "@/components/substitute-picker"
+import { SmartSubstituteSelector } from "@/components/smart-substitute-selector"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -59,7 +59,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
-  const [selectedSubstitute, setSelectedSubstitute] = useState<string>("")
+  const [selectedSubstitutes, setSelectedSubstitutes] = useState<string[]>([])
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(true)
   const [approvers, setApprovers] = useState<{ manager?: Approver; departmentHead?: Approver }>({})
@@ -171,7 +171,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
     // Reason is optional, no validation needed
 
-    if (!selectedSubstitute) {
+    if (selectedSubstitutes.length === 0) {
       showError(
         "Coverage Assignment Required",
         "Please select a team member to cover your responsibilities.",
@@ -206,7 +206,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         startDate: toLocalDateString(startDate),
         endDate: toLocalDateString(endDate),
         reason: reason.trim() || " ", // Send a space if empty to avoid template issues
-        substituteIds: [selectedSubstitute], // API still expects array
+        substituteIds: selectedSubstitutes,
         selectedDates: selectedDates.map(date => toLocalDateString(date)),
         signature: signature, // Include the signature
       }
@@ -548,9 +548,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
                   {/* Substitute Picker - Now Required */}
                   <div className="border-t pt-4">
-                    <SubstitutePicker
-                      selectedSubstitute={selectedSubstitute}
-                      onSubstituteChange={setSelectedSubstitute}
+                    <SmartSubstituteSelector
+                      startDate={startDate ? toLocalDateString(startDate) : undefined}
+                      endDate={endDate ? toLocalDateString(endDate) : undefined}
+                      selectedDates={selectedDates.map(date => toLocalDateString(date))}
+                      selectedSubstitutes={selectedSubstitutes}
+                      onSubstitutesChange={setSelectedSubstitutes}
                     />
                   </div>
 
@@ -567,7 +570,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                         selectedDates.length === 0 ||
                         !signature ||
                         !leaveType ||
-                        !selectedSubstitute
+                        selectedSubstitutes.length === 0
                       }
                       className="w-full"
                     >

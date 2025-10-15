@@ -8,6 +8,7 @@ import { LeaveCalendar } from "@/components/hr/leave-calendar"
 import { LeaveAnalytics } from "@/components/hr/leave-analytics"
 import { DocumentVerification } from "@/components/hr/DocumentVerification"
 import { DocumentFileManager } from "@/components/hr/DocumentFileManager"
+import { DashboardSummary } from "@/components/dashboard-summary"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar } from "lucide-react"
@@ -49,6 +50,21 @@ export default function HRDashboard() {
 
   const userName = `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim() || session.user.email
 
+  // Helper function to get the correct dashboard route based on user role
+  const getDashboardRoute = () => {
+    switch (session?.user.role) {
+      case "EXECUTIVE":
+        return "/executive"
+      case "MANAGER":
+        return "/manager"
+      case "HR":
+        return "/hr"
+      case "EMPLOYEE":
+      default:
+        return "/employee"
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -59,7 +75,7 @@ export default function HRDashboard() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/employee")}
+                onClick={() => router.push(getDashboardRoute())}
                 title="Back to Personal Dashboard"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -71,7 +87,7 @@ export default function HRDashboard() {
             </div>
             <div className="flex items-center gap-3">
               <Button 
-                onClick={() => router.push("/employee")} 
+                onClick={() => router.push(getDashboardRoute())} 
                 variant="outline" 
                 className="flex items-center gap-2"
               >
@@ -98,7 +114,7 @@ export default function HRDashboard() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push("/employee")}>
+                  <DropdownMenuItem onClick={() => router.push(getDashboardRoute())}>
                     <Calendar className="mr-2 h-4 w-4" />
                     <span>My Dashboard</span>
                   </DropdownMenuItem>
@@ -130,6 +146,9 @@ export default function HRDashboard() {
             Documents
           </TabsTrigger>
         </TabsList>
+
+        {/* Dashboard Summary - shown on all tabs */}
+        <DashboardSummary userRole="HR" />
 
         <TabsContent value="employees" className="space-y-4">
           <EmployeeList />

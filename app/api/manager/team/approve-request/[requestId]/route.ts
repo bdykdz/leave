@@ -162,8 +162,9 @@ export async function POST(
         // Determine signature role based on approver's role and requester's role
         let signatureRole = 'manager' // default
         
-        if (approver?.role === 'EXECUTIVE' || 
-            (approver?.role === 'DEPARTMENT_DIRECTOR' && leaveRequest.user.role === 'MANAGER')) {
+        if (approver?.role === 'EXECUTIVE') {
+          signatureRole = 'executive'
+        } else if (approver?.role === 'DEPARTMENT_DIRECTOR' && leaveRequest.user.role === 'MANAGER') {
           signatureRole = 'department_manager'
         } else if (approver?.role === 'MANAGER' && leaveRequest.user.role === 'EMPLOYEE') {
           signatureRole = 'manager'
@@ -325,8 +326,8 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       )
     }
 
-    // Get or create approval record
-    let approval = wfhRequest.approvals[0]
+    // Get or create approval record for this specific approver
+    let approval = wfhRequest.approvals.find(a => a.approverId === session.user.id)
     if (!approval) {
       approval = await prisma.wFHApproval.create({
         data: {

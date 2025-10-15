@@ -26,6 +26,7 @@ import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { TeamCalendar } from "@/components/team-calendar"
 import { HolidaysList } from "@/components/HolidaysList"
 import { SubstituteRequestManager } from "@/components/substitute/SubstituteRequestManager"
+import { DashboardSummary } from "@/components/dashboard-summary"
 import { format } from "date-fns/format"
 import { addMonths } from "date-fns/addMonths"
 import { subMonths } from "date-fns/subMonths"
@@ -419,7 +420,11 @@ export default function EmployeeDashboard() {
         </div>
 
         {activeTab === "dashboard" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
+            {/* Dashboard Summary */}
+            <DashboardSummary userRole="EMPLOYEE" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Leave Balance Cards */}
             <div className="lg:col-span-2 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -626,6 +631,7 @@ export default function EmployeeDashboard() {
                 <HolidaysList />
               </CardContent>
             </Card>
+            </div>
           </div>
         )}
 

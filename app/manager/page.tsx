@@ -26,6 +26,7 @@ import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
+import { DashboardSummary } from "@/components/dashboard-summary"
 import { DelegationManager } from "@/components/manager/DelegationManager"
 import { format, addMonths, subMonths } from "date-fns"
 import {
@@ -455,6 +456,22 @@ export default function ManagerDashboard() {
     return null
   }
 
+  // Helper function to get the correct dashboard route based on user role
+  const getDashboardRoute = () => {
+    switch (session?.user.role) {
+      case "EXECUTIVE":
+        return "/executive"
+      case "MANAGER":
+      case "DEPARTMENT_DIRECTOR":
+        return "/manager"
+      case "HR":
+        return "/hr"
+      case "EMPLOYEE":
+      default:
+        return "/employee"
+    }
+  }
+
   if (showRequestForm) {
     return <LeaveRequestForm onBack={() => setShowRequestForm(false)} />
   }
@@ -473,7 +490,7 @@ export default function ManagerDashboard() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/employee")}
+                onClick={() => router.push(getDashboardRoute())}
                 title="Back to Personal Dashboard"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -487,7 +504,7 @@ export default function ManagerDashboard() {
             </div>
             <div className="flex items-center gap-3">
               <Button 
-                onClick={() => router.push("/employee")} 
+                onClick={() => router.push(getDashboardRoute())} 
                 variant="outline" 
                 className="flex items-center gap-2"
               >
@@ -562,7 +579,11 @@ export default function ManagerDashboard() {
         </div>
 
         {activeTab === "dashboard" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
+            {/* Dashboard Summary */}
+            <DashboardSummary userRole="MANAGER" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Manager's Personal Dashboard */}
             <div className="lg:col-span-2 space-y-6">
               {/* Manager's Leave Balance Cards */}
@@ -881,6 +902,7 @@ export default function ManagerDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
             </div>
           </div>
         )}

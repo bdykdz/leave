@@ -28,6 +28,7 @@ import { TeamCalendar } from "@/components/team-calendar"
 import { ExecutiveLeaveRequestForm } from "@/components/executive-leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
+import { DashboardSummary } from "@/components/dashboard-summary"
 import { format, addMonths, subMonths } from "date-fns"
 import {
   DropdownMenu,
@@ -128,11 +129,38 @@ export default function ExecutiveDashboard() {
   const fetchMyRequests = async () => {
     try {
       setLoadingMyRequests(true)
-      const response = await fetch('/api/leave-requests')
-      if (response.ok) {
-        const data = await response.json()
-        setMyRequests(data.requests || [])
+      
+      // Fetch both leave and WFH requests
+      const [leaveResponse, wfhResponse] = await Promise.all([
+        fetch('/api/leave-requests'),
+        fetch('/api/wfh-requests')
+      ])
+      
+      let allRequests: any[] = []
+      
+      if (leaveResponse.ok) {
+        const leaveData = await leaveResponse.json()
+        const leaveRequests = (leaveData.requests || []).map((req: any) => ({
+          ...req,
+          requestType: 'leave'
+        }))
+        allRequests.push(...leaveRequests)
       }
+      
+      if (wfhResponse.ok) {
+        const wfhData = await wfhResponse.json()
+        const wfhRequests = (wfhData.wfhRequests || []).map((req: any) => ({
+          ...req,
+          requestType: 'wfh',
+          leaveType: { name: 'Work From Home' }
+        }))
+        allRequests.push(...wfhRequests)
+      }
+      
+      // Sort by creation date (newest first)
+      allRequests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      
+      setMyRequests(allRequests)
     } catch (error) {
       console.error('Error fetching my requests:', error)
     } finally {
@@ -363,6 +391,9 @@ export default function ExecutiveDashboard() {
         {/* Dashboard Tab Content */}
         {activeTab === "dashboard" && (
           <>
+            {/* Dashboard Summary */}
+            <DashboardSummary userRole="EXECUTIVE" />
+            
             {/* Quick Actions */}
             <Card>
           <CardHeader>
@@ -459,10 +490,15 @@ export default function ExecutiveDashboard() {
                       <div key={request.id} className="border rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-medium">{request.leaveType?.name || 'Leave Request'}</h4>
+                            <h4 className="font-medium">
+                              {request.requestType === 'wfh' ? 'Work From Home' : (request.leaveType?.name || 'Leave Request')}
+                            </h4>
                             <p className="text-sm text-gray-600">
                               {format(new Date(request.startDate), 'MMM d')} - {format(new Date(request.endDate), 'MMM d')} 
                               ({request.totalDays} {t.leaveForm.days})
+                              {request.requestType === 'wfh' && request.location && (
+                                <span className="ml-2 text-xs text-blue-600">@ {request.location}</span>
+                              )}
                             </p>
                           </div>
                           <Badge variant={

@@ -57,6 +57,22 @@ export function AdminPanel() {
   const router = useRouter()
   const { data: session } = useSession()
 
+  // Helper function to get the correct dashboard route based on user role
+  const getDashboardRoute = () => {
+    switch (session?.user.role) {
+      case "EXECUTIVE":
+        return "/executive"
+      case "MANAGER":
+      case "DEPARTMENT_DIRECTOR":
+        return "/manager"
+      case "HR":
+        return "/hr"
+      case "EMPLOYEE":
+      default:
+        return "/employee"
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -67,7 +83,7 @@ export function AdminPanel() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/employee")}
+                onClick={() => router.push(getDashboardRoute())}
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
@@ -99,9 +115,9 @@ export function AdminPanel() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push("/employee")}>
+                  <DropdownMenuItem onClick={() => router.push(getDashboardRoute())}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Employee View</span>
+                    <span>My Dashboard</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>
