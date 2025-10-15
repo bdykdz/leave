@@ -96,13 +96,12 @@ export async function POST(request: NextRequest) {
         // Reset leave balances for leave requests
         await tx.leaveBalance.updateMany({
           data: {
+            entitled: 30,
             used: 0,
             pending: 0,
-            available: { increment: 0 } // Recalculate: entitled - used - pending
+            available: 30 // 30 - 0 - 0 = 30
           }
         })
-        // Update available correctly
-        await tx.$executeRaw`UPDATE "LeaveBalance" SET available = entitled - used - pending`
       } else if (resetType === 'WFH_ONLY') {
         // Delete only WFH requests
         const deletedWfhRequests = await tx.workFromHomeRequest.deleteMany({})
@@ -111,13 +110,12 @@ export async function POST(request: NextRequest) {
         // Reset only leave balances without deleting requests
         await tx.leaveBalance.updateMany({
           data: {
+            entitled: 30,
             used: 0,
             pending: 0,
-            available: { increment: 0 } // Will be recalculated below
+            available: 30 // 30 - 0 - 0 = 30
           }
         })
-        // Update available correctly
-        await tx.$executeRaw`UPDATE "LeaveBalance" SET available = entitled - used - pending`
       } else {
         // Delete all requests (default)
         const deletedLeaveRequests = await tx.leaveRequest.deleteMany({})
@@ -129,13 +127,12 @@ export async function POST(request: NextRequest) {
         // Reset leave balances for all requests
         await tx.leaveBalance.updateMany({
           data: {
+            entitled: 30,
             used: 0,
             pending: 0,
-            available: { increment: 0 } // Will be recalculated below
+            available: 30 // 30 - 0 - 0 = 30
           }
         })
-        // Update available correctly
-        await tx.$executeRaw`UPDATE "LeaveBalance" SET available = entitled - used - pending`
       }
 
       console.log('✅ Database cleanup completed:', deletionStats)

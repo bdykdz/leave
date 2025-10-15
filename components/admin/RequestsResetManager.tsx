@@ -117,7 +117,7 @@ export function RequestsResetManager() {
       case 'WFH_ONLY':
         return 'Delete only work-from-home requests and their approvals'
       case 'BALANCE_ONLY':
-        return 'Reset only leave balances (used/pending) without deleting requests'
+        return 'Reset leave balances to 30 days default (entitled: 30, used: 0, pending: 0) without deleting requests'
       case 'FULL':
       default:
         return 'Delete ALL requests, approvals, and documents'
@@ -235,7 +235,7 @@ export function RequestsResetManager() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   <strong>Warning:</strong> {resetType === 'BALANCE_ONLY' ? (
-                    <>This will reset all leave balance calculations (used/pending values) to zero. Request data will remain intact. This action cannot be undone.</>
+                    <>This will reset all leave balances to 30 days default (entitled: 30, used: 0, pending: 0, available: 30). Request data will remain intact. This action cannot be undone.</>
                   ) : (
                     <>This will permanently delete all selected data including:
                     <ul className="list-disc list-inside mt-2 space-y-1">
