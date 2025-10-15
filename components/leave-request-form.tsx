@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -16,7 +16,7 @@ import { SuccessDialog } from "@/components/success-dialog"
 import { ErrorDialog } from "@/components/error-dialog"
 import { format } from "date-fns/format"
 import { isSameDay } from "date-fns/isSameDay"
-import { SimpleSubstituteSelector } from "@/components/simple-substitute-selector"
+import { BasicSubstitutePicker } from "@/components/basic-substitute-picker"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -68,10 +68,6 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [blockedDateDetails, setBlockedDateDetails] = useState<Record<string, { status: string; leaveType: string }>>({})
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true)
 
-  // Memoized callback for substitute changes to prevent unnecessary re-renders
-  const handleSubstitutesChange = useCallback((newSubstitutes: string[]) => {
-    setSelectedSubstitutes(newSubstitutes)
-  }, [])
 
   // Helper to format date as YYYY-MM-DD in local time
   const toLocalDateString = (date: Date) => {
@@ -559,27 +555,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
                   {/* Substitute Picker - Now Required */}
                   <div className="border-t pt-4">
-                    {(() => {
-                      try {
-                        return (
-                          <SimpleSubstituteSelector
-                            startDate={startDate ? toLocalDateString(startDate) : undefined}
-                            endDate={endDate ? toLocalDateString(endDate) : undefined}
-                            selectedDates={selectedDates.map(date => toLocalDateString(date))}
-                            selectedSubstitutes={selectedSubstitutes}
-                            onSubstitutesChange={handleSubstitutesChange}
-                          />
-                        )
-                      } catch (error) {
-                        console.error('Error rendering SimpleSubstituteSelector:', error)
-                        return (
-                          <div className="p-4 border border-red-200 rounded-lg bg-red-50">
-                            <p className="text-red-800 font-medium">Error loading substitute selector</p>
-                            <p className="text-red-600 text-sm">Please try refreshing the page</p>
-                          </div>
-                        )
-                      }
-                    })()}
+                    <BasicSubstitutePicker
+                      startDate={startDate ? toLocalDateString(startDate) : undefined}
+                      endDate={endDate ? toLocalDateString(endDate) : undefined}
+                      selectedSubstitutes={selectedSubstitutes}
+                      onSubstitutesChange={setSelectedSubstitutes}
+                    />
                   </div>
 
                   {/* Signature Pad */}
