@@ -31,7 +31,7 @@ export async function GET() {
             lastName: true,
             email: true,
             department: true,
-            image: true
+            profileImage: true
           }
         },
         leaveType: {
@@ -57,7 +57,7 @@ export async function GET() {
             lastName: true,
             email: true,
             department: true,
-            image: true
+            profileImage: true
           }
         }
       }
@@ -83,7 +83,7 @@ export async function GET() {
                 lastName: true,
                 email: true,
                 department: true,
-                image: true
+                profileImage: true
               }
             },
             leaveType: {
@@ -114,7 +114,7 @@ export async function GET() {
                 lastName: true,
                 email: true,
                 department: true,
-                image: true
+                profileImage: true
               }
             },
             leaveType: {
@@ -133,7 +133,7 @@ export async function GET() {
         id: request.user.id,
         name: `${request.user.firstName} ${request.user.lastName}`,
         leaveType: request.leaveType.name,
-        avatar: request.user.image,
+        avatar: request.user.profileImage,
         department: request.user.department
       })),
       
@@ -141,7 +141,7 @@ export async function GET() {
         id: request.user.id,
         name: `${request.user.firstName} ${request.user.lastName}`,
         location: request.location,
-        avatar: request.user.image,
+        avatar: request.user.profileImage,
         department: request.user.department
       })),
       
@@ -152,7 +152,7 @@ export async function GET() {
         leaveType: substitute.leaveRequest.leaveType.name,
         startDate: substitute.leaveRequest.startDate.toISOString(),
         endDate: substitute.leaveRequest.endDate.toISOString(),
-        avatar: substitute.leaveRequest.user.image,
+        avatar: substitute.leaveRequest.user.profileImage,
         department: substitute.leaveRequest.user.department
       })),
       
@@ -164,7 +164,7 @@ export async function GET() {
         startDate: substitute.leaveRequest.startDate.toISOString(),
         endDate: substitute.leaveRequest.endDate.toISOString(),
         status: substitute.leaveRequest.status,
-        avatar: substitute.leaveRequest.user.image,
+        avatar: substitute.leaveRequest.user.profileImage,
         department: substitute.leaveRequest.user.department
       }))
     }

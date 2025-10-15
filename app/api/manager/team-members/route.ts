@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Get team members who report to this manager
     const teamMembers = await prisma.user.findMany({
       where: {
-        reporterId: currentUser.id,
+        managerId: currentUser.id,
         isActive: true
       },
       select: {
@@ -26,18 +26,8 @@ export async function GET(request: NextRequest) {
         firstName: true,
         lastName: true,
         email: true,
-        department: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
+        department: true,
         role: true,
-        availableLeaveTypes: {
-          include: {
-            leaveType: true
-          }
-        },
         leaveRequests: {
           where: {
             status: 'PENDING'
@@ -45,6 +35,11 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             status: true
+          }
+        },
+        leaveBalances: {
+          include: {
+            leaveType: true
           }
         }
       },
@@ -59,13 +54,14 @@ export async function GET(request: NextRequest) {
       id: member.id,
       name: `${member.firstName} ${member.lastName}`,
       email: member.email,
-      department: member.department?.name || 'No Department',
+      department: member.department || 'No Department',
       role: member.role,
       pendingRequests: member.leaveRequests.length,
-      leaveBalances: member.availableLeaveTypes.map(alt => ({
-        leaveType: alt.leaveType.name,
-        balance: alt.balance,
-        used: alt.used
+      leaveBalances: member.leaveBalances.map(balance => ({
+        leaveType: balance.leaveType.name,
+        entitled: balance.entitled,
+        used: balance.used,
+        available: balance.available
       }))
     }));
 
