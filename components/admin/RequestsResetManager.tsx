@@ -55,6 +55,11 @@ export function RequestsResetManager() {
     fetchCounts()
   }, [])
 
+  // Clear confirmation text when reset type changes
+  useEffect(() => {
+    setConfirmationText("")
+  }, [resetType])
+
   const fetchCounts = async () => {
     try {
       const response = await fetch('/api/admin/reset-requests')
