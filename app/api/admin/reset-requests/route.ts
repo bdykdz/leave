@@ -45,20 +45,18 @@ export async function POST(request: NextRequest) {
     const documentsToDelete = await prisma.generatedDocument.findMany({
       select: {
         id: true,
-        filePath: true,
-        minioKey: true
+        fileUrl: true
       }
     })
 
     // Step 2: Delete files from MinIO storage
     for (const doc of documentsToDelete) {
       try {
-        if (doc.minioKey) {
-          await deleteFromMinio(doc.minioKey)
-          deletionStats.filesDeleted++
-        } else if (doc.filePath) {
-          // Legacy file path handling if needed
-          await deleteFromMinio(doc.filePath)
+        if (doc.fileUrl) {
+          // Extract the MinIO object key from the fileUrl
+          // FileUrl format: "minio://bucket/object-path" or just object path
+          const objectKey = doc.fileUrl.replace(/^minio:\/\/[^\/]+\//, '')
+          await deleteFromMinio(objectKey)
           deletionStats.filesDeleted++
         }
       } catch (error) {
