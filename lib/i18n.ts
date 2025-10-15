@@ -63,6 +63,24 @@ export interface Translations {
     pendingApprovals: string
     approvedRequests: string
     rejectedRequests: string
+    summary: {
+      title: string
+      noActivity: string
+      onLeaveToday: string
+      workingFromHome: string
+      substitutingFor: string
+      pendingRequests: string
+      errors: {
+        fetchFailed: string
+        unknown: string
+        loadFailed: string
+      }
+    }
+  }
+
+  // Buttons
+  buttons: {
+    review: string
   }
 
   // Leave Request Form
@@ -129,6 +147,7 @@ export interface Translations {
     cancelled: string
     draft: string
     partiallyApproved: string
+    active: string
   }
 
   // Validation
@@ -220,7 +239,23 @@ export const translations: Record<Language, Translations> = {
       teamStats: "Team Statistics",
       pendingApprovals: "Pending Approvals",
       approvedRequests: "Approved Requests",
-      rejectedRequests: "Rejected Requests"
+      rejectedRequests: "Rejected Requests",
+      summary: {
+        title: "Today's Overview",
+        noActivity: "No activity for today",
+        onLeaveToday: "On Leave Today",
+        workingFromHome: "Working from Home",
+        substitutingFor: "Substituting For",
+        pendingRequests: "Pending Substitute Requests",
+        errors: {
+          fetchFailed: "Failed to fetch dashboard summary",
+          unknown: "An unknown error occurred",
+          loadFailed: "Failed to load data"
+        }
+      }
+    },
+    buttons: {
+      review: "Review"
     },
     leaveForm: {
       title: "New Leave Request",
@@ -278,7 +313,8 @@ export const translations: Record<Language, Translations> = {
       rejected: "Rejected",
       cancelled: "Cancelled",
       draft: "Draft",
-      partiallyApproved: "Partially Approved"
+      partiallyApproved: "Partially Approved",
+      active: "Active"
     },
     validation: {
       required: "This field is required",
@@ -364,7 +400,23 @@ export const translations: Record<Language, Translations> = {
       teamStats: "Statistici echipă",
       pendingApprovals: "Aprobări în așteptare",
       approvedRequests: "Cereri aprobate",
-      rejectedRequests: "Cereri respinse"
+      rejectedRequests: "Cereri respinse",
+      summary: {
+        title: "Prezentarea zilei de astăzi",
+        noActivity: "Nu există activitate pentru astăzi",
+        onLeaveToday: "În concediu astăzi",
+        workingFromHome: "Lucru de acasă",
+        substitutingFor: "Înlocuitor pentru",
+        pendingRequests: "Cereri de înlocuire în așteptare",
+        errors: {
+          fetchFailed: "Eșec la preluarea rezumatului tabloului de bord",
+          unknown: "A apărut o eroare necunoscută",
+          loadFailed: "Eșec la încărcarea datelor"
+        }
+      }
+    },
+    buttons: {
+      review: "Revizuire"
     },
     leaveForm: {
       title: "Cerere nouă de concediu",
@@ -422,7 +474,8 @@ export const translations: Record<Language, Translations> = {
       rejected: "Respins",
       cancelled: "Anulat",
       draft: "Ciornă",
-      partiallyApproved: "Aprobat parțial"
+      partiallyApproved: "Aprobat parțial",
+      active: "Activ"
     },
     validation: {
       required: "Acest câmp este obligatoriu",
