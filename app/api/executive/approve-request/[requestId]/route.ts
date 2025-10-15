@@ -19,29 +19,36 @@ export async function POST(
 
     const { comment } = await request.json();
 
-    // Update the leave request
+    // Update the approval record for this executive
+    await prisma.approval.updateMany({
+      where: {
+        leaveRequestId: params.requestId,
+        approverId: session.user.id,
+        status: 'PENDING'
+      },
+      data: {
+        status: 'APPROVED',
+        comment: comment || null,
+        approvedAt: new Date()
+      }
+    });
+
+    // Check if all approvals are complete
+    const allApprovals = await prisma.approval.findMany({
+      where: { leaveRequestId: params.requestId }
+    });
+
+    const allApproved = allApprovals.every(approval => approval.status === 'APPROVED');
+
+    // Update the leave request status if all approvals are complete
     const updatedRequest = await prisma.leaveRequest.update({
       where: { id: params.requestId },
       data: {
-        status: 'APPROVED',
-        executiveApprovedBy: session.user.id,
-        executiveApprovedAt: new Date(),
-        executiveComment: comment || null
+        status: allApproved ? 'APPROVED' : 'PENDING'
       },
       include: {
         user: true,
         leaveType: true
-      }
-    });
-
-    // Create an approval record
-    await prisma.approval.create({
-      data: {
-        leaveRequestId: params.requestId,
-        approverId: session.user.id,
-        status: 'APPROVED',
-        comment: comment || null,
-        approvedAt: new Date()
       }
     });
 

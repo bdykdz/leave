@@ -25,17 +25,12 @@ export async function GET(request: NextRequest) {
       prisma.leaveRequest.findMany({
         where: {
           status: 'PENDING',
-          OR: [
-            { requiresExecutiveApproval: true },
-            {
-              approvals: {
-                some: {
-                  approverId: session.user.id,
-                  status: 'PENDING'
-                }
-              }
+          approvals: {
+            some: {
+              approverId: session.user.id,
+              status: 'PENDING'
             }
-          ]
+          }
         },
         include: {
           user: {
@@ -70,17 +65,12 @@ export async function GET(request: NextRequest) {
       prisma.leaveRequest.count({
         where: {
           status: 'PENDING',
-          OR: [
-            { requiresExecutiveApproval: true },
-            {
-              approvals: {
-                some: {
-                  approverId: session.user.id,
-                  status: 'PENDING'
-                }
-              }
+          approvals: {
+            some: {
+              approverId: session.user.id,
+              status: 'PENDING'
             }
-          ]
+          }
         }
       })
     ]);

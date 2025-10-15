@@ -333,7 +333,10 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         reason: validatedData.reason,
         substituteId: validatedData.substituteIds?.[0], // For now, take the first substitute
         status: 'PENDING',
-        // Store selected dates and formatted dates
+        // Store selected dates as direct field for calendar filtering
+        selectedDates: validatedData.selectedDates ? 
+          validatedData.selectedDates.map(dateStr => new Date(dateStr)) : [],
+        // Store selected dates and formatted dates in supportingDocuments for backward compatibility
         supportingDocuments: {
           selectedDates: validatedData.selectedDates || null,
           formattedDates: formattedDates,

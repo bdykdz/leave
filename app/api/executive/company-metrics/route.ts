@@ -48,11 +48,18 @@ export async function GET(request: NextRequest) {
     // Calculate in office today
     const inOfficeToday = Math.max(0, totalEmployees - onLeaveToday - workingRemoteToday);
 
-    // Get pending approvals (escalated to executive level)
+    // Get pending approvals that have executive approvers
     const pendingApprovals = await prisma.leaveRequest.count({
       where: {
         status: 'PENDING',
-        requiresExecutiveApproval: true
+        approvals: {
+          some: {
+            approver: {
+              role: 'EXECUTIVE'
+            },
+            status: 'PENDING'
+          }
+        }
       }
     });
 

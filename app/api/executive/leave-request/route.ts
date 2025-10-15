@@ -185,6 +185,9 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       totalDays,
       reason: validatedData.reason,
       status: 'PENDING',
+      // Store selected dates as direct field for calendar filtering
+      selectedDates: validatedData.selectedDates ? 
+        validatedData.selectedDates.map(dateStr => new Date(dateStr)) : [],
       // Store metadata about executive request
       supportingDocuments: {
         selectedDates: validatedData.selectedDates || null,

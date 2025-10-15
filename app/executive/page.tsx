@@ -432,7 +432,7 @@ export default function ExecutiveDashboard() {
                     {executiveLeaveBalance.map((balance, index) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium">{balance.leaveType?.name || 'Unknown Leave Type'}</h3>
+                          <h3 className="font-medium">{balance.leaveTypeName || 'Unknown Leave Type'}</h3>
                           <Badge variant="outline" className="text-xs">
                             {balance.available || 0} {t.leaveForm.days}
                           </Badge>

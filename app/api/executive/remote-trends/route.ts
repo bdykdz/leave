@@ -24,30 +24,20 @@ export async function GET(request: NextRequest) {
       const monthStart = startOfMonth(monthDate);
       const monthEnd = endOfMonth(monthDate);
 
-      // Get WFH requests for this month by type
-      const regularWFH = await prisma.workFromHomeRequest.count({
+      // Get WFH requests for this month
+      const totalWFH = await prisma.workFromHomeRequest.count({
         where: {
           status: 'APPROVED',
           startDate: { lte: monthEnd },
-          endDate: { gte: monthStart },
-          reason: { not: { contains: 'emergency' } }
-        }
-      });
-
-      const emergencyWFH = await prisma.workFromHomeRequest.count({
-        where: {
-          status: 'APPROVED',
-          startDate: { lte: monthEnd },
-          endDate: { gte: monthStart },
-          reason: { contains: 'emergency' }
+          endDate: { gte: monthStart }
         }
       });
 
       trends.push({
         month: format(monthDate, 'MMM'),
-        regular: regularWFH,
-        emergency: emergencyWFH,
-        total: regularWFH + emergencyWFH
+        regular: totalWFH,
+        emergency: 0,
+        total: totalWFH
       });
     }
 

@@ -26,29 +26,29 @@ export async function POST(
       );
     }
 
-    // Update the leave request
+    // Update the approval record for this executive
+    await prisma.approval.updateMany({
+      where: {
+        leaveRequestId: params.requestId,
+        approverId: session.user.id,
+        status: 'PENDING'
+      },
+      data: {
+        status: 'REJECTED',
+        comment: comment,
+        approvedAt: new Date()
+      }
+    });
+
+    // Update the leave request status to rejected
     const updatedRequest = await prisma.leaveRequest.update({
       where: { id: params.requestId },
       data: {
-        status: 'REJECTED',
-        executiveApprovedBy: session.user.id,
-        executiveApprovedAt: new Date(),
-        executiveComment: comment
+        status: 'REJECTED'
       },
       include: {
         user: true,
         leaveType: true
-      }
-    });
-
-    // Create an approval record
-    await prisma.approval.create({
-      data: {
-        leaveRequestId: params.requestId,
-        approverId: session.user.id,
-        status: 'REJECTED',
-        comment: comment,
-        approvedAt: new Date()
       }
     });
 

@@ -68,6 +68,19 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [blockedDateDetails, setBlockedDateDetails] = useState<Record<string, { status: string; leaveType: string }>>({})
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true)
 
+  // Helper to format date as YYYY-MM-DD in local time
+  const toLocalDateString = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Calculate start and end dates from selected dates
+  const sortedDates = selectedDates.sort((a, b) => a.getTime() - b.getTime())
+  const startDate = sortedDates.length > 0 ? sortedDates[0] : undefined
+  const endDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : undefined
+
   // Fetch leave types on component mount
   useEffect(() => {
     const fetchLeaveTypes = async () => {
@@ -187,17 +200,10 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
     setIsSubmitting(true)
 
     try {
-      // Sort dates to get start and end
-      const sortedDates = selectedDates.sort((a, b) => a.getTime() - b.getTime())
-      const startDate = sortedDates[0]
-      const endDate = sortedDates[sortedDates.length - 1]
-
-      // Helper to format date as YYYY-MM-DD in local time
-      const toLocalDateString = (date: Date) => {
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, '0')
-        const day = String(date.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
+      // Check if we have valid dates
+      if (!startDate || !endDate) {
+        showError("Invalid Dates", "Please select valid dates for your leave request.")
+        return
       }
 
       // Prepare request body
