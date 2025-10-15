@@ -16,7 +16,7 @@ import { SuccessDialog } from "@/components/success-dialog"
 import { ErrorDialog } from "@/components/error-dialog"
 import { format } from "date-fns/format"
 import { isSameDay } from "date-fns/isSameDay"
-import { SmartSubstituteSelector } from "@/components/smart-substitute-selector"
+import { SimpleSubstituteSelector } from "@/components/simple-substitute-selector"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -554,7 +554,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
                   {/* Substitute Picker - Now Required */}
                   <div className="border-t pt-4">
-                    <SmartSubstituteSelector
+                    <SimpleSubstituteSelector
                       startDate={startDate ? toLocalDateString(startDate) : undefined}
                       endDate={endDate ? toLocalDateString(endDate) : undefined}
                       selectedDates={selectedDates.map(date => toLocalDateString(date))}
