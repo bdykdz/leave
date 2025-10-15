@@ -21,9 +21,10 @@ export async function POST(request: NextRequest) {
     const { confirmationText, resetType } = body
 
     // Require confirmation text to prevent accidental deletions
-    if (confirmationText !== "DELETE ALL REQUESTS") {
+    const expectedText = resetType === 'BALANCE_ONLY' ? 'RESET BALANCES' : 'DELETE ALL REQUESTS'
+    if (confirmationText !== expectedText) {
       return NextResponse.json({ 
-        error: "Invalid confirmation text. Please type 'DELETE ALL REQUESTS' to confirm." 
+        error: `Invalid confirmation text. Please type '${expectedText}' to confirm.` 
       }, { status: 400 })
     }
 
