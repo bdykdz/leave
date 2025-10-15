@@ -69,8 +69,9 @@ export function RequestsResetManager() {
   }
 
   const handleReset = async () => {
-    if (confirmationText !== "DELETE ALL REQUESTS") {
-      toast.error('Please type "DELETE ALL REQUESTS" to confirm')
+    const expectedText = resetType === 'BALANCE_ONLY' ? 'RESET BALANCES' : 'DELETE ALL REQUESTS'
+    if (confirmationText !== expectedText) {
+      toast.error(`Please type "${expectedText}" to confirm`)
       return
     }
 
@@ -123,6 +124,9 @@ export function RequestsResetManager() {
     counts.wfhRequests > 0 || 
     counts.documents > 0
   )
+
+  // For balance-only reset, we don't need any requests to exist
+  const canReset = resetType === 'BALANCE_ONLY' || hasData
 
   return (
     <div className="space-y-6">
@@ -213,7 +217,7 @@ export function RequestsResetManager() {
           <Separator />
 
           {/* Confirmation Section */}
-          {!hasData ? (
+          {!canReset ? (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
@@ -225,26 +229,30 @@ export function RequestsResetManager() {
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Warning:</strong> This will permanently delete all selected data including:
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>All request records from the database</li>
-                    <li>All approval records and workflows</li>
-                    <li>All generated documents and their files</li>
-                    <li>All signatures and document metadata</li>
-                  </ul>
-                  This action cannot be undone.
+                  <strong>Warning:</strong> {resetType === 'BALANCE_ONLY' ? (
+                    <>This will reset all leave balance calculations (used/pending values) to zero. Request data will remain intact. This action cannot be undone.</>
+                  ) : (
+                    <>This will permanently delete all selected data including:
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>All request records from the database</li>
+                      <li>All approval records and workflows</li>
+                      <li>All generated documents and their files</li>
+                      <li>All signatures and document metadata</li>
+                    </ul>
+                    This action cannot be undone.</>
+                  )}
                 </AlertDescription>
               </Alert>
 
               <div>
                 <Label htmlFor="confirmation">
-                  Type <code className="bg-gray-100 px-1 rounded">DELETE ALL REQUESTS</code> to confirm:
+                  Type <code className="bg-gray-100 px-1 rounded">{resetType === 'BALANCE_ONLY' ? 'RESET BALANCES' : 'DELETE ALL REQUESTS'}</code> to confirm:
                 </Label>
                 <Input
                   id="confirmation"
                   value={confirmationText}
                   onChange={(e) => setConfirmationText(e.target.value)}
-                  placeholder="DELETE ALL REQUESTS"
+                  placeholder={resetType === 'BALANCE_ONLY' ? 'RESET BALANCES' : 'DELETE ALL REQUESTS'}
                   className="mt-1"
                 />
               </div>
@@ -252,7 +260,7 @@ export function RequestsResetManager() {
               <Button
                 variant="destructive"
                 onClick={handleReset}
-                disabled={loading || confirmationText !== "DELETE ALL REQUESTS"}
+                disabled={loading || confirmationText !== (resetType === 'BALANCE_ONLY' ? 'RESET BALANCES' : 'DELETE ALL REQUESTS')}
                 className="w-full"
               >
                 {loading ? (
