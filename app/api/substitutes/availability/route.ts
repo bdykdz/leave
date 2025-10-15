@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const potentialSubstitutes = await prisma.user.findMany({
       where: {
         id: { not: session.user.id }, // Exclude the requester
-        status: 'ACTIVE' // Only active users
+        isActive: true // Only active users
       },
       select: {
         id: true,
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         email: true,
         department: true,
         role: true,
-        image: true
+        profileImage: true
       }
     })
 

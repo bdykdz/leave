@@ -93,13 +93,43 @@ export async function POST(request: NextRequest) {
         const deletedLeaveRequests = await tx.leaveRequest.deleteMany({})
         deletionStats.leaveRequests = deletedLeaveRequests.count
         
-        // Reset leave balances for leave requests
+        // Reset leave balances for leave requests based on leave type
+        // Annual Leave: Reset to 30 days
         await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'AL' }
+          },
           data: {
             entitled: 30,
             used: 0,
             pending: 0,
-            available: 30 // 30 - 0 - 0 = 30
+            available: 30
+          }
+        })
+
+        // Personal Leave: Reset to 5 days (drawer system)
+        await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'PL' }
+          },
+          data: {
+            entitled: 5,
+            used: 0,
+            pending: 0,
+            available: 5
+          }
+        })
+
+        // Sick Leave: Set to unlimited (999 days as proxy for unlimited)
+        await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'SL' }
+          },
+          data: {
+            entitled: 999,
+            used: 0,
+            pending: 0,
+            available: 999
           }
         })
       } else if (resetType === 'WFH_ONLY') {
@@ -107,13 +137,43 @@ export async function POST(request: NextRequest) {
         const deletedWfhRequests = await tx.workFromHomeRequest.deleteMany({})
         deletionStats.wfhRequests = deletedWfhRequests.count
       } else if (resetType === 'BALANCE_ONLY') {
-        // Reset only leave balances without deleting requests
+        // Reset only leave balances without deleting requests based on leave type
+        // Annual Leave: Reset to 30 days
         await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'AL' }
+          },
           data: {
             entitled: 30,
             used: 0,
             pending: 0,
-            available: 30 // 30 - 0 - 0 = 30
+            available: 30
+          }
+        })
+
+        // Personal Leave: Reset to 5 days (drawer system)
+        await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'PL' }
+          },
+          data: {
+            entitled: 5,
+            used: 0,
+            pending: 0,
+            available: 5
+          }
+        })
+
+        // Sick Leave: Set to unlimited (999 days as proxy for unlimited)
+        await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'SL' }
+          },
+          data: {
+            entitled: 999,
+            used: 0,
+            pending: 0,
+            available: 999
           }
         })
       } else {
@@ -124,13 +184,43 @@ export async function POST(request: NextRequest) {
         const deletedWfhRequests = await tx.workFromHomeRequest.deleteMany({})
         deletionStats.wfhRequests = deletedWfhRequests.count
         
-        // Reset leave balances for all requests
+        // Reset leave balances for all requests based on leave type
+        // Annual Leave: Reset to 30 days
         await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'AL' }
+          },
           data: {
             entitled: 30,
             used: 0,
             pending: 0,
-            available: 30 // 30 - 0 - 0 = 30
+            available: 30
+          }
+        })
+
+        // Personal Leave: Reset to 5 days (drawer system)
+        await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'PL' }
+          },
+          data: {
+            entitled: 5,
+            used: 0,
+            pending: 0,
+            available: 5
+          }
+        })
+
+        // Sick Leave: Set to unlimited (999 days as proxy for unlimited)
+        await tx.leaveBalance.updateMany({
+          where: {
+            leaveType: { code: 'SL' }
+          },
+          data: {
+            entitled: 999,
+            used: 0,
+            pending: 0,
+            available: 999
           }
         })
       }

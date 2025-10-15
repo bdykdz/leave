@@ -22,6 +22,7 @@ import { EscalationSettings } from "./EscalationSettings"
 import { AuditLogViewer } from "./AuditLogViewer"
 import { LeaveBalanceSettings } from "./LeaveBalanceSettings"
 import { RequestsResetManager } from "./RequestsResetManager"
+import { SelectedDatesMigration } from "./SelectedDatesMigration"
 import { 
   FileText,
   Calendar,
@@ -42,6 +43,7 @@ import {
   History,
   Calculator,
   Trash2,
+  Database,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -137,7 +139,7 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-16">
+          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-17">
             <TabsTrigger value="overlaps" className="flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               <span className="hidden sm:inline">Overlaps</span>
@@ -197,6 +199,10 @@ export function AdminPanel() {
             <TabsTrigger value="audit" className="flex items-center gap-1">
               <History className="h-3 w-3" />
               <span className="hidden sm:inline">Audit Logs</span>
+            </TabsTrigger>
+            <TabsTrigger value="migration" className="flex items-center gap-1 text-blue-600">
+              <Database className="h-3 w-3" />
+              <span className="hidden sm:inline">Migration</span>
             </TabsTrigger>
             <TabsTrigger value="reset" className="flex items-center gap-1 text-red-600">
               <Trash2 className="h-3 w-3" />
@@ -262,6 +268,10 @@ export function AdminPanel() {
 
           <TabsContent value="audit" className="space-y-4">
             <AuditLogViewer />
+          </TabsContent>
+
+          <TabsContent value="migration" className="space-y-4">
+            <SelectedDatesMigration />
           </TabsContent>
 
           <TabsContent value="reset" className="space-y-4">

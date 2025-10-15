@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const currentUser = await getCurrentUser();
+    const session = await getServerSession(authOptions);
     
-    if (!currentUser) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Check if user is a manager
-    if (!['MANAGER', 'HR', 'ADMIN', 'EXECUTIVE'].includes(currentUser.role)) {
+    if (!['MANAGER', 'HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     // Get team members who report to this manager
     const teamMembers = await prisma.user.findMany({
       where: {
-        managerId: currentUser.id,
+        managerId: session.user.id,
         isActive: true
       },
       select: {
