@@ -106,6 +106,17 @@ export async function POST(request: NextRequest) {
         // Delete only WFH requests
         const deletedWfhRequests = await tx.workFromHomeRequest.deleteMany({})
         deletionStats.wfhRequests = deletedWfhRequests.count
+      } else if (resetType === 'BALANCE_ONLY') {
+        // Reset only leave balances without deleting requests
+        await tx.leaveBalance.updateMany({
+          data: {
+            used: 0,
+            pending: 0,
+            available: { increment: 0 } // Will be recalculated below
+          }
+        })
+        // Update available correctly
+        await tx.$executeRaw`UPDATE "LeaveBalance" SET available = entitled - used - pending`
       } else {
         // Delete all requests (default)
         const deletedLeaveRequests = await tx.leaveRequest.deleteMany({})

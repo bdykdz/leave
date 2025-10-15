@@ -110,6 +110,8 @@ export function RequestsResetManager() {
         return 'Delete only leave requests and their approvals/documents'
       case 'WFH_ONLY':
         return 'Delete only work-from-home requests and their approvals'
+      case 'BALANCE_ONLY':
+        return 'Reset only leave balances (used/pending) without deleting requests'
       case 'FULL':
       default:
         return 'Delete ALL requests, approvals, and documents'
@@ -200,6 +202,10 @@ export function RequestsResetManager() {
                 <RadioGroupItem value="WFH_ONLY" id="wfh" />
                 <Label htmlFor="wfh">WFH Requests Only</Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="BALANCE_ONLY" id="balance" />
+                <Label htmlFor="balance">Leave Balances Only</Label>
+              </div>
             </RadioGroup>
             <p className="text-sm text-gray-600 mt-2">{getResetDescription()}</p>
           </div>
@@ -257,7 +263,7 @@ export function RequestsResetManager() {
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Reset {resetType === 'FULL' ? 'All' : resetType.replace('_', ' ')} Requests
+                    Reset {resetType === 'FULL' ? 'All' : resetType === 'BALANCE_ONLY' ? 'Leave Balances' : resetType.replace('_', ' ')} {resetType === 'BALANCE_ONLY' ? '' : 'Requests'}
                   </>
                 )}
               </Button>
