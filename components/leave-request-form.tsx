@@ -559,7 +559,11 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                       endDate={endDate ? toLocalDateString(endDate) : undefined}
                       selectedDates={selectedDates.map(date => toLocalDateString(date))}
                       selectedSubstitutes={selectedSubstitutes}
-                      onSubstitutesChange={setSelectedSubstitutes}
+                      onSubstitutesChange={(newSubstitutes) => {
+                        console.log('🎯 Parent received substitute change:', newSubstitutes)
+                        setSelectedSubstitutes(newSubstitutes)
+                        console.log('✅ Parent state updated')
+                      }}
                     />
                   </div>
 

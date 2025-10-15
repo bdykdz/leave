@@ -48,6 +48,18 @@ export function SimpleSubstituteSelector({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Debug props changes
+  useEffect(() => {
+    console.log('📦 SimpleSubstituteSelector props changed:', {
+      startDate,
+      endDate,
+      selectedDates,
+      selectedSubstitutes,
+      disabled,
+      onSubstitutesChange: typeof onSubstitutesChange
+    })
+  }, [startDate, endDate, selectedDates, selectedSubstitutes, disabled, onSubstitutesChange])
+
   useEffect(() => {
     if (startDate && endDate) {
       fetchSubstitutes()
@@ -58,6 +70,8 @@ export function SimpleSubstituteSelector({
     try {
       setLoading(true)
       setError(null)
+
+      console.log('🔍 Fetching substitutes with data:', { startDate, endDate, selectedDates })
 
       const response = await fetch('/api/substitutes/availability', {
         method: 'POST',
@@ -70,13 +84,15 @@ export function SimpleSubstituteSelector({
       })
 
       if (!response.ok) {
+        console.error('❌ Response not ok:', response.status, response.statusText)
         throw new Error('Failed to fetch substitutes')
       }
 
       const data = await response.json()
+      console.log('📋 Fetched substitutes data:', data)
       setSubstitutes(data.substitutes || [])
     } catch (error) {
-      console.error('Error fetching substitutes:', error)
+      console.error('💥 Error fetching substitutes:', error)
       setError(error instanceof Error ? error.message : 'Unable to load department colleagues')
     } finally {
       setLoading(false)
@@ -84,13 +100,25 @@ export function SimpleSubstituteSelector({
   }
 
   const toggleSubstitute = (substituteId: string) => {
-    if (disabled) return
+    console.log('🔄 toggleSubstitute called:', { 
+      substituteId, 
+      disabled, 
+      currentSelected: selectedSubstitutes,
+      onSubstitutesChange: typeof onSubstitutesChange 
+    })
+    
+    if (disabled) {
+      console.log('❌ Disabled, returning early')
+      return
+    }
     
     const updated = selectedSubstitutes.includes(substituteId)
       ? selectedSubstitutes.filter(id => id !== substituteId)
       : [...selectedSubstitutes, substituteId]
     
+    console.log('📝 About to call onSubstitutesChange with:', updated)
     onSubstitutesChange(updated)
+    console.log('✅ onSubstitutesChange called')
   }
 
   const getStatusColor = (status: string) => {
@@ -178,6 +206,12 @@ export function SimpleSubstituteSelector({
 
         {!loading && !error && substitutes.length > 0 && (
           <div className="space-y-3">
+            {console.log('🎨 Rendering substitutes UI with:', { 
+              availableCount: availableSubstitutes.length,
+              partialCount: partialSubstitutes.length,
+              unavailableCount: unavailableSubstitutes.length,
+              selectedSubstitutes 
+            })}
             {/* Available Substitutes */}
             {availableSubstitutes.length > 0 && (
               <div>
@@ -194,7 +228,12 @@ export function SimpleSubstituteSelector({
                           ? 'bg-blue-50 border-blue-200'
                           : 'bg-white border-gray-200 hover:bg-gray-50'
                       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      onClick={() => toggleSubstitute(substitute.id)}
+                      onClick={(e) => {
+                        console.log('🖱️ Div clicked for substitute:', substitute.id, substitute.name)
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleSubstitute(substitute.id)
+                      }}
                     >
                       <Checkbox
                         checked={selectedSubstitutes.includes(substitute.id)}
@@ -234,7 +273,12 @@ export function SimpleSubstituteSelector({
                           ? 'bg-blue-50 border-blue-200'
                           : 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
                       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      onClick={() => toggleSubstitute(substitute.id)}
+                      onClick={(e) => {
+                        console.log('🖱️ Div clicked for substitute:', substitute.id, substitute.name)
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleSubstitute(substitute.id)
+                      }}
                     >
                       <Checkbox
                         checked={selectedSubstitutes.includes(substitute.id)}
