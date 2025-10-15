@@ -1100,9 +1100,7 @@ export default function ManagerDashboard() {
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3">
                             <Avatar className="h-10 w-10">
-                              <AvatarImage
-                                src={`/placeholder.svg?height=40&width=40&text=${request.employee.avatar}`}
-                              />
+                              <AvatarImage src={undefined} />
                               <AvatarFallback>{request.employee.avatar}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1">

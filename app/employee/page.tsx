@@ -48,7 +48,7 @@ export default function EmployeeDashboard() {
   const router = useRouter()
   const t = useTranslations()
   const [showRequestForm, setShowRequestForm] = useState(false)
-  const [showRemoteForm, setShowWFHForm] = useState(false)
+  const [showRemoteForm, setShowRemoteForm] = useState(false)
   const [activeTab, setActiveTab] = useState("dashboard")
   const [wfhCurrentMonth, setWfhCurrentMonth] = useState(new Date()) // For WFH pagination
   const [requestsCurrentPage, setRequestsCurrentPage] = useState(1) // For requests pagination
@@ -372,7 +372,7 @@ export default function EmployeeDashboard() {
                   Manager Dashboard
                 </Button>
               )}
-              <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
+              <Button onClick={() => setShowRemoteForm(true)} variant="outline" className="flex items-center gap-2">
                 <Home className="h-4 w-4" />
                 {t.dashboard.newRemoteRequest}
               </Button>

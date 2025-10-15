@@ -198,7 +198,7 @@ export function SimpleSubstituteSelector({
                     >
                       <Checkbox
                         checked={selectedSubstitutes.includes(substitute.id)}
-                        onChange={() => {}} // Handled by parent div click
+                        onCheckedChange={() => {}} // Handled by parent div click
                         disabled={disabled}
                       />
                       <Avatar className="h-8 w-8">
@@ -238,7 +238,7 @@ export function SimpleSubstituteSelector({
                     >
                       <Checkbox
                         checked={selectedSubstitutes.includes(substitute.id)}
-                        onChange={() => {}} // Handled by parent div click
+                        onCheckedChange={() => {}} // Handled by parent div click
                         disabled={disabled}
                       />
                       <Avatar className="h-8 w-8">

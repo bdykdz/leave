@@ -119,7 +119,7 @@ export function EmployeeManagementModal({ isOpen, onClose, employee, onSave }: E
           {/* Employee Header */}
           <div className="flex items-start gap-6 p-6 bg-gray-50 rounded-lg">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={`/placeholder.svg?height=64&width=64&text=${employee.avatar}`} />
+              <AvatarImage  />
               <AvatarFallback className="text-lg">{employee.avatar}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-4">

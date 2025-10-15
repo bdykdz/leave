@@ -1,23 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions)
     
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all active executives except the current user
+    // Only executives can access this endpoint
+    if (session.user.role !== 'EXECUTIVE') {
+      return NextResponse.json({ error: 'Access denied. Executive role required.' }, { status: 403 })
+    }
+
+    // Fetch other executives (excluding the current user)
     const executives = await prisma.user.findMany({
       where: {
-        role: "EXECUTIVE",
+        role: 'EXECUTIVE',
         isActive: true,
         id: {
-          not: session.user.id  // Exclude current user
+          not: session.user.id // Exclude current user
         }
       },
       select: {
@@ -26,32 +31,33 @@ export async function GET(request: NextRequest) {
         lastName: true,
         email: true,
         department: true,
-        position: true,
+        role: true,
+        position: true
       },
       orderBy: [
         { firstName: 'asc' },
         { lastName: 'asc' }
       ]
-    });
+    })
 
-    // Format the response
-    const formattedExecutives = executives.map(exec => ({
+    // Transform the data to match the expected format
+    const transformedExecutives = executives.map(exec => ({
       id: exec.id,
       name: `${exec.firstName} ${exec.lastName}`,
       email: exec.email,
-      department: exec.department || 'Executive',
-      position: exec.position || 'Executive',
-    }));
+      department: exec.department || 'Unknown Department',
+      position: exec.position || 'Executive'
+    }))
 
     return NextResponse.json({ 
-      executives: formattedExecutives,
-      count: formattedExecutives.length 
-    });
+      executives: transformedExecutives,
+      count: transformedExecutives.length 
+    })
   } catch (error) {
-    console.error("Error fetching executive peers:", error);
+    console.error('Error fetching executive peers:', error)
     return NextResponse.json(
-      { error: "Failed to fetch executive peers" },
+      { error: 'Internal server error' },
       { status: 500 }
-    );
+    )
   }
 }

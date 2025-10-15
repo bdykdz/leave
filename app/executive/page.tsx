@@ -62,6 +62,7 @@ export default function ExecutiveDashboard() {
       dates: string
       days: number
     }
+    isDirectReport?: boolean
   } | null>(null)
 
   // State for executive's personal data
@@ -110,6 +111,20 @@ export default function ExecutiveDashboard() {
       fetchDirectReportRequests()
     }
   }, [session, status, router])
+
+  // Separate useEffect for directReportPage changes
+  useEffect(() => {
+    if (session?.user?.role === "EXECUTIVE") {
+      fetchDirectReportRequests()
+    }
+  }, [directReportPage])
+
+  // Separate useEffect for pendingRequestsPage changes
+  useEffect(() => {
+    if (session?.user?.role === "EXECUTIVE") {
+      fetchEscalatedRequests()
+    }
+  }, [pendingRequestsPage])
 
   const fetchExecutiveLeaveBalance = async () => {
     try {
@@ -580,9 +595,9 @@ export default function ExecutiveDashboard() {
                                     employeeName: request.employee?.name || 'Unknown',
                                     type: request.type,
                                     dates: request.dates,
-                                    days: request.days,
-                                    isDirectReport: true
-                                  } as any
+                                    days: request.days
+                                  },
+                                  isDirectReport: true
                                 })
                                 setShowApprovalDialog(true)
                               }}
@@ -601,9 +616,9 @@ export default function ExecutiveDashboard() {
                                     employeeName: request.employee?.name || 'Unknown',
                                     type: request.type,
                                     dates: request.dates,
-                                    days: request.days,
-                                    isDirectReport: true
-                                  } as any
+                                    days: request.days
+                                  },
+                                  isDirectReport: true
                                 })
                                 setShowApprovalDialog(true)
                               }}
@@ -625,7 +640,6 @@ export default function ExecutiveDashboard() {
                           onClick={() => {
                             if (directReportPage > 1) {
                               setDirectReportPage(directReportPage - 1)
-                              fetchDirectReportRequests()
                             }
                           }}
                           disabled={directReportPage === 1}
@@ -642,7 +656,6 @@ export default function ExecutiveDashboard() {
                           onClick={() => {
                             if (directReportPage < totalDirectReportPages) {
                               setDirectReportPage(directReportPage + 1)
-                              fetchDirectReportRequests()
                             }
                           }}
                           disabled={directReportPage === totalDirectReportPages}
@@ -761,7 +774,6 @@ export default function ExecutiveDashboard() {
                           onClick={() => {
                             if (pendingRequestsPage > 1) {
                               setPendingRequestsPage(pendingRequestsPage - 1)
-                              fetchEscalatedRequests()
                             }
                           }}
                           disabled={pendingRequestsPage === 1}
@@ -778,7 +790,6 @@ export default function ExecutiveDashboard() {
                           onClick={() => {
                             if (pendingRequestsPage < totalEscalatedPages) {
                               setPendingRequestsPage(pendingRequestsPage + 1)
-                              fetchEscalatedRequests()
                             }
                           }}
                           disabled={pendingRequestsPage === totalEscalatedPages}
@@ -809,8 +820,8 @@ export default function ExecutiveDashboard() {
             setShowApprovalDialog(false)
             setApprovalDetails(null)
           }}
-          onApprove={(requestId, comment) => handleApprove(requestId, comment, approvalDetails.request.isDirectReport)}
-          onDeny={(requestId, comment) => handleDeny(requestId, comment, approvalDetails.request.isDirectReport)}
+          onApprove={(requestId, comment) => handleApprove(requestId, comment, approvalDetails.isDirectReport || false)}
+          onDeny={(requestId, comment) => handleDeny(requestId, comment, approvalDetails.isDirectReport || false)}
           request={approvalDetails.request}
           action={approvalDetails.action}
         />
