@@ -21,6 +21,7 @@ import { HolidaysManager } from "./HolidaysManager"
 import { EscalationSettings } from "./EscalationSettings"
 import { AuditLogViewer } from "./AuditLogViewer"
 import { LeaveBalanceSettings } from "./LeaveBalanceSettings"
+import { RequestsResetManager } from "./RequestsResetManager"
 import { 
   FileText,
   Calendar,
@@ -40,6 +41,7 @@ import {
   TrendingUp,
   History,
   Calculator,
+  Trash2,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -135,7 +137,7 @@ export function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-15">
+          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-16">
             <TabsTrigger value="overlaps" className="flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               <span className="hidden sm:inline">Overlaps</span>
@@ -195,6 +197,10 @@ export function AdminPanel() {
             <TabsTrigger value="audit" className="flex items-center gap-1">
               <History className="h-3 w-3" />
               <span className="hidden sm:inline">Audit Logs</span>
+            </TabsTrigger>
+            <TabsTrigger value="reset" className="flex items-center gap-1 text-red-600">
+              <Trash2 className="h-3 w-3" />
+              <span className="hidden sm:inline">Reset</span>
             </TabsTrigger>
           </TabsList>
 
@@ -256,6 +262,10 @@ export function AdminPanel() {
 
           <TabsContent value="audit" className="space-y-4">
             <AuditLogViewer />
+          </TabsContent>
+
+          <TabsContent value="reset" className="space-y-4">
+            <RequestsResetManager />
           </TabsContent>
         </Tabs>
       </div>

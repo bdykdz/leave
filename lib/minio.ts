@@ -58,3 +58,17 @@ export async function getFromMinio(
     stream.on('error', reject)
   })
 }
+
+// Delete file from Minio
+export async function deleteFromMinio(
+  objectName: string,
+  bucketName: string = MINIO_BUCKET
+): Promise<void> {
+  try {
+    await minioClient.removeObject(bucketName, objectName)
+    console.log(`Deleted file from Minio: ${objectName}`)
+  } catch (error) {
+    console.error(`Error deleting file from Minio: ${objectName}`, error)
+    throw error
+  }
+}
