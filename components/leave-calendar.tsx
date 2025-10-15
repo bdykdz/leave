@@ -24,9 +24,16 @@ interface LeaveCalendarProps {
   blockedDates?: string[]
   blockedDateDetails?: Record<string, { status: string; leaveType: string }>
   isWFHCalendar?: boolean // Add prop to indicate if this is for WFH requests
+  existingLeaveRequests?: Array<{
+    startDate: string
+    endDate: string
+    selectedDates: string[]
+    status: 'PENDING' | 'APPROVED' | 'REJECTED'
+    leaveType: string
+  }>
 }
 
-export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false }: LeaveCalendarProps) {
+export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false, existingLeaveRequests = [] }: LeaveCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [companyHolidays, setCompanyHolidays] = useState<Date[]>([])
   const [blockedHolidays, setBlockedHolidays] = useState<Date[]>([]) // Holidays where WFH is blocked
@@ -118,6 +125,28 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     return blockedHolidays.some((holiday) => isSameDay(holiday, date))
   }
 
+  const hasExistingLeaveRequest = (date: Date) => {
+    if (!isWFHCalendar || !existingLeaveRequests.length) return null
+    
+    const dateStr = format(date, 'yyyy-MM-dd')
+    
+    for (const request of existingLeaveRequests) {
+      // Check if date is in selectedDates array (more accurate)
+      if (request.selectedDates.includes(dateStr)) {
+        return request
+      }
+      
+      // Fallback: check if date is within start and end date range
+      const requestStart = new Date(request.startDate)
+      const requestEnd = new Date(request.endDate)
+      if (date >= requestStart && date <= requestEnd) {
+        return request
+      }
+    }
+    
+    return null
+  }
+
   const getDayClassName = (date: Date) => {
     const baseClasses =
       "h-10 w-10 text-sm font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-center"
@@ -138,6 +167,18 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     // For WFH calendar, show blocked holidays differently
     if (isWFHCalendar && isBlockedForWFH(date)) {
       return cn(baseClasses, "bg-red-100 text-red-600 cursor-not-allowed")
+    }
+
+    // For WFH calendar, show existing leave requests
+    if (isWFHCalendar) {
+      const existingRequest = hasExistingLeaveRequest(date)
+      if (existingRequest) {
+        if (existingRequest.status === 'APPROVED') {
+          return cn(baseClasses, "bg-red-200 text-red-900 cursor-not-allowed border-2 border-red-400")
+        } else if (existingRequest.status === 'PENDING') {
+          return cn(baseClasses, "bg-yellow-200 text-yellow-900 cursor-not-allowed border-2 border-yellow-400")
+        }
+      }
     }
 
     if (isCompanyHoliday(date)) {
@@ -177,6 +218,12 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     // WFH-specific restrictions
     if (isWFHCalendar) {
       if (isCurrentWeek(date) || isBlockedForWFH(date)) {
+        return
+      }
+      
+      // Prevent clicking on dates with existing leave requests
+      const existingRequest = hasExistingLeaveRequest(date)
+      if (existingRequest && (existingRequest.status === 'APPROVED' || existingRequest.status === 'PENDING')) {
         return
       }
     } else {
@@ -251,6 +298,14 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
         <div className="space-y-2">
           {isWFHCalendar ? (
             <>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-200 border-2 border-red-400 rounded"></div>
+                <span>Approved Leave (Conflict)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-400 rounded"></div>
+                <span>Pending Leave (Conflict)</span>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
                 <span>Blocked Holiday</span>

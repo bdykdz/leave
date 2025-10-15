@@ -305,7 +305,12 @@ export default function EmployeeDashboard() {
   }
 
   if (showRemoteForm) {
-    return <WorkRemoteRequestForm onBack={() => setShowWFHForm(false)} />
+    return <WorkRemoteRequestForm onBack={() => {
+      setShowRemoteForm(false)
+      // Refresh data when returning from form
+      fetchLeaveBalances()
+      fetchAllRequests()
+    }} />
   }
 
   const userName = `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim() || session.user.email

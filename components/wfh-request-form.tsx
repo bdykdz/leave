@@ -37,8 +37,16 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
   const [otherLocation, setOtherLocation] = useState("")
   const [managerInfo, setManagerInfo] = useState<{ name: string; id: string } | null>(null)
   const [loadingManager, setLoadingManager] = useState(true)
+  const [existingLeaveRequests, setExistingLeaveRequests] = useState<Array<{
+    startDate: string
+    endDate: string
+    selectedDates: string[]
+    status: 'PENDING' | 'APPROVED' | 'REJECTED'
+    leaveType: string
+  }>>([])
+  const [loadingLeaveRequests, setLoadingLeaveRequests] = useState(true)
 
-  // Fetch user's manager info
+  // Fetch user's manager info and existing leave requests
   useEffect(() => {
     const fetchManagerInfo = async () => {
       if (!session?.user?.id) {
@@ -63,8 +71,32 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
         setLoadingManager(false)
       }
     }
+
+    const fetchExistingLeaveRequests = async () => {
+      if (!session?.user?.id) {
+        setLoadingLeaveRequests(false)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/user/leave-requests')
+        if (response.ok) {
+          const data = await response.json()
+          // Filter for pending and approved requests only
+          const activeRequests = (data.requests || []).filter((req: any) => 
+            req.status === 'PENDING' || req.status === 'APPROVED'
+          )
+          setExistingLeaveRequests(activeRequests)
+        }
+      } catch (error) {
+        console.error('Failed to fetch existing leave requests:', error)
+      } finally {
+        setLoadingLeaveRequests(false)
+      }
+    }
     
     fetchManagerInfo()
+    fetchExistingLeaveRequests()
   }, [session])
 
   const handleDateSelect = (date: Date) => {
@@ -255,6 +287,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   selectedDates={selectedDates} 
                   onDateSelect={handleDateSelect} 
                   isWFHCalendar={true}
+                  existingLeaveRequests={existingLeaveRequests}
                 />
               </CardContent>
             </Card>
