@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { addDays } from 'date-fns';
+import { addDays, format } from 'date-fns';
+import { emailService } from '@/lib/email-service';
 
 const prisma = new PrismaClient();
 
@@ -10,9 +11,115 @@ export interface EscalationConfig {
   autoSkipAbsentApprovers: boolean;
   autoApproveAfterMaxEscalations: boolean;
   maxEscalationLevels: number;
+  companyTimezone: string;
 }
 
 export class EscalationService {
+  /**
+   * Get current time in company timezone
+   */
+  private getCompanyTime(timezone: string = 'Europe/Bucharest'): Date {
+    try {
+      // Create a date in the company timezone
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      const parts = formatter.formatToParts(now);
+      const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+      const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1; // Month is 0-indexed
+      const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+      const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+      const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+      const second = parseInt(parts.find(p => p.type === 'second')?.value || '0');
+      
+      return new Date(year, month, day, hour, minute, second);
+    } catch (error) {
+      console.warn(`Invalid timezone ${timezone}, falling back to UTC`);
+      return new Date();
+    }
+  }
+
+  /**
+   * Calculate business days between two dates, excluding weekends and holidays
+   */
+  private async calculateBusinessDays(fromDate: Date, toDate: Date): Promise<number> {
+    let businessDays = 0;
+    const currentDate = new Date(fromDate);
+    
+    // Get holidays from database
+    const holidays = await prisma.holiday.findMany({
+      where: {
+        date: {
+          gte: fromDate,
+          lte: toDate
+        },
+        isActive: true
+      }
+    });
+    
+    const holidayDates = new Set(holidays.map(h => h.date.toISOString().split('T')[0]));
+    
+    while (currentDate <= toDate) {
+      const dayOfWeek = currentDate.getDay();
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Check if it's a weekday (Monday = 1, Friday = 5) and not a holiday
+      if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidayDates.has(dateString)) {
+        businessDays++;
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return businessDays;
+  }
+
+  /**
+   * Get the date that is N business days before the given date
+   */
+  private async getBusinessDaysBefore(fromDate: Date, businessDays: number): Promise<Date> {
+    let count = 0;
+    const currentDate = new Date(fromDate);
+    
+    // Get holidays from database for a reasonable range (last 30 days)
+    const startRange = new Date(fromDate);
+    startRange.setDate(startRange.getDate() - (businessDays * 2)); // Rough estimate for range
+    
+    const holidays = await prisma.holiday.findMany({
+      where: {
+        date: {
+          gte: startRange,
+          lte: fromDate
+        },
+        isActive: true
+      }
+    });
+    
+    const holidayDates = new Set(holidays.map(h => h.date.toISOString().split('T')[0]));
+    
+    while (count < businessDays) {
+      currentDate.setDate(currentDate.getDate() - 1);
+      const dayOfWeek = currentDate.getDay();
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Check if it's a weekday and not a holiday
+      if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidayDates.has(dateString)) {
+        count++;
+      }
+    }
+    
+    return currentDate;
+  }
+
   /**
    * Get escalation configuration from company settings
    */
@@ -26,7 +133,8 @@ export class EscalationService {
             'requireSignatureForDenial',
             'autoSkipAbsentApprovers',
             'autoApproveAfterMaxEscalations',
-            'maxEscalationLevels'
+            'maxEscalationLevels',
+            'companyTimezone'
           ]
         }
       }
@@ -39,7 +147,8 @@ export class EscalationService {
       requireSignatureForDenial: false,
       autoSkipAbsentApprovers: true,
       autoApproveAfterMaxEscalations: false,
-      maxEscalationLevels: 3
+      maxEscalationLevels: 3,
+      companyTimezone: 'Europe/Bucharest'
     };
 
     // Override with database values
@@ -63,6 +172,9 @@ export class EscalationService {
         case 'maxEscalationLevels':
           config.maxEscalationLevels = Number(setting.value);
           break;
+        case 'companyTimezone':
+          config.companyTimezone = setting.value;
+          break;
       }
     }
 
@@ -80,8 +192,12 @@ export class EscalationService {
       return;
     }
 
-    const escalationThreshold = new Date();
-    escalationThreshold.setDate(escalationThreshold.getDate() - config.escalationDaysBeforeAutoApproval);
+    // Calculate escalation threshold using business days in company timezone
+    const companyNow = this.getCompanyTime(config.companyTimezone);
+    const escalationThreshold = await this.getBusinessDaysBefore(
+      companyNow, 
+      config.escalationDaysBeforeAutoApproval
+    );
 
     // Find all pending approvals that are older than the threshold
     const pendingApprovals = await prisma.approval.findMany({
@@ -100,7 +216,8 @@ export class EscalationService {
                 manager: true,
                 departmentDirector: true
               }
-            }
+            },
+            leaveType: true
           }
         },
         approver: true
@@ -115,16 +232,21 @@ export class EscalationService {
   }
 
   /**
-   * Check if an approver is absent (on leave or WFH)
+   * Check if an approver is absent (on leave or WFH) during the current period
    */
-  private async isApproverAbsent(approverId: string, startDate: Date, endDate: Date): Promise<boolean> {
-    // Check if approver is on leave
+  private async isApproverAbsent(approverId: string, checkDate: Date = new Date()): Promise<boolean> {
+    // Check if approver is on leave TODAY (when approval is needed)
+    const today = new Date(checkDate);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
     const onLeave = await prisma.leaveRequest.findFirst({
       where: {
         userId: approverId,
         status: 'APPROVED',
-        startDate: { lte: endDate },
-        endDate: { gte: startDate }
+        startDate: { lte: tomorrow },
+        endDate: { gte: today }
       }
     });
 
@@ -170,8 +292,14 @@ export class EscalationService {
     });
 
     if (delegate && delegate.delegate.isActive) {
-      console.log(`Found delegate ${delegate.delegateId} for approver ${approverId}`);
-      return delegate.delegateId;
+      // Check if the delegate is also absent
+      const isDelegateAbsent = await this.isApproverAbsent(delegate.delegateId);
+      if (!isDelegateAbsent) {
+        console.log(`Found available delegate ${delegate.delegateId} for approver ${approverId}`);
+        return delegate.delegateId;
+      } else {
+        console.log(`Delegate ${delegate.delegateId} is also absent, looking for alternative`);
+      }
     }
 
     // If no delegate, try to find someone at the same level
@@ -232,12 +360,13 @@ export class EscalationService {
       approvalChain.push(user.departmentDirectorId);
     }
     
-    // Add HR or Executive as final escalation
+    // Add HR or Executive as final escalation (excluding people already in chain and the user themselves)
+    const excludeIds = [...approvalChain, userId];
     const hrExecutive = await prisma.user.findFirst({
       where: {
         role: { in: ['HR', 'EXECUTIVE'] },
         isActive: true,
-        id: { notIn: approvalChain }
+        id: { notIn: excludeIds }
       }
     });
     
@@ -246,13 +375,19 @@ export class EscalationService {
     // Find the current approver's position in the chain
     const currentIndex = approvalChain.indexOf(currentApproverId);
     
+    // If currentApproverId is 'INITIAL' or not found, start from beginning
+    let startIndex = 0;
+    if (currentIndex !== -1) {
+      startIndex = currentIndex + 1;
+    }
+    
     // Look for the next available approver
-    for (let i = currentIndex + 1; i < approvalChain.length; i++) {
+    for (let i = startIndex; i < approvalChain.length; i++) {
       const candidateId = approvalChain[i];
       
       // Check if this approver is available
       if (config.autoSkipAbsentApprovers) {
-        const isAbsent = await this.isApproverAbsent(candidateId, startDate, endDate);
+        const isAbsent = await this.isApproverAbsent(candidateId);
         
         if (isAbsent) {
           // Try to find a delegate
@@ -286,6 +421,9 @@ export class EscalationService {
     const currentApprover = approval.approver;
     const config = await this.getEscalationConfig();
     
+    // Use transaction to ensure atomicity
+    return await prisma.$transaction(async (tx) => {
+    
     // Get the next available approver, skipping absent ones if configured
     const { approverId: escalateToId, skippedApprovers } = await this.getNextAvailableApprover(
       leaveRequest.userId,
@@ -307,14 +445,14 @@ export class EscalationService {
         // Auto-approve the request
         console.log(`Auto-approving request ${leaveRequest.id} after ${approval.level} escalations`);
         
-        await prisma.leaveRequest.update({
+        await tx.leaveRequest.update({
           where: { id: leaveRequest.id },
           data: {
             status: 'APPROVED'
           }
         });
 
-        await prisma.approval.update({
+        await tx.approval.update({
           where: { id: approval.id },
           data: {
             status: 'APPROVED',
@@ -324,7 +462,7 @@ export class EscalationService {
         });
 
         // Create notification for the employee
-        await prisma.notification.create({
+        await tx.notification.create({
           data: {
             userId: leaveRequest.userId,
             type: 'LEAVE_APPROVED',
@@ -342,7 +480,7 @@ export class EscalationService {
     }
 
     // Update the approval with escalation information
-    await prisma.approval.update({
+    await tx.approval.update({
       where: { id: approval.id },
       data: {
         escalatedToId: escalateToId,
@@ -351,19 +489,32 @@ export class EscalationService {
       }
     });
 
-    // Create a new approval record for the escalated approver
-    await prisma.approval.create({
-      data: {
+    // Check if an approval record already exists for this approver
+    const existingApproval = await tx.approval.findFirst({
+      where: {
         leaveRequestId: approval.leaveRequestId,
         approverId: escalateToId,
-        level: approval.level + 1,
-        status: 'PENDING',
-        comments: `Escalated from ${currentApprover.firstName} ${currentApprover.lastName}`
+        status: 'PENDING'
       }
     });
 
+    // Create a new approval record for the escalated approver only if one doesn't exist
+    if (!existingApproval) {
+      await tx.approval.create({
+        data: {
+          leaveRequestId: approval.leaveRequestId,
+          approverId: escalateToId,
+          level: approval.level + 1,
+          status: 'PENDING',
+          comments: `Escalated from ${currentApprover.firstName} ${currentApprover.lastName}`
+        }
+      });
+    } else {
+      console.log(`Approval record already exists for approver ${escalateToId} on request ${approval.leaveRequestId}`);
+    }
+
     // Create notification for the new approver
-    await prisma.notification.create({
+    await tx.notification.create({
       data: {
         userId: escalateToId,
         type: 'APPROVAL_REQUIRED',
@@ -374,7 +525,7 @@ export class EscalationService {
     });
 
     // Create notification for the employee
-    await prisma.notification.create({
+    await tx.notification.create({
       data: {
         userId: leaveRequest.userId,
         type: 'LEAVE_REQUESTED',
@@ -383,6 +534,39 @@ export class EscalationService {
         link: `/leave/${leaveRequest.id}`
       }
     });
+    }); // End transaction
+
+    // Send email notification to the escalated-to approver (outside transaction)
+    try {
+      const escalatedToUser = await prisma.user.findUnique({
+        where: { id: escalateToId },
+        select: { 
+          email: true,
+          firstName: true,
+          lastName: true
+        }
+      });
+
+      if (escalatedToUser?.email) {
+        await emailService.sendEscalationNotification(escalatedToUser.email, {
+          employeeName: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+          leaveType: leaveRequest.leaveType?.name || 'Leave Request',
+          startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
+          endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
+          days: leaveRequest.totalDays,
+          escalatedFromName: `${currentApprover.firstName} ${currentApprover.lastName}`,
+          escalatedToName: `${escalatedToUser.firstName} ${escalatedToUser.lastName}`,
+          escalationReason: escalationReason,
+          companyName: process.env.COMPANY_NAME || 'Company',
+          requestId: leaveRequest.id
+        });
+        
+        console.log(`Escalation email sent to ${escalatedToUser.email}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending escalation email:', emailError);
+      // Don't fail the escalation if email fails
+    }
 
     console.log(`Successfully escalated approval ${approval.id} to user ${escalateToId}`);
   }
@@ -427,6 +611,12 @@ export class EscalationService {
         value: '3',
         category: 'escalation',
         description: 'Maximum number of escalation levels before auto-approval'
+      },
+      {
+        key: 'companyTimezone',
+        value: 'Europe/Bucharest',
+        category: 'escalation',
+        description: 'Company timezone for escalation calculations'
       }
     ];
 
@@ -466,11 +656,7 @@ export class EscalationService {
     let initialApproverId = leaveRequest.user.managerId;
     
     if (initialApproverId && config.autoSkipAbsentApprovers) {
-      const isAbsent = await this.isApproverAbsent(
-        initialApproverId,
-        leaveRequest.startDate,
-        leaveRequest.endDate
-      );
+      const isAbsent = await this.isApproverAbsent(initialApproverId);
       
       if (isAbsent) {
         // Find next available approver

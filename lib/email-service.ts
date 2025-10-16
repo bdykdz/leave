@@ -31,6 +31,19 @@ export interface ApprovalEmailData {
   requestId: string
 }
 
+export interface EscalationEmailData {
+  employeeName: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  days: number
+  escalatedFromName: string
+  escalatedToName: string
+  escalationReason: string
+  companyName: string
+  requestId: string
+}
+
 class EmailService {
   private resend: Resend | null = null
 
@@ -270,6 +283,98 @@ ${process.env.NEXTAUTH_URL}/employee
     return { subject, html, text }
   }
 
+  generateEscalationEmail(data: EscalationEmailData): EmailTemplate {
+    const subject = `Cerere de concediu escaladată pentru aprobare - ${data.employeeName}`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #f59e0b; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .escalation-alert { padding: 15px; border-radius: 5px; text-align: center; margin: 15px 0; background-color: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+        .action-button { background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 Cerere de Concediu Escaladată</h1>
+        </div>
+        
+        <div class="content">
+            <p>Bună ziua <strong>${data.escalatedToName}</strong>,</p>
+            
+            <div class="escalation-alert">
+                <h3>⚠️ ATENȚIE: Cerere Escaladată pentru Aprobare</h3>
+                <p>O cerere de concediu a fost escaladată către dvs. pentru aprobare urgentă.</p>
+            </div>
+            
+            <div class="details">
+                <h3>Detalii Cerere:</h3>
+                <ul>
+                    <li><strong>Angajat:</strong> ${data.employeeName}</li>
+                    <li><strong>Tip concediu:</strong> ${data.leaveType}</li>
+                    <li><strong>Data început:</strong> ${data.startDate}</li>
+                    <li><strong>Data sfârșit:</strong> ${data.endDate}</li>
+                    <li><strong>Numărul de zile:</strong> ${data.days}</li>
+                    <li><strong>Escaladată de la:</strong> ${data.escalatedFromName}</li>
+                    <li><strong>Motiv escaladare:</strong> ${data.escalationReason}</li>
+                </ul>
+            </div>
+            
+            <p><strong>Acțiune Necesară:</strong> Această cerere necesită aprobarea dvs. urgentă. Vă rugăm să revizuiți și să luați o decizie în cel mai scurt timp posibil.</p>
+            
+            <div style="text-align: center;">
+                <a href="${process.env.NEXTAUTH_URL}/manager/approvals" class="action-button">
+                    Revizuiește Cererea
+                </a>
+            </div>
+            
+            <p><em>Pentru întrebări sau clarificări, vă rugăm să contactați departamentul HR sau să revizuiți direct cererea în sistem.</em></p>
+        </div>
+        
+        <div class="footer">
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Cerere de Concediu Escaladată
+
+Bună ziua ${data.escalatedToName},
+
+⚠️ ATENȚIE: O cerere de concediu a fost escaladată către dvs. pentru aprobare urgentă.
+
+Detalii Cerere:
+- Angajat: ${data.employeeName}
+- Tip concediu: ${data.leaveType}
+- Data început: ${data.startDate}
+- Data sfârșit: ${data.endDate}
+- Numărul de zile: ${data.days}
+- Escaladată de la: ${data.escalatedFromName}
+- Motiv escaladare: ${data.escalationReason}
+
+Acțiune Necesară: Această cerere necesită aprobarea dvs. urgentă. Vă rugăm să revizuiți și să luați o decizie în cel mai scurt timp posibil.
+
+Pentru a revizui cererea, vă rugăm să vă conectați la sistem:
+${process.env.NEXTAUTH_URL}/manager/approvals
+
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
+    `
+
+    return { subject, html, text }
+  }
+
   async sendLeaveRequestNotification(managerEmail: string, data: LeaveRequestEmailData): Promise<boolean> {
     const template = this.generateLeaveRequestEmail(data)
     return await this.sendEmail(managerEmail, template.subject, template.html, template.text)
@@ -278,6 +383,11 @@ ${process.env.NEXTAUTH_URL}/employee
   async sendApprovalNotification(employeeEmail: string, data: ApprovalEmailData): Promise<boolean> {
     const template = this.generateApprovalEmail(data)
     return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
+  }
+
+  async sendEscalationNotification(escalatedToEmail: string, data: EscalationEmailData): Promise<boolean> {
+    const template = this.generateEscalationEmail(data)
+    return await this.sendEmail(escalatedToEmail, template.subject, template.html, template.text)
   }
 
   // WFH Email Methods

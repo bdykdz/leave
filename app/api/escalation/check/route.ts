@@ -11,8 +11,8 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only HR and ADMIN can manually trigger escalation
-    if (!['HR', 'ADMIN'].includes(session.user.role)) {
+    // Only HR and EXECUTIVE can manually trigger escalation
+    if (!['HR', 'EXECUTIVE'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
