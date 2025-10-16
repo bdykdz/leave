@@ -4,8 +4,17 @@ import { prisma } from '@/lib/prisma'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const year = searchParams.get('year') || new Date().getFullYear().toString()
+    const yearParam = searchParams.get('year') || new Date().getFullYear().toString()
     const upcoming = searchParams.get('upcoming') === 'true'
+    
+    // Validate year parameter
+    const yearNumber = parseInt(yearParam, 10)
+    if (isNaN(yearNumber) || yearNumber < 1900 || yearNumber > 2100) {
+      return NextResponse.json(
+        { error: 'Invalid year parameter. Must be between 1900 and 2100.' },
+        { status: 400 }
+      )
+    }
     
     let whereClause: any = { isActive: true }
     
@@ -14,8 +23,9 @@ export async function GET(request: NextRequest) {
         gte: new Date()
       }
     } else {
-      const startOfYear = new Date(`${year}-01-01`)
-      const endOfYear = new Date(`${year}-12-31`)
+      // Use validated year number instead of direct string interpolation
+      const startOfYear = new Date(yearNumber, 0, 1) // January 1st
+      const endOfYear = new Date(yearNumber, 11, 31) // December 31st
       whereClause.date = {
         gte: startOfYear,
         lte: endOfYear

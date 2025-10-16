@@ -248,7 +248,7 @@ export async function POST(
             companyName: process.env.COMPANY_NAME || 'Company',
             requestId: requestId
           });
-          console.log(`Approval email sent to ${updatedLeaveRequest.user.email}`);
+          console.log(`Approval email sent to user ID: ${updatedLeaveRequest.user.id}`);
         }
       } catch (emailError) {
         console.error('Error sending approval email:', emailError);

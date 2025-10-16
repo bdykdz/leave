@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log(`Admin role assigned to user: ${updatedUser.email}`)
+    console.log(`Admin role assigned to user ID: ${updatedUser.id}`)
 
     return NextResponse.json({
       message: 'Administrator role assigned successfully',

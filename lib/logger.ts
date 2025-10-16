@@ -34,7 +34,7 @@ class Logger {
       // Redact potential passwords
       data = data.replace(/password["\s]*[:=]["\s]*["']?[^"',}\s]+["']?/gi, 'password: [REDACTED]');
       // Redact API keys
-      data = data.replace(/[a-zA-Z0-9]{32,}/g, (match) => {
+      data = data.replace(/[a-zA-Z0-9]{32,}/g, (match: string) => {
         if (match.length > 32) {
           return '[REDACTED_KEY]';
         }

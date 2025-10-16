@@ -136,7 +136,7 @@ export async function POST(
           companyName: process.env.COMPANY_NAME || 'Company',
           requestId: requestId
         });
-        console.log(`Rejection email sent to ${updatedLeaveRequest.user.email}`);
+        console.log(`Rejection email sent to user ID: ${updatedLeaveRequest.user.id}`);
       }
     } catch (emailError) {
       console.error('Error sending rejection email:', emailError);

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       filesFailedToDelete: []
     }
 
-    console.log(`🗑️ Starting ${resetType || 'FULL'} requests reset by admin: ${session.user.email}`)
+    console.log(`🗑️ Starting ${resetType || 'FULL'} requests reset by admin ID: ${session.user.id}`)
 
     // Step 1: Get all documents before deleting them to clean up files
     const documentsToDelete = await prisma.generatedDocument.findMany({
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Step 4: Log the action for audit purposes
-    console.log(`🔒 Admin ${session.user.email} performed ${resetType || 'FULL'} requests reset:`, deletionStats)
+    console.log(`🔒 Admin ID ${session.user.id} performed ${resetType || 'FULL'} requests reset:`, deletionStats)
 
     return NextResponse.json({
       success: true,
