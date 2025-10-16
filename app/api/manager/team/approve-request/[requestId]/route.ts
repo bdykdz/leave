@@ -344,7 +344,6 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       data: {
         status: 'APPROVED',
         comments: cleanComment,
-        signature: signature,
         approvedAt: new Date()
       }
     })
