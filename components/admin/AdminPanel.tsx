@@ -3,8 +3,8 @@
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { TemplateManager } from "./TemplateManager"
 import { LeaveTypesManager } from "./LeaveTypesManager"
 import { DocumentRetentionSettings } from "./DocumentRetentionSettings"
@@ -44,6 +44,8 @@ import {
   Calculator,
   Trash2,
   Database,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -57,7 +59,14 @@ import { Badge } from "@/components/ui/badge"
 import { signOut } from "next-auth/react"
 
 export function AdminPanel() {
-  const [activeTab, setActiveTab] = useState("templates")
+  const [activePage, setActivePage] = useState("overlaps")
+  const [expandedSections, setExpandedSections] = useState({
+    operations: true,
+    organization: false,
+    leaveManagement: false,
+    configuration: false,
+    monitoring: false
+  })
   const router = useRouter()
   const { data: session } = useSession()
 
@@ -74,6 +83,112 @@ export function AdminPanel() {
       case "EMPLOYEE":
       default:
         return "/employee"
+    }
+  }
+
+  // Toggle section expansion
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section as keyof typeof prev]
+    }))
+  }
+
+  // Navigation structure
+  const navigationSections = [
+    {
+      id: 'operations',
+      title: 'Operations Management',
+      icon: ClipboardList,
+      items: [
+        { id: 'overlaps', title: 'Overlaps', icon: AlertTriangle },
+        { id: 'manual-requests', title: 'Manual Entry', icon: ClipboardList }
+      ]
+    },
+    {
+      id: 'organization',
+      title: 'User & Organization',
+      icon: Users,
+      items: [
+        { id: 'users', title: 'Users', icon: Users },
+        { id: 'departments', title: 'Departments', icon: Building },
+        { id: 'positions', title: 'Positions', icon: Briefcase },
+        { id: 'orgchart', title: 'Org Chart', icon: Network }
+      ]
+    },
+    {
+      id: 'leaveManagement',
+      title: 'Leave Management',
+      icon: Calendar,
+      items: [
+        { id: 'templates', title: 'Templates', icon: FileText },
+        { id: 'leave-types', title: 'Leave Types', icon: Calendar },
+        { id: 'leave-balance', title: 'Balance', icon: Calculator },
+        { id: 'holidays', title: 'Holidays', icon: Calendar }
+      ]
+    },
+    {
+      id: 'configuration',
+      title: 'System Configuration',
+      icon: Settings,
+      items: [
+        { id: 'workflows', title: 'Workflows', icon: GitBranch },
+        { id: 'escalation', title: 'Escalation', icon: TrendingUp },
+        { id: 'settings', title: 'Settings', icon: Settings },
+        { id: 'retention', title: 'Retention', icon: Archive }
+      ]
+    },
+    {
+      id: 'monitoring',
+      title: 'Monitoring & Maintenance',
+      icon: History,
+      items: [
+        { id: 'audit', title: 'Audit Logs', icon: History },
+        { id: 'migration', title: 'Migration', icon: Database },
+        { id: 'reset', title: 'Reset', icon: Trash2 }
+      ]
+    }
+  ]
+
+  // Render content based on active page
+  const renderContent = () => {
+    switch (activePage) {
+      case 'overlaps':
+        return <OverlapManager />
+      case 'manual-requests':
+        return <ManualRequestEntry />
+      case 'users':
+        return <UserManagementEnhanced />
+      case 'departments':
+        return <DepartmentManager />
+      case 'templates':
+        return <TemplateManager />
+      case 'leave-types':
+        return <LeaveTypesManager />
+      case 'leave-balance':
+        return <LeaveBalanceSettings />
+      case 'retention':
+        return <DocumentRetentionSettings />
+      case 'positions':
+        return <PositionsManager />
+      case 'orgchart':
+        return <OrgChart />
+      case 'workflows':
+        return <WorkflowRulesManager />
+      case 'escalation':
+        return <EscalationSettings />
+      case 'holidays':
+        return <HolidaysManager />
+      case 'settings':
+        return <SystemSettings />
+      case 'audit':
+        return <AuditLogViewer />
+      case 'migration':
+        return <SelectedDatesMigration />
+      case 'reset':
+        return <RequestsResetManager />
+      default:
+        return <OverlapManager />
     }
   }
 
@@ -135,149 +250,77 @@ export function AdminPanel() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-17">
-            <TabsTrigger value="overlaps" className="flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              <span className="hidden sm:inline">Overlaps</span>
-            </TabsTrigger>
-            <TabsTrigger value="manual-requests" className="flex items-center gap-1">
-              <ClipboardList className="h-3 w-3" />
-              <span className="hidden sm:inline">Manual Entry</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              <span className="hidden sm:inline">Users</span>
-            </TabsTrigger>
-            <TabsTrigger value="departments" className="flex items-center gap-1">
-              <Building className="h-3 w-3" />
-              <span className="hidden sm:inline">Departments</span>
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="flex items-center gap-1">
-              <FileText className="h-3 w-3" />
-              <span className="hidden sm:inline">Templates</span>
-            </TabsTrigger>
-            <TabsTrigger value="leave-types" className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              <span className="hidden sm:inline">Leave Types</span>
-            </TabsTrigger>
-            <TabsTrigger value="leave-balance" className="flex items-center gap-1">
-              <Calculator className="h-3 w-3" />
-              <span className="hidden sm:inline">Balance</span>
-            </TabsTrigger>
-            <TabsTrigger value="workflows" className="flex items-center gap-1">
-              <GitBranch className="h-3 w-3" />
-              <span className="hidden sm:inline">Workflows</span>
-            </TabsTrigger>
-            <TabsTrigger value="escalation" className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              <span className="hidden sm:inline">Escalation</span>
-            </TabsTrigger>
-            <TabsTrigger value="retention" className="flex items-center gap-1">
-              <Archive className="h-3 w-3" />
-              <span className="hidden sm:inline">Retention</span>
-            </TabsTrigger>
-            <TabsTrigger value="positions" className="flex items-center gap-1">
-              <Briefcase className="h-3 w-3" />
-              <span className="hidden sm:inline">Positions</span>
-            </TabsTrigger>
-            <TabsTrigger value="orgchart" className="flex items-center gap-1">
-              <Network className="h-3 w-3" />
-              <span className="hidden sm:inline">Org Chart</span>
-            </TabsTrigger>
-            <TabsTrigger value="holidays" className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              <span className="hidden sm:inline">Holidays</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-1">
-              <Settings className="h-3 w-3" />
-              <span className="hidden sm:inline">Settings</span>
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-1">
-              <History className="h-3 w-3" />
-              <span className="hidden sm:inline">Audit Logs</span>
-            </TabsTrigger>
-            <TabsTrigger value="migration" className="flex items-center gap-1 text-blue-600">
-              <Database className="h-3 w-3" />
-              <span className="hidden sm:inline">Migration</span>
-            </TabsTrigger>
-            <TabsTrigger value="reset" className="flex items-center gap-1 text-red-600">
-              <Trash2 className="h-3 w-3" />
-              <span className="hidden sm:inline">Reset</span>
-            </TabsTrigger>
-          </TabsList>
-
-        <TabsContent value="overlaps" className="space-y-4">
-          <OverlapManager />
-        </TabsContent>
-
-        <TabsContent value="manual-requests" className="space-y-4">
-          <ManualRequestEntry />
-        </TabsContent>
-
-        <TabsContent value="users" className="space-y-4">
-          <UserManagementEnhanced />
-        </TabsContent>
-
-        <TabsContent value="departments" className="space-y-4">
-          <DepartmentManager />
-        </TabsContent>
-
-        <TabsContent value="templates" className="space-y-4">
-          <TemplateManager />
-        </TabsContent>
-
-        <TabsContent value="leave-types" className="space-y-4">
-          <LeaveTypesManager />
-        </TabsContent>
-
-        <TabsContent value="leave-balance" className="space-y-4">
-          <LeaveBalanceSettings />
-        </TabsContent>
-
-        <TabsContent value="retention" className="space-y-4">
-          <DocumentRetentionSettings />
-        </TabsContent>
-
-          <TabsContent value="workflows" className="space-y-4">
-            <WorkflowRulesManager />
-          </TabsContent>
-
-          <TabsContent value="escalation" className="space-y-4">
-            <EscalationSettings />
-          </TabsContent>
-
-          <TabsContent value="positions" className="space-y-4">
-            <PositionsManager />
-          </TabsContent>
-
-          <TabsContent value="orgchart" className="space-y-4">
-            <OrgChart />
-          </TabsContent>
-
-          <TabsContent value="holidays" className="space-y-4">
-            <HolidaysManager />
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-4">
-            <SystemSettings />
-          </TabsContent>
-
-          <TabsContent value="audit" className="space-y-4">
-            <AuditLogViewer />
-          </TabsContent>
-
-          <TabsContent value="migration" className="space-y-4">
-            <SelectedDatesMigration />
-          </TabsContent>
-
-          <TabsContent value="reset" className="space-y-4">
-            <RequestsResetManager />
-          </TabsContent>
-        </Tabs>
+      {/* Main Content with Sidebar */}
+      <div className="flex h-[calc(100vh-120px)]">
+        {/* Sidebar */}
+        <div className="w-80 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-shrink-0">
+          <ScrollArea className="h-full p-4">
+            <nav className="space-y-2">
+              {navigationSections.map((section) => {
+                const SectionIcon = section.icon
+                const isExpanded = expandedSections[section.id as keyof typeof expandedSections]
+                
+                return (
+                  <div key={section.id}>
+                    {/* Section Header */}
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <SectionIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {section.title}
+                        </span>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-500" />
+                      )}
+                    </button>
+                    
+                    {/* Section Items */}
+                    {isExpanded && (
+                      <div className="ml-4 mt-2 space-y-1">
+                        {section.items.map((item) => {
+                          const ItemIcon = item.icon
+                          const isActive = activePage === item.id
+                          
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => setActivePage(item.id)}
+                              className={`w-full flex items-center gap-3 p-2 text-left rounded-md transition-colors ${
+                                isActive
+                                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
+                                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                              } ${
+                                item.id === 'reset' ? 'text-red-600 dark:text-red-400' : ''
+                              } ${
+                                item.id === 'migration' ? 'text-blue-600 dark:text-blue-400' : ''
+                              }`}
+                            >
+                              <ItemIcon className="h-4 w-4" />
+                              <span className="text-sm">{item.title}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </nav>
+          </ScrollArea>
+        </div>
+        
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto">
+          <div className="p-6">
+            {renderContent()}
+          </div>
+        </div>
       </div>
     </div>
   )
