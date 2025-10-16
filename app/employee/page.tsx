@@ -51,6 +51,7 @@ export default function EmployeeDashboard() {
   const t = useTranslations()
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [showRemoteForm, setShowRemoteForm] = useState(false)
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("dashboard")
   const [wfhCurrentMonth, setWfhCurrentMonth] = useState(new Date()) // For WFH pagination
   const [requestsCurrentPage, setRequestsCurrentPage] = useState(1) // For requests pagination
@@ -162,6 +163,12 @@ export default function EmployeeDashboard() {
       return;
     }
 
+    // Prevent double-clicks
+    if (cancellingRequestId) {
+      return;
+    }
+
+    setCancellingRequestId(requestId);
     try {
       const response = await fetch(`/api/leave-requests/${requestId}/self-cancel`, {
         method: 'POST',
@@ -185,6 +192,8 @@ export default function EmployeeDashboard() {
     } catch (error) {
       console.error('Error cancelling request:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
+    } finally {
+      setCancellingRequestId(null);
     }
   }
 
@@ -627,9 +636,10 @@ export default function EmployeeDashboard() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleCancelRequest(request.id)}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                    disabled={cancellingRequestId === request.id}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 disabled:opacity-50"
                                   >
-                                    Cancel
+                                    {cancellingRequestId === request.id ? 'Cancelling...' : 'Cancel'}
                                   </Button>
                                 )}
                               </div>
