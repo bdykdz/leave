@@ -780,7 +780,7 @@ export default function ManagerDashboard() {
                             <Badge className={getStatusColor(request.status)}>
                               {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                             </Badge>
-                            {(request.status.toLowerCase() === 'pending' || (request.status.toLowerCase() === 'approved' && new Date(request.startDate) > new Date())) && (
+                            {(request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                               <Button
                                 variant="outline"
                                 size="sm"

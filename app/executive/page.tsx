@@ -559,7 +559,7 @@ export default function ExecutiveDashboard() {
                                request.status === 'REJECTED' ? t.status.rejected :
                                request.status === 'PENDING' ? t.status.pending : request.status}
                             </Badge>
-                            {(request.status === 'PENDING' || (request.status === 'APPROVED' && new Date(request.startDate) > new Date())) && (
+                            {(request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                               <Button
                                 variant="outline"
                                 size="sm"

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/lib/services/notification-service';
+import { updateLeaveBalanceOnRejection } from '@/lib/leave-balance';
 
 // POST: Cancel own leave request (employee self-cancellation)
 export async function POST(
@@ -69,24 +70,43 @@ export async function POST(
       }
     });
 
-    // If the request was approved, restore the leave balance
-    if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveTypeId) {
-      const leaveBalance = await prisma.leaveBalance.findFirst({
-        where: {
-          userId: leaveRequest.userId,
-          leaveTypeId: leaveRequest.leaveTypeId,
-          year: new Date().getFullYear()
-        }
-      });
-
-      if (leaveBalance) {
-        await prisma.leaveBalance.update({
-          where: { id: leaveBalance.id },
-          data: {
-            used: Math.max(0, leaveBalance.used - leaveRequest.totalDays),
-            available: leaveBalance.available + leaveRequest.totalDays
+    // Restore leave balance based on request status
+    if (leaveRequest.leaveTypeId && leaveRequest.leaveType) {
+      const currentYear = new Date().getFullYear();
+      
+      if (leaveRequest.status === 'APPROVED') {
+        // For approved requests, we need to reverse the approval (remove from used, add back to available)
+        const existingBalance = await prisma.leaveBalance.findUnique({
+          where: {
+            userId_leaveTypeId_year: {
+              userId: leaveRequest.userId,
+              leaveTypeId: leaveRequest.leaveTypeId,
+              year: currentYear
+            }
           }
         });
+
+        if (existingBalance && leaveRequest.leaveType.code === 'NL') {
+          const newUsed = Math.max(0, existingBalance.used - leaveRequest.totalDays);
+          const newAvailable = existingBalance.entitled - newUsed - existingBalance.pending;
+          
+          await prisma.leaveBalance.update({
+            where: { id: existingBalance.id },
+            data: {
+              used: newUsed,
+              available: newAvailable
+            }
+          });
+        }
+      } else if (leaveRequest.status === 'PENDING') {
+        // For pending requests, use the existing rejection logic (remove from pending)
+        await updateLeaveBalanceOnRejection(
+          leaveRequest.userId,
+          leaveRequest.leaveTypeId,
+          leaveRequest.leaveType.code,
+          leaveRequest.totalDays,
+          currentYear
+        );
       }
     }
 
@@ -131,6 +151,7 @@ export async function POST(
       const managerIds = managers.map(m => m.id).filter(Boolean);
       
       if (managerIds.length > 0) {
+        // Notify the employee about their own cancellation
         await NotificationService.notifyLeaveCancelled(
           session.user.id,
           leaveRequest.leaveType?.name || 'Leave',
@@ -139,7 +160,7 @@ export async function POST(
           params.id
         );
 
-        // Also notify managers about the cancellation
+        // Notify managers and HR about the cancellation
         for (const managerId of managerIds) {
           if (managerId !== session.user.id) {
             await NotificationService.createNotification({

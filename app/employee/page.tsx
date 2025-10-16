@@ -622,7 +622,7 @@ export default function EmployeeDashboard() {
                                 <Badge className={getStatusColor(request.status)}>
                                   {formatStatus(request.status)}
                                 </Badge>
-                                {(request.status === 'PENDING' || (request.status === 'APPROVED' && new Date(request.startDate) > new Date())) && (
+                                {(request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                                   <Button
                                     variant="outline"
                                     size="sm"
