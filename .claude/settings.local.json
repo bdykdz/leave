@@ -5,7 +5,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm run dev:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []

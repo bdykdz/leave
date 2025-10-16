@@ -42,6 +42,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
 import { LanguageToggle } from "@/components/language-toggle"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 
 export default function EmployeeDashboard() {
   const { data: session, status } = useSession()
@@ -382,7 +383,7 @@ export default function EmployeeDashboard() {
               </Button>
 
               <LanguageToggle />
-
+              <NotificationBell />
 
               {/* Profile Dropdown */}
               <DropdownMenu>

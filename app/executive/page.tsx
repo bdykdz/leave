@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 import {
   Calendar,
   Users,
@@ -323,6 +324,7 @@ export default function ExecutiveDashboard() {
               Analytics
             </Button>
             <LanguageToggle />
+            <NotificationBell />
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

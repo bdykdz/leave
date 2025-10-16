@@ -42,6 +42,7 @@ import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "@/components/language-provider"
 import { LanguageToggle } from "@/components/language-toggle"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 
 export default function ManagerDashboard() {
   const { data: session, status } = useSession()
@@ -528,7 +529,7 @@ export default function ManagerDashboard() {
               </Button>
 
               <LanguageToggle />
-
+              <NotificationBell />
 
               {/* Profile Dropdown */}
               <DropdownMenu>

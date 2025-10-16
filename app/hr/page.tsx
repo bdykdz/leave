@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 
 export default function HRDashboard() {
   const { data: session, status } = useSession()
@@ -94,6 +95,8 @@ export default function HRDashboard() {
                 <Calendar className="h-4 w-4" />
                 My Dashboard
               </Button>
+
+              <NotificationBell />
 
               {/* Profile Dropdown */}
               <DropdownMenu>
