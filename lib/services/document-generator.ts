@@ -1,10 +1,8 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from './workflow-engine';
 import { getFromMinio, uploadToMinio } from '@/lib/minio';
 import path from 'path';
-
-const prisma = new PrismaClient();
 const workflowEngine = new WorkflowEngine();
 
 interface SignatureRequirement {
@@ -402,7 +400,7 @@ export class DocumentGenerator {
     const currentYear = new Date().getFullYear();
     let leaveBalance = null;
     try {
-      leaveBalance = await this.prisma.leaveBalance.findUnique({
+      leaveBalance = await prisma.leaveBalance.findUnique({
         where: {
           userId_leaveTypeId_year: {
             userId: leave.userId,

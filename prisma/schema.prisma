@@ -64,6 +64,9 @@ model User {
   wfhRequests           WorkFromHomeRequest[]
   wfhApprovals          WFHApproval[]
   wfhSignatures         WFHSignature[]
+  delegatorRelations    ApprovalDelegate[]   @relation("DelegatorRelation")
+  delegateRelations     ApprovalDelegate[]   @relation("DelegateRelation")
+  auditLogs             AuditLog[]
 }
 
 model LeaveType {
@@ -286,16 +289,35 @@ model CompanySetting {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String
-  entity    String
-  entityId  String?
-  oldValues Json?
-  newValues Json?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entity     String
+  entityType String?  // Added missing field
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  details    Json?    // Added missing field
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ApprovalDelegate {
+  id          String    @id @default(cuid())
+  delegatorId String
+  delegateId  String
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  delegator User @relation("DelegatorRelation", fields: [delegatorId], references: [id], onDelete: Cascade)
+  delegate  User @relation("DelegateRelation", fields: [delegateId], references: [id], onDelete: Cascade)
+
+  @@unique([delegatorId, delegateId, startDate])
 }
 
 model LeaveRequestSubstitute {

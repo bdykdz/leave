@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma';
 import { startOfWeek, endOfWeek, isAfter, isBefore, startOfDay, addWeeks } from 'date-fns';
 import { log } from './logger';
-
-const prisma = new PrismaClient();
 
 export interface WFHValidationError {
   field: string;

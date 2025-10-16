@@ -64,6 +64,7 @@ export default function ExecutiveDashboard() {
       days: number
     }
     isDirectReport?: boolean
+    requestType?: string
   } | null>(null)
 
   // State for executive's personal data
@@ -133,6 +134,7 @@ export default function ExecutiveDashboard() {
       const response = await fetch('/api/employee/leave-balance')
       if (response.ok) {
         const data = await response.json()
+        console.log('Leave balance data:', data.leaveBalances)
         setExecutiveLeaveBalance(data.leaveBalances)
       }
     } catch (error) {
@@ -247,11 +249,21 @@ export default function ExecutiveDashboard() {
     }
   }
 
-  const handleApprove = async (requestId: string, comment?: string, isDirectReport: boolean = false) => {
+  const handleApprove = async (requestId: string, comment?: string, isDirectReport: boolean = false, requestType?: string) => {
     try {
-      const endpoint = isDirectReport 
-        ? `/api/manager/approve-request/${requestId}`
-        : `/api/executive/approve-request/${requestId}`
+      let endpoint: string
+      
+      if (isDirectReport) {
+        // For direct reports, check if it's a WFH request
+        if (requestType === 'wfh') {
+          endpoint = `/api/manager/wfh/approve/${requestId}`
+        } else {
+          endpoint = `/api/manager/team/approve-request/${requestId}`
+        }
+      } else {
+        // For escalated requests
+        endpoint = `/api/executive/approve-request/${requestId}`
+      }
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -278,14 +290,26 @@ export default function ExecutiveDashboard() {
     }
   }
 
-  const handleDeny = async (requestId: string, comment: string, isDirectReport: boolean = false) => {
+  const handleDeny = async (requestId: string, comment: string, isDirectReport: boolean = false, requestType?: string) => {
     try {
-      const endpoint = isDirectReport
-        ? `/api/manager/deny-request/${requestId}`
-        : `/api/executive/deny-request/${requestId}`
+      let endpoint: string
+      let method = 'POST'
+      
+      if (isDirectReport) {
+        // For direct reports, check if it's a WFH request
+        if (requestType === 'wfh') {
+          endpoint = `/api/manager/wfh/approve/${requestId}`
+          method = 'DELETE' // WFH denial uses DELETE method
+        } else {
+          endpoint = `/api/manager/team/deny-request/${requestId}`
+        }
+      } else {
+        // For escalated requests
+        endpoint = `/api/executive/deny-request/${requestId}`
+      }
         
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment })
       })
@@ -342,6 +366,10 @@ export default function ExecutiveDashboard() {
 
           <div className="flex items-center gap-4">
             {/* Navigation Buttons */}
+            <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Manager Dashboard
+            </Button>
             <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
               <Building className="h-4 w-4" />
               HR Dashboard
@@ -480,7 +508,9 @@ export default function ExecutiveDashboard() {
                     {executiveLeaveBalance.map((balance, index) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium">{balance.leaveTypeName || 'Unknown Leave Type'}</h3>
+                          <h3 className="font-medium">
+                            {balance.leaveTypeName || balance.description || balance.leaveTypeCode || 'Unknown Leave Type'}
+                          </h3>
                           <Badge variant="outline" className="text-xs">
                             {balance.available || 0} {t.leaveForm.days}
                           </Badge>
@@ -590,7 +620,7 @@ export default function ExecutiveDashboard() {
                 </CardTitle>
                 <CardDescription>Requests from your direct team members</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-96 overflow-y-auto">
                 {loadingDirectReports ? (
                   <div className="space-y-3">
                     <div className="animate-pulse bg-gray-200 h-24 rounded"></div>
@@ -642,7 +672,8 @@ export default function ExecutiveDashboard() {
                                     dates: request.dates,
                                     days: request.days
                                   },
-                                  isDirectReport: true
+                                  isDirectReport: true,
+                                  requestType: request.requestType
                                 })
                                 setShowApprovalDialog(true)
                               }}
@@ -663,7 +694,8 @@ export default function ExecutiveDashboard() {
                                     dates: request.dates,
                                     days: request.days
                                   },
-                                  isDirectReport: true
+                                  isDirectReport: true,
+                                  requestType: request.requestType
                                 })
                                 setShowApprovalDialog(true)
                               }}
@@ -724,7 +756,7 @@ export default function ExecutiveDashboard() {
                 </CardTitle>
                 <CardDescription>High-level leave requests that need executive approval</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-96 overflow-y-auto">
                 {loading ? (
                   <div className="space-y-3">
                     <div className="animate-pulse bg-gray-200 h-24 rounded"></div>
@@ -865,8 +897,8 @@ export default function ExecutiveDashboard() {
             setShowApprovalDialog(false)
             setApprovalDetails(null)
           }}
-          onApprove={(requestId, comment) => handleApprove(requestId, comment, approvalDetails.isDirectReport || false)}
-          onDeny={(requestId, comment) => handleDeny(requestId, comment, approvalDetails.isDirectReport || false)}
+          onApprove={(requestId, comment) => handleApprove(requestId, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)}
+          onDeny={(requestId, comment) => handleDeny(requestId, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)}
           request={approvalDetails.request}
           action={approvalDetails.action}
         />

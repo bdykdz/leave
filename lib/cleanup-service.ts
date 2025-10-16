@@ -223,8 +223,8 @@ export class CleanupService {
           await prisma.approval.update({
             where: { id: approval.id },
             data: {
-              status: 'CANCELLED',
-              comments: 'Cancelled due to missing approver',
+              status: 'REJECTED',
+              comments: 'Rejected due to missing approver',
             },
           });
         }

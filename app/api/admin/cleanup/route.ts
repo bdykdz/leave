@@ -3,10 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { CleanupService } from '@/lib/cleanup-service';
 import { log } from '@/lib/logger';
-import { asyncHandler } from '@/lib/async-handler';
 
 // GET /api/admin/cleanup - Run cleanup manually (admin only)
-export const GET = asyncHandler(async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
+  try {
   const session = await getServerSession(authOptions);
   
   // Check if user is admin
@@ -38,43 +38,58 @@ export const GET = asyncHandler(async (request: NextRequest) => {
     results,
     message: 'Cleanup completed successfully',
   });
-});
-
-// POST /api/admin/cleanup - Scheduled cleanup (called by cron job)
-export const POST = asyncHandler(async (request: NextRequest) => {
-  // Verify cron secret for security
-  const cronSecret = request.headers.get('x-cron-secret');
-  
-  if (cronSecret !== process.env.CRON_SECRET) {
-    log.warn('Invalid cron secret for cleanup');
+  } catch (error) {
+    log.error('Cleanup failed:', error);
     return NextResponse.json(
-      { error: 'Invalid cron secret' },
-      { status: 401 }
+      { error: 'Cleanup failed' },
+      { status: 500 }
     );
   }
+}
 
-  log.info('Starting scheduled cleanup');
+// POST /api/admin/cleanup - Scheduled cleanup (called by cron job)
+export async function POST(request: NextRequest) {
+  try {
+    // Verify cron secret for security
+    const cronSecret = request.headers.get('x-cron-secret');
+    
+    if (cronSecret !== process.env.CRON_SECRET) {
+      log.warn('Invalid cron secret for cleanup');
+      return NextResponse.json(
+        { error: 'Invalid cron secret' },
+        { status: 401 }
+      );
+    }
 
-  // Perform cleanup
-  const cleanupResults = await CleanupService.performCleanup();
-  const fixResults = await CleanupService.fixInconsistencies();
+    log.info('Starting scheduled cleanup');
 
-  const results = {
-    cleanup: cleanupResults,
-    fixes: fixResults,
-    timestamp: new Date().toISOString(),
-  };
+    // Perform cleanup
+    const cleanupResults = await CleanupService.performCleanup();
+    const fixResults = await CleanupService.fixInconsistencies();
 
-  // Only archive on Sundays
-  if (new Date().getDay() === 0) {
-    const archiveResults = await CleanupService.archiveOldData();
-    results['archive'] = archiveResults;
+    const results: any = {
+      cleanup: cleanupResults,
+      fixes: fixResults,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Only archive on Sundays
+    if (new Date().getDay() === 0) {
+      const archiveResults = await CleanupService.archiveOldData();
+      results.archive = archiveResults;
+    }
+
+    log.info('Scheduled cleanup completed', results);
+
+    return NextResponse.json({
+      success: true,
+      results,
+    });
+  } catch (error) {
+    log.error('Scheduled cleanup failed:', error);
+    return NextResponse.json(
+      { error: 'Cleanup failed' },
+      { status: 500 }
+    );
   }
-
-  log.info('Scheduled cleanup completed', results);
-
-  return NextResponse.json({
-    success: true,
-    results,
-  });
-});
+}

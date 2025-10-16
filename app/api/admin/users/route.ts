@@ -174,8 +174,8 @@ export async function POST(request: NextRequest) {
           userId: newUser.id,
           leaveTypeId: leaveType.id,
           year: currentYear,
-          entitled: leaveType.defaultDays || 0,
-          available: leaveType.defaultDays || 0,
+          entitled: leaveType.daysAllowed || 0,
+          available: leaveType.daysAllowed || 0,
           used: 0,
           carriedForward: 0
         }

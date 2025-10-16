@@ -177,24 +177,25 @@ export class EscalationService {
     // If no delegate, try to find someone at the same level
     const approver = await prisma.user.findUnique({
       where: { id: approverId },
-      include: {
-        department: {
-          include: {
-            users: {
-              where: {
-                id: { not: approverId },
-                role: { in: ['MANAGER', 'HR', 'EXECUTIVE'] },
-                isActive: true
-              }
-            }
-          }
-        }
-      }
+      select: { department: true }
     });
 
-    if (approver?.department?.users && approver.department.users.length > 0) {
-      // Return the first available manager in the same department
-      return approver.department.users[0].id;
+    if (approver?.department) {
+      // Find other managers in the same department
+      const departmentUsers = await prisma.user.findMany({
+        where: {
+          department: approver.department,
+          id: { not: approverId },
+          role: { in: ['MANAGER', 'HR', 'EXECUTIVE'] },
+          isActive: true
+        },
+        select: { id: true }
+      });
+
+      if (departmentUsers.length > 0) {
+        // Return the first available manager in the same department
+        return departmentUsers[0].id;
+      }
     }
 
     return null;
@@ -217,12 +218,7 @@ export class EscalationService {
       where: { id: userId },
       include: {
         manager: true,
-        departmentDirector: true,
-        department: {
-          include: {
-            director: true
-          }
-        }
+        departmentDirector: true
       }
     });
 
@@ -314,9 +310,7 @@ export class EscalationService {
         await prisma.leaveRequest.update({
           where: { id: leaveRequest.id },
           data: {
-            status: 'APPROVED',
-            approvedAt: new Date(),
-            approvedBy: 'SYSTEM'
+            status: 'APPROVED'
           }
         });
 

@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { WFHValidationService } from '@/lib/wfh-validation-service';
 import { emailService } from '@/lib/email-service';
-
-const prisma = new PrismaClient();
 
 // Validation schema for WFH request
 const createWFHRequestSchema = z.object({

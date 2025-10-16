@@ -85,11 +85,15 @@ export async function GET(request: NextRequest) {
 
     const csvRows = logs.map(log => {
       const details = JSON.stringify(log.details || {}).replace(/"/g, '""');
+      const userName = log.user ? `${log.user.firstName} ${log.user.lastName}` : 'System/Unknown';
+      const userEmail = log.user?.email || 'N/A';
+      const userDepartment = log.user?.department || 'N/A';
+      
       return [
         format(new Date(log.createdAt), 'yyyy-MM-dd HH:mm:ss'),
-        `"${log.user.firstName} ${log.user.lastName}"`,
-        log.user.email,
-        log.user.department || 'N/A',
+        `"${userName}"`,
+        userEmail,
+        userDepartment,
         log.action,
         log.entityType,
         log.entityId,
@@ -105,6 +109,7 @@ export async function GET(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: 'DATA_EXPORT',
+        entity: 'AUDIT_LOGS',
         entityType: 'AUDIT_LOGS',
         entityId: 'export',
         details: {

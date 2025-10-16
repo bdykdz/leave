@@ -189,7 +189,7 @@ export function NotificationBell() {
       
       <DropdownMenuContent 
         align="end" 
-        className="w-80 max-h-96"
+        className="w-80 max-h-[32rem]"
         sideOffset={4}
       >
         <div className="flex items-center justify-between p-2">
@@ -219,7 +219,7 @@ export function NotificationBell() {
             No notifications yet
           </div>
         ) : (
-          <ScrollArea className="max-h-80">
+          <ScrollArea className="max-h-[24rem] overflow-y-auto">
             {notifications.slice(0, 10).map((notification) => (
               <DropdownMenuItem
                 key={notification.id}

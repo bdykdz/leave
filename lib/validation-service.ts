@@ -159,7 +159,7 @@ export class ValidationService {
     });
     
     holidays.forEach(holiday => {
-      blockedDates.push(`${holiday.date.toLocaleDateString()} (${holiday.name})`);
+      blockedDates.push(`${holiday.date.toLocaleDateString()} (${holiday.nameEn})`);
     });
     
     return blockedDates;

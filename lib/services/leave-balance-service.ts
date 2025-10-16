@@ -77,7 +77,7 @@ export class LeaveBalanceService {
     });
 
     for (const leaveType of leaveTypes) {
-      let entitledDays = leaveType.defaultDays || 0;
+      let entitledDays = leaveType.daysAllowed || 0;
 
       // Apply pro-rating if enabled and user joined mid-year
       if (this.config.proRateEnabled && joiningDate.getFullYear() === currentYear) {
@@ -118,6 +118,7 @@ export class LeaveBalanceService {
           data: {
             userId: 'SYSTEM',
             action: 'BALANCE_INITIALIZED',
+            entity: 'LEAVE_BALANCE',
             entityType: 'LEAVE_BALANCE',
             entityId: userId,
             details: {
@@ -164,6 +165,7 @@ export class LeaveBalanceService {
         data: {
           userId: 'SYSTEM',
           action: 'YEAR_END_PROCESSING',
+          entity: 'LEAVE_BALANCE',
           entityType: 'LEAVE_BALANCE',
           entityId: 'ALL',
           details: {
@@ -206,7 +208,7 @@ export class LeaveBalanceService {
       let carryForwardAmount = 0;
 
       // Calculate carry forward if enabled
-      if (this.config.carryForwardEnabled && balance.leaveType.allowCarryForward) {
+      if (this.config.carryForwardEnabled && balance.leaveType.carryForward) {
         // Calculate available balance that can be carried forward
         const availableForCarryForward = balance.available;
         
@@ -250,8 +252,8 @@ export class LeaveBalanceService {
             userId,
             leaveTypeId: balance.leaveTypeId,
             year: nextYear,
-            entitled: balance.leaveType.defaultDays || 0,
-            available: (balance.leaveType.defaultDays || 0) + carryForwardAmount,
+            entitled: balance.leaveType.daysAllowed || 0,
+            available: (balance.leaveType.daysAllowed || 0) + carryForwardAmount,
             used: 0,
             carriedForward: carryForwardAmount
           }
@@ -270,6 +272,7 @@ export class LeaveBalanceService {
           data: {
             userId: 'SYSTEM',
             action: 'CARRY_FORWARD_CREATED',
+            entity: 'LEAVE_BALANCE',
             entityType: 'LEAVE_BALANCE',
             entityId: userId,
             details: {
@@ -332,6 +335,7 @@ export class LeaveBalanceService {
         data: {
           userId: 'SYSTEM',
           action: 'CARRY_FORWARD_EXPIRED',
+          entity: 'LEAVE_BALANCE',
           entityType: 'LEAVE_BALANCE',
           entityId: balance.userId,
           details: {

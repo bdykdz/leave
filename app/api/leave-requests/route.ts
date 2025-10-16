@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
 import { emailService } from '@/lib/email-service';
@@ -10,8 +10,6 @@ import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
-
-const prisma = new PrismaClient();
 const documentGenerator = new SmartDocumentGenerator();
 
 // Validation schema for leave request

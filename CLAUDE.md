@@ -84,6 +84,13 @@ npx prisma generate
 npx prisma migrate deploy
 ```
 
+### Required Migrations
+The following migrations must be applied for the current codebase:
+- `20251016_add_missing_fields` - Adds missing AuditLog fields (entityType, details) and creates ApprovalDelegate table
+
+### Migration Files
+Migration files are located in `prisma/migrations/` and will be automatically applied during `npx prisma migrate deploy` in production.
+
 ### Environment Variables
 Required for production:
 ```env
