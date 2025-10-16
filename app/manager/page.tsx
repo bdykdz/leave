@@ -239,6 +239,37 @@ export default function ManagerDashboard() {
     }
   }
 
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to cancel this request?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/leave-requests/${requestId}/self-cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: 'Cancelled by manager'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel request');
+      }
+
+      // Refresh the requests list
+      await fetchManagerOwnRequests();
+      
+      toast.success('Request cancelled successfully');
+    } catch (error) {
+      console.error('Error cancelling request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
+    }
+  }
+
   const fetchTeamWfhStats = async () => {
     try {
       const response = await fetch('/api/manager/team/wfh-stats')
@@ -749,6 +780,16 @@ export default function ManagerDashboard() {
                             <Badge className={getStatusColor(request.status)}>
                               {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                             </Badge>
+                            {(request.status.toLowerCase() === 'pending' || (request.status.toLowerCase() === 'approved' && new Date(request.startDate) > new Date())) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCancelRequest(request.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                Cancel
+                              </Button>
+                            )}
                           </div>
                         </div>
                       );

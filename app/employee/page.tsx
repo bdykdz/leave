@@ -43,6 +43,7 @@ import { signOut } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
 import { LanguageToggle } from "@/components/language-toggle"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
+import { toast } from "sonner"
 
 export default function EmployeeDashboard() {
   const { data: session, status } = useSession()
@@ -153,6 +154,37 @@ export default function EmployeeDashboard() {
       console.error('Error fetching leave requests:', error)
     } finally {
       setLoadingRequests(false)
+    }
+  }
+
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to cancel this request?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/leave-requests/${requestId}/self-cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: 'Cancelled by employee'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel request');
+      }
+
+      // Refresh the requests list
+      await fetchAllRequests();
+      
+      toast.success('Request cancelled successfully');
+    } catch (error) {
+      console.error('Error cancelling request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
     }
   }
 
@@ -586,9 +618,21 @@ export default function EmployeeDashboard() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <Badge className={getStatusColor(request.status)}>
-                                {formatStatus(request.status)}
-                              </Badge>
+                              <div className="flex items-center gap-2 justify-end">
+                                <Badge className={getStatusColor(request.status)}>
+                                  {formatStatus(request.status)}
+                                </Badge>
+                                {(request.status === 'PENDING' || (request.status === 'APPROVED' && new Date(request.startDate) > new Date())) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCancelRequest(request.id)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                  >
+                                    Cancel
+                                  </Button>
+                                )}
+                              </div>
                               {request.status === 'PENDING' && request.approvals && request.approvals.length > 0 && (
                                 <p className="text-xs text-gray-500 mt-1">
                                   Awaiting approval
