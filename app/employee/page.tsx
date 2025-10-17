@@ -292,7 +292,6 @@ export default function EmployeeDashboard() {
       case "APPROVED":
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case "REJECTED":
-      case "REJECTED":
         return <XCircle className="h-4 w-4 text-red-500" />
       case "PENDING":
         return <AlertCircle className="h-4 w-4 text-yellow-500" />
@@ -305,7 +304,6 @@ export default function EmployeeDashboard() {
     switch (status.toUpperCase()) {
       case "APPROVED":
         return "bg-green-100 text-green-800"
-      case "REJECTED":
       case "REJECTED":
         return "bg-red-100 text-red-800"
       case "PENDING":

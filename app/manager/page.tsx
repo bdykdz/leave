@@ -64,6 +64,7 @@ export default function ManagerDashboard() {
       type: string
       dates: string
       days: number
+      requestType?: string
     }
   } | null>(null)
 
@@ -92,6 +93,25 @@ export default function ManagerDashboard() {
   const [deniedRequestsPage, setDeniedRequestsPage] = useState(1)
   const [superior, setSuperior] = useState<any>(null)
   const [loadingSuperior, setLoadingSuperior] = useState(true)
+
+  // Manager's WFH stats
+  const [managerWfhStats, setManagerWfhStats] = useState({ 
+    daysUsed: 0, 
+    workingDaysInMonth: 22, 
+    percentage: 0 
+  })
+
+  // Manager's own requests
+  const [managerRequests, setManagerRequests] = useState<any[]>([])
+  const [myRequestsTotalPages, setMyRequestsTotalPages] = useState(1)
+  const myRequestsPerPage = 3
+
+  // Team WFH stats
+  const [teamWfhStats, setTeamWfhStats] = useState({ 
+    averageWfhPercentage: 0, 
+    totalWfhDays: 0, 
+    totalWorkingDays: 0 
+  })
 
   // Fetch manager's leave balance
   useEffect(() => {
@@ -354,25 +374,6 @@ export default function ManagerDashboard() {
       toast.error('Failed to deny request')
     }
   }
-
-  // Manager's WFH stats
-  const [managerWfhStats, setManagerWfhStats] = useState({ 
-    daysUsed: 0, 
-    workingDaysInMonth: 22, 
-    percentage: 0 
-  })
-
-  // Manager's own requests
-  const [managerRequests, setManagerRequests] = useState<any[]>([])
-  const [myRequestsTotalPages, setMyRequestsTotalPages] = useState(1)
-  const myRequestsPerPage = 3
-
-  // Team WFH stats
-  const [teamWfhStats, setTeamWfhStats] = useState({ 
-    averageWfhPercentage: 0, 
-    totalWfhDays: 0, 
-    totalWorkingDays: 0 
-  })
 
   // Pagination for pending requests
   const pendingRequestsPerPage = 4
