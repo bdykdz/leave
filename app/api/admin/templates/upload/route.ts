@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
-    const fileUrl = await uploadToMinio(buffer, uniqueFilename, file.type);
+    const fileUrl = await uploadToMinio(buffer, uniqueFilename, file.type, 'leave-management-uat', 'templates');
 
     // Create database entry
     const templateData: any = {

@@ -1,7 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from './workflow-engine';
-import { getFromMinio, uploadToMinio } from '@/lib/minio';
+import { getFromMinio, uploadToMinio, generateLeaveDocumentName } from '@/lib/minio';
 import path from 'path';
 const workflowEngine = new WorkflowEngine();
 
@@ -374,16 +374,22 @@ export class DocumentGenerator {
       }
     }
 
-    // Save the PDF to Minio
+    // Save the PDF to Minio with descriptive filename
     const pdfBytes = await pdfDoc.save();
-    const fileName = `leave-${leaveRequest.requestNumber}-${Date.now()}.pdf`;
+    const fileName = generateLeaveDocumentName(
+      leaveRequest.requestNumber,
+      leaveRequest.user.email,
+      leaveRequest.leaveType,
+      'draft' // Start as draft, will be moved to 'generated' when fully approved
+    );
     
     // Upload generated document to Minio
     const fileUrl = await uploadToMinio(
       Buffer.from(pdfBytes), 
-      `documents/${fileName}`, 
+      fileName, 
       'application/pdf',
-      'leave-management-uat'
+      'leave-management-uat',
+      'documents/draft'
     );
 
     return fileUrl;

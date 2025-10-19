@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
 import { format } from 'date-fns'
 import { join } from 'path'
-import { getFromMinio, uploadToMinio } from '@/lib/minio'
+import { getFromMinio, uploadToMinio, generateLeaveDocumentName } from '@/lib/minio'
 
 type AnyObj = Record<string, any>
 
@@ -298,13 +298,19 @@ export class SmartDocumentGenerator {
       await prisma.generatedDocument.deleteMany({ where: { leaveRequestId } })
 
       const pdfBytes = await pdfDoc.save()
-      const fileName = `leave-${leaveRequest.requestNumber}-${Date.now()}.pdf`
+      const fileName = generateLeaveDocumentName(
+        leaveRequest.requestNumber,
+        leaveRequest.user.email,
+        leaveRequest.leaveType,
+        'draft' // Start as draft, will be moved to 'generated' when fully approved
+      )
 
       const fileUrl = await uploadToMinio(
         Buffer.from(pdfBytes),
-        `documents/${fileName}`,
+        fileName,
         'application/pdf',
-        'leave-management-uat'
+        'leave-management-uat',
+        'documents/draft'
       )
 
       const hasRequiredSignatures = template.signaturePlacements.some(s => s.isRequired)

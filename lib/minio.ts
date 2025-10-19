@@ -27,21 +27,51 @@ export async function ensureBucketExists(bucketName: string = MINIO_BUCKET) {
   }
 }
 
-// Upload file to Minio
+// Upload file to Minio with organized folder structure
 export async function uploadToMinio(
   buffer: Buffer, 
   fileName: string, 
   contentType: string,
-  bucketName: string = MINIO_BUCKET
+  bucketName: string = MINIO_BUCKET,
+  folder: 'templates' | 'documents/generated' | 'documents/draft' | 'documents/supporting' = 'templates'
 ): Promise<string> {
   await ensureBucketExists(bucketName)
   
-  const objectName = `templates/${fileName}`
+  const objectName = `${folder}/${fileName}`
   await minioClient.putObject(bucketName, objectName, buffer, buffer.length, {
     'Content-Type': contentType,
   })
   
   return `minio://${bucketName}/${objectName}`
+}
+
+// Generate descriptive filename for leave documents
+export function generateLeaveDocumentName(
+  requestNumber: string,
+  employeeEmail: string,
+  leaveType: string,
+  status: 'draft' | 'final' = 'draft',
+  extension: string = 'pdf'
+): string {
+  const date = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+  const emailPrefix = employeeEmail.split('@')[0]
+  const sanitizedLeaveType = leaveType.toLowerCase().replace(/\s+/g, '-')
+  
+  return `${requestNumber}-${date}-${emailPrefix}-${sanitizedLeaveType}-${status}.${extension}`
+}
+
+// Generate descriptive filename for supporting documents
+export function generateSupportingDocumentName(
+  requestNumber: string,
+  employeeEmail: string,
+  originalFileName: string
+): string {
+  const date = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+  const emailPrefix = employeeEmail.split('@')[0]
+  const extension = originalFileName.split('.').pop() || 'pdf'
+  const baseName = originalFileName.split('.').slice(0, -1).join('.').toLowerCase().replace(/\s+/g, '-')
+  
+  return `${requestNumber}-${date}-${emailPrefix}-${baseName}.${extension}`
 }
 
 // Get file from Minio
