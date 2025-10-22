@@ -57,14 +57,8 @@ export class SmartDocumentGenerator {
 
     const s = String(value ?? '').trim()
     if (s && typeof s === 'string' && s.length > 0) {
-      try {
-        const lower = s.toLowerCase()
-        // add any other markers you use in templates here
-        return ['true', '1', 'x', '✓', 'yes', 'checked'].includes(lower)
-      } catch (error) {
-        console.warn('Error in toLowerCase for checkbox value:', error, 'value:', s)
-        return false
-      }
+      // Case-insensitive comparison without toLowerCase()
+      return ['true', '1', 'x', '✓', 'yes', 'checked', 'TRUE', 'True', 'X', 'YES', 'Yes', 'CHECKED', 'Checked'].includes(s)
     }
     return false
   }
@@ -159,17 +153,11 @@ export class SmartDocumentGenerator {
             (mapping.documentPosition as AnyObj)?.type || 'text'
           if (!fieldType && dataPath.includes('signature')) fieldType = 'signature'
           
-          // Detect checkbox fields by name patterns
-          let isCheckboxField = false
-          try {
-            isCheckboxField = (formFieldName && formFieldName.toLowerCase().includes('check')) || 
-                              (formFieldName && formFieldName.toLowerCase().includes('approved')) ||
-                              dataPath.includes('.approved') ||
-                              dataPath.includes('.rejected')
-          } catch (error) {
-            console.warn('Error checking if field is checkbox:', error, 'formFieldName:', formFieldName)
-            isCheckboxField = dataPath.includes('.approved') || dataPath.includes('.rejected')
-          }
+          // Detect checkbox fields by name patterns (case-insensitive without toLowerCase)
+          const isCheckboxField = (formFieldName && (
+            formFieldName.includes('check') || formFieldName.includes('Check') || formFieldName.includes('CHECK') ||
+            formFieldName.includes('approved') || formFieldName.includes('Approved') || formFieldName.includes('APPROVED')
+          )) || dataPath.includes('.approved') || dataPath.includes('.rejected')
           
           if (isCheckboxField) {
             fieldType = 'checkbox'
@@ -305,13 +293,10 @@ export class SmartDocumentGenerator {
         try {
           const fieldName = field.getName()
           const ctor = (field as any).constructor?.name
-          let isSignatureField = false
-          try {
-            isSignatureField = fieldName && typeof fieldName === 'string' && fieldName.toLowerCase().includes('signature')
-          } catch (error) {
-            console.warn('Error checking if field is signature field:', error, 'fieldName:', fieldName)
-            isSignatureField = false
-          }
+          // Case-insensitive signature field check without toLowerCase
+          const isSignatureField = fieldName && typeof fieldName === 'string' && (
+            fieldName.includes('signature') || fieldName.includes('Signature') || fieldName.includes('SIGNATURE')
+          )
           
           if (ctor === 'PDFTextField' && fieldName && typeof fieldName === 'string' && !isSignatureField) {
             if ('updateAppearances' in (field as any)) {
@@ -417,13 +402,16 @@ export class SmartDocumentGenerator {
       for (const s of leaveRequest.generatedDocument.signatures) {
         if (!s?.signerRole) continue
         const roleStr = String(s.signerRole)
+        if (!roleStr || typeof roleStr !== 'string' || roleStr.length === 0) continue
+        
+        // Map role to lowercase equivalent without using toLowerCase()
         let role = ''
-        try {
-          role = roleStr && typeof roleStr === 'string' && roleStr.length > 0 ? roleStr.toLowerCase() : ''
-        } catch (error) {
-          console.warn('Error processing signerRole:', error, 'roleStr:', roleStr)
-          continue
-        }
+        if (roleStr === 'EMPLOYEE' || roleStr === 'employee' || roleStr === 'Employee') role = 'employee'
+        else if (roleStr === 'MANAGER' || roleStr === 'manager' || roleStr === 'Manager') role = 'manager'
+        else if (roleStr === 'DIRECTOR' || roleStr === 'director' || roleStr === 'Director') role = 'director'
+        else if (roleStr === 'HR' || roleStr === 'hr' || roleStr === 'Hr') role = 'hr'
+        else if (roleStr === 'EXECUTIVE' || roleStr === 'executive' || roleStr === 'Executive') role = 'executive'
+        
         if (!role || !(role in sig)) continue
 
         let signerName = ''
@@ -451,13 +439,15 @@ export class SmartDocumentGenerator {
         if (approval.status !== 'APPROVED' || !approval.approver) continue
         if (!approval.approver.role) continue
         const approverRoleStr = String(approval.approver.role)
+        if (!approverRoleStr || typeof approverRoleStr !== 'string' || approverRoleStr.length === 0) continue
+        
+        // Map role to lowercase equivalent without using toLowerCase()
         let approverRole = ''
-        try {
-          approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
-        } catch (error) {
-          console.warn('Error processing approver role:', error, 'roleStr:', approverRoleStr)
-          continue
-        }
+        if (approverRoleStr === 'EMPLOYEE' || approverRoleStr === 'employee' || approverRoleStr === 'Employee') approverRole = 'employee'
+        else if (approverRoleStr === 'MANAGER' || approverRoleStr === 'manager' || approverRoleStr === 'Manager') approverRole = 'manager'
+        else if (approverRoleStr === 'DEPARTMENT_DIRECTOR' || approverRoleStr === 'department_director' || approverRoleStr === 'Department_Director') approverRole = 'department_director'
+        else if (approverRoleStr === 'HR' || approverRoleStr === 'hr' || approverRoleStr === 'Hr') approverRole = 'hr'
+        else if (approverRoleStr === 'EXECUTIVE' || approverRoleStr === 'executive' || approverRoleStr === 'Executive') approverRole = 'executive'
 
         let role: keyof typeof sig | null = 'manager'
         if (approverRole === 'executive') role = 'executive'
@@ -600,16 +590,19 @@ export class SmartDocumentGenerator {
             decisionRole = 'manager'
           } else if (approval.approver && approval.approver.role) {
             const approverRoleStr = String(approval.approver.role)
-            let approverRole = ''
-            try {
-              approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
-            } catch (error) {
-              console.warn('Error processing approver role in decisions:', error, 'roleStr:', approverRoleStr)
-              approverRole = ''
+            if (approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0) {
+              // Map role to lowercase equivalent without using toLowerCase()
+              let approverRole = ''
+              if (approverRoleStr === 'EMPLOYEE' || approverRoleStr === 'employee' || approverRoleStr === 'Employee') approverRole = 'employee'
+              else if (approverRoleStr === 'MANAGER' || approverRoleStr === 'manager' || approverRoleStr === 'Manager') approverRole = 'manager'
+              else if (approverRoleStr === 'DEPARTMENT_DIRECTOR' || approverRoleStr === 'department_director' || approverRoleStr === 'Department_Director') approverRole = 'department_director'
+              else if (approverRoleStr === 'HR' || approverRoleStr === 'hr' || approverRoleStr === 'Hr') approverRole = 'hr'
+              else if (approverRoleStr === 'EXECUTIVE' || approverRoleStr === 'executive' || approverRoleStr === 'Executive') approverRole = 'executive'
+              
+              if (approverRole === 'executive') decisionRole = 'executive'
+              else if (approverRole === 'department_director') decisionRole = 'director'
+              else if (approverRole === 'hr') decisionRole = 'hr'
             }
-            if (approverRole === 'executive') decisionRole = 'executive'
-            else if (approverRole === 'department_director') decisionRole = 'director'
-            else if (approverRole === 'hr') decisionRole = 'hr'
           }
 
           console.log(`  -> Setting decision for role: ${decisionRole}`)
