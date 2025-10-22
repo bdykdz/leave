@@ -379,7 +379,7 @@ export class DocumentGenerator {
     const fileName = generateLeaveDocumentName(
       leaveRequest.requestNumber,
       leaveRequest.user.email,
-      leaveRequest.leaveType,
+      leaveRequest.leaveType.name,
       'draft' // Start as draft, will be moved to 'generated' when fully approved
     );
     

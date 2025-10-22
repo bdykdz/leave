@@ -326,7 +326,7 @@ export class SmartDocumentGenerator {
       const fileName = generateLeaveDocumentName(
         leaveRequest.requestNumber,
         leaveRequest.user.email,
-        leaveRequest.leaveType,
+        leaveRequest.leaveType.name,
         folderType
       )
 
