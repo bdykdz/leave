@@ -59,6 +59,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
+  const [submittedDetails, setSubmittedDetails] = useState<{
+    requestType: string
+    days: number
+    dates: string
+    manager: string
+  } | null>(null)
   const [selectedSubstitutes, setSelectedSubstitutes] = useState<string[]>([])
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [loadingLeaveTypes, setLoadingLeaveTypes] = useState(true)
@@ -247,11 +253,23 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         }
       }
 
+      // Capture details before showing success dialog
+      const successDetails = {
+        requestType: leaveTypes.find(t => t.id === leaveType)?.name || "Leave",
+        days: selectedDates.length,
+        dates: formatDateGroups(groupConsecutiveDates(selectedDates)),
+        manager: approvers.manager?.name || "your manager",
+      }
+      setSubmittedDetails(successDetails)
+      
       // Show success dialog
       setShowSuccessDialog(true)
       
-      // Reset form after a delay
+      // Auto-redirect to dashboard after 3 seconds (good UX)
       setTimeout(() => {
+        setShowSuccessDialog(false)
+        setSubmittedDetails(null)
+        // Reset form
         setSelectedDates([])
         setLeaveType("")
         setReason("")
@@ -272,6 +290,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
   const handleSuccessClose = () => {
     setShowSuccessDialog(false)
+    setSubmittedDetails(null)
     // Reset form
     setSelectedDates([])
     setLeaveType("")
@@ -594,17 +613,14 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
       </div>
 
       {/* Success Dialog */}
-      <SuccessDialog
-        isOpen={showSuccessDialog}
-        onClose={handleSuccessClose}
-        type="leave"
-        details={{
-          requestType: leaveTypes.find(t => t.id === leaveType)?.name || "Leave",
-          days: selectedDates.length,
-          dates: formatDateGroups(groupConsecutiveDates(selectedDates)),
-          manager: approvers.manager?.name || "your manager",
-        }}
-      />
+      {submittedDetails && (
+        <SuccessDialog
+          isOpen={showSuccessDialog}
+          onClose={handleSuccessClose}
+          type="leave"
+          details={submittedDetails}
+        />
+      )}
 
       {/* Error Dialog */}
       <ErrorDialog
