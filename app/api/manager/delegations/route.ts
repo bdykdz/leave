@@ -21,12 +21,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    const delegations = await prisma.managerDelegation.findMany({
+    const delegations = await prisma.approvalDelegate.findMany({
       where: {
-        delegatedById: session.user.id
+        delegatorId: session.user.id
       },
       include: {
-        delegateTo: {
+        delegate: {
           select: {
             id: true,
             firstName: true,
@@ -94,9 +94,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for overlapping active delegations
-    const overlapping = await prisma.managerDelegation.findFirst({
+    const overlapping = await prisma.approvalDelegate.findFirst({
       where: {
-        delegatedById: session.user.id,
+        delegatorId: session.user.id,
         isActive: true,
         OR: [
           {
@@ -135,17 +135,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create delegation
-    const delegation = await prisma.managerDelegation.create({
+    const delegation = await prisma.approvalDelegate.create({
       data: {
-        delegatedById: session.user.id,
-        delegateToId: data.delegateToId,
+        delegatorId: session.user.id,
+        delegateId: data.delegateToId,
         startDate: new Date(data.startDate),
         endDate: data.endDate ? new Date(data.endDate) : null,
         reason: data.reason,
         isActive: true
       },
       include: {
-        delegateTo: {
+        delegate: {
           select: {
             id: true,
             firstName: true,

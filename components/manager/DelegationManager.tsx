@@ -40,8 +40,8 @@ import { format } from "date-fns"
 
 interface Delegation {
   id: string
-  delegateToId: string
-  delegateTo: {
+  delegateId: string
+  delegate: {
     id: string
     firstName: string
     lastName: string
@@ -121,7 +121,7 @@ export function DelegationManager() {
 
   const handleEdit = (delegation: Delegation) => {
     setEditingDelegation(delegation)
-    setSelectedManagerId(delegation.delegateToId)
+    setSelectedManagerId(delegation.delegateId)
     setStartDate(new Date(delegation.startDate))
     setEndDate(delegation.endDate ? new Date(delegation.endDate) : undefined)
     setReason(delegation.reason || "")
@@ -262,7 +262,7 @@ export function DelegationManager() {
               <CheckCircle className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800">
                 <strong>Active Delegation:</strong> Your approval authority is currently delegated to{' '}
-                <strong>{activeDelegation.delegateTo.firstName} {activeDelegation.delegateTo.lastName}</strong>
+                <strong>{activeDelegation.delegate.firstName} {activeDelegation.delegate.lastName}</strong>
                 {activeDelegation.endDate ? (
                   <> until {format(new Date(activeDelegation.endDate), 'MMM d, yyyy')}</>
                 ) : (
@@ -296,14 +296,14 @@ export function DelegationManager() {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-medium">
-                              {delegation.delegateTo.firstName} {delegation.delegateTo.lastName}
+                              {delegation.delegate.firstName} {delegation.delegate.lastName}
                             </p>
-                            <Badge variant="outline">{delegation.delegateTo.department}</Badge>
+                            <Badge variant="outline">{delegation.delegate.department}</Badge>
                             {delegation.isActive && (
                               <Badge className="bg-green-100 text-green-800">Active</Badge>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600">{delegation.delegateTo.email}</p>
+                          <p className="text-sm text-gray-600">{delegation.delegate.email}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <CalendarIcon className="h-3 w-3 text-gray-500" />
                             <p className="text-xs text-gray-500">

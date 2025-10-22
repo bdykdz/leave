@@ -25,7 +25,6 @@ import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { TeamCalendar } from "@/components/team-calendar"
 import { HolidaysList } from "@/components/HolidaysList"
-import { SubstituteRequestManager } from "@/components/substitute/SubstituteRequestManager"
 import { DashboardSummary } from "@/components/dashboard-summary"
 import { format } from "date-fns/format"
 import { addMonths } from "date-fns/addMonths"
@@ -210,22 +209,51 @@ export default function EmployeeDashboard() {
   const sickLeave = leaveBalances.find(b => b.leaveTypeCode === 'SL')
   const specialLeaves = leaveBalances.filter(b => !['AL', 'NL', 'SL'].includes(b.leaveTypeCode))
 
-  // Mock WFH data for different months
-  const wfhDataByMonth = {
-    "2024-11": { daysUsed: 4, workingDaysInMonth: 21, percentage: 19 },
-    "2024-12": { daysUsed: 3, workingDaysInMonth: 20, percentage: 15 },
-    "2025-01": { daysUsed: 6, workingDaysInMonth: 22, percentage: 27 },
-    "2025-02": { daysUsed: 0, workingDaysInMonth: 20, percentage: 0 }, // Future month
-    "2025-03": { daysUsed: 0, workingDaysInMonth: 21, percentage: 0 }, // Future month
+  // WFH Stats State
+  const [wfhStats, setWfhStats] = useState({ 
+    daysUsed: 0, 
+    workingDaysInMonth: 22, 
+    percentage: 0,
+    monthName: format(wfhCurrentMonth, 'MMMM yyyy')
+  })
+  const [wfhStatsLoading, setWfhStatsLoading] = useState(false)
+
+  // Fetch WFH stats for current selected month
+  const fetchWfhStats = async (date: Date) => {
+    setWfhStatsLoading(true)
+    try {
+      const monthKey = format(date, "yyyy-MM")
+      const response = await fetch(`/api/employee/wfh-stats?month=${monthKey}`)
+      if (response.ok) {
+        const stats = await response.json()
+        setWfhStats(stats)
+      } else {
+        // Fallback to default values if API fails
+        setWfhStats({ 
+          daysUsed: 0, 
+          workingDaysInMonth: 22, 
+          percentage: 0,
+          monthName: format(date, 'MMMM yyyy')
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching WFH stats:', error)
+      // Fallback to default values
+      setWfhStats({ 
+        daysUsed: 0, 
+        workingDaysInMonth: 22, 
+        percentage: 0,
+        monthName: format(date, 'MMMM yyyy')
+      })
+    } finally {
+      setWfhStatsLoading(false)
+    }
   }
 
-  // Get WFH stats for current selected month
-  const getWfhStatsForMonth = (date: Date) => {
-    const monthKey = format(date, "yyyy-MM")
-    return (wfhDataByMonth as any)[monthKey] || { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
-  }
-
-  const wfhStats = getWfhStatsForMonth(wfhCurrentMonth)
+  // Update WFH stats when month changes
+  useEffect(() => {
+    fetchWfhStats(wfhCurrentMonth)
+  }, [wfhCurrentMonth])
 
   // Format request dates
   const formatRequestDates = (request: any) => {
@@ -550,14 +578,25 @@ export default function EmployeeDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} {t.leaveForm.days}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {wfhStats.daysUsed} of {wfhStats.workingDaysInMonth} working {t.leaveForm.days} this month
-                  </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${wfhStats.percentage}%` }}></div>
-                  </div>
-                  <p className="text-sm font-medium text-blue-600 mt-2">{wfhStats.percentage}% WFH this month</p>
+                  {wfhStatsLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-8 bg-gray-200 rounded w-20 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                      <div className="h-2 bg-gray-200 rounded w-full mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} {t.leaveForm.days}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {wfhStats.daysUsed} of {wfhStats.workingDaysInMonth} working {t.leaveForm.days} this month
+                      </p>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${wfhStats.percentage}%` }}></div>
+                      </div>
+                      <p className="text-sm font-medium text-blue-600 mt-2">{wfhStats.percentage}% WFH this month</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -674,9 +713,6 @@ export default function EmployeeDashboard() {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Substitute Requests Section */}
-              <SubstituteRequestManager />
             </div>
 
             {/* Upcoming Company Holidays */}

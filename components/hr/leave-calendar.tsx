@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Users, Calendar as CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
+import { Users, Calendar as CalendarIcon, Loader2 } from "lucide-react"
+import { format, isSameDay, parseISO } from "date-fns"
+import { toast } from "sonner"
 
 interface LeaveEvent {
   id: string
@@ -16,11 +17,18 @@ interface LeaveEvent {
   startDate: Date
   endDate: Date
   status: string
+  totalDays: number
+  email: string
+}
+
+interface CalendarData {
+  approvedEvents: LeaveEvent[]
+  pendingEvents: LeaveEvent[]
 }
 
 export function LeaveCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
-  const [leaveEvents, setLeaveEvents] = useState<LeaveEvent[]>([])
+  const [calendarData, setCalendarData] = useState<CalendarData>({ approvedEvents: [], pendingEvents: [] })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -29,40 +37,47 @@ export function LeaveCalendar() {
 
   const fetchLeaveEvents = async () => {
     try {
-      // Mock data for now
-      setLeaveEvents([
-        {
-          id: "1",
-          employeeName: "John Doe",
-          department: "Engineering",
-          leaveType: "Annual Leave",
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          status: "APPROVED"
-        },
-        {
-          id: "2",
-          employeeName: "Jane Smith",
-          department: "Sales",
-          leaveType: "Sick Leave",
-          startDate: new Date(),
-          endDate: new Date(),
-          status: "APPROVED"
-        }
-      ])
+      const response = await fetch('/api/hr/leave-calendar')
+      if (response.ok) {
+        const data = await response.json()
+        // Convert date strings back to Date objects
+        const processEvents = (events: any[]) => events.map(event => ({
+          ...event,
+          startDate: parseISO(event.startDate),
+          endDate: parseISO(event.endDate)
+        }))
+        
+        setCalendarData({
+          approvedEvents: processEvents(data.approvedEvents),
+          pendingEvents: processEvents(data.pendingEvents)
+        })
+      } else {
+        toast.error('Failed to load calendar data')
+      }
     } catch (error) {
       console.error('Error fetching leave events:', error)
+      toast.error('Failed to load calendar data')
     } finally {
       setLoading(false)
     }
   }
 
   const getEventsForDate = (date: Date | undefined) => {
-    if (!date) return []
-    return leaveEvents.filter(event => {
-      const eventDate = new Date(event.startDate)
-      return eventDate.toDateString() === date.toDateString()
+    if (!date) return { approved: [], pending: [] }
+    
+    const approved = calendarData.approvedEvents.filter(event => {
+      return isSameDay(event.startDate, date) || 
+             isSameDay(event.endDate, date) ||
+             (event.startDate <= date && event.endDate >= date)
     })
+    
+    const pending = calendarData.pendingEvents.filter(event => {
+      return isSameDay(event.startDate, date) || 
+             isSameDay(event.endDate, date) ||
+             (event.startDate <= date && event.endDate >= date)
+    })
+    
+    return { approved, pending }
   }
 
   const getLeaveTypeBadgeColor = (type: string) => {
@@ -76,6 +91,16 @@ export function LeaveCalendar() {
   }
 
   const todayEvents = getEventsForDate(selectedDate)
+  const totalEvents = todayEvents.approved.length + todayEvents.pending.length
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2">Loading calendar...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -103,41 +128,78 @@ export function LeaveCalendar() {
                 {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Select a date"}
               </CardDescription>
             </div>
-            {todayEvents.length > 0 && (
+            {totalEvents > 0 && (
               <Badge variant="secondary">
                 <Users className="mr-1 h-3 w-3" />
-                {todayEvents.length} on leave
+                {totalEvents} on leave
               </Badge>
             )}
           </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[350px]">
-            {loading ? (
-              <div className="text-center py-8">Loading events...</div>
-            ) : todayEvents.length === 0 ? (
+            {totalEvents === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No leaves scheduled for this date
               </div>
             ) : (
-              <div className="space-y-3">
-                {todayEvents.map((event) => (
-                  <div key={event.id} className="border rounded-lg p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="font-medium">{event.employeeName}</p>
-                        <p className="text-sm text-muted-foreground">{event.department}</p>
-                      </div>
-                      <Badge className={getLeaveTypeBadgeColor(event.leaveType)}>
-                        {event.leaveType}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex items-center text-sm text-muted-foreground">
-                      <CalendarIcon className="mr-1 h-3 w-3" />
-                      {format(event.startDate, "MMM d")} - {format(event.endDate, "MMM d")}
+              <div className="space-y-4">
+                {/* Approved Leaves */}
+                {todayEvents.approved.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-green-800 mb-2">Approved Leaves</h4>
+                    <div className="space-y-3">
+                      {todayEvents.approved.map((event) => (
+                        <div key={event.id} className="border rounded-lg p-3">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-medium">{event.employeeName}</p>
+                              <p className="text-sm text-muted-foreground">{event.department}</p>
+                            </div>
+                            <Badge className={getLeaveTypeBadgeColor(event.leaveType)}>
+                              {event.leaveType}
+                            </Badge>
+                          </div>
+                          <div className="mt-2 flex items-center text-sm text-muted-foreground">
+                            <CalendarIcon className="mr-1 h-3 w-3" />
+                            {format(event.startDate, "MMM d")} - {format(event.endDate, "MMM d")} ({event.totalDays} days)
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Pending Leaves */}
+                {todayEvents.pending.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-orange-800 mb-2">Pending Approval</h4>
+                    <div className="space-y-3">
+                      {todayEvents.pending.map((event) => (
+                        <div key={event.id} className="border rounded-lg p-3 bg-orange-50">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-medium">{event.employeeName}</p>
+                              <p className="text-sm text-muted-foreground">{event.department}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="border-orange-200 text-orange-800">
+                                {event.leaveType}
+                              </Badge>
+                              <Badge variant="outline" className="border-orange-300 text-orange-900 text-xs">
+                                Pending
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center text-sm text-muted-foreground">
+                            <CalendarIcon className="mr-1 h-3 w-3" />
+                            {format(event.startDate, "MMM d")} - {format(event.endDate, "MMM d")} ({event.totalDays} days)
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>

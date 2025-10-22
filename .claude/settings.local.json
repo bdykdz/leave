@@ -6,7 +6,9 @@
       "Bash(npm run dev:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm dev:*)"
     ],
     "deny": [],
     "ask": []

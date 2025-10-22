@@ -249,6 +249,28 @@ export async function POST(
             requestId: requestId
           });
           console.log(`Approval email sent to user ID: ${updatedLeaveRequest.user.id}`);
+
+          // Send substitute notification if a substitute is assigned
+          if (updatedLeaveRequest.substituteId) {
+            const substitute = await prisma.user.findUnique({
+              where: { id: updatedLeaveRequest.substituteId }
+            });
+
+            if (substitute?.email) {
+              await emailService.sendSubstituteAssignmentEmail(substitute.email, {
+                substituteName: `${substitute.firstName} ${substitute.lastName}`,
+                employeeName: `${updatedLeaveRequest.user.firstName} ${updatedLeaveRequest.user.lastName}`,
+                leaveType: updatedLeaveRequest.leaveType.name,
+                startDate: format(updatedLeaveRequest.startDate, 'dd MMMM yyyy'),
+                endDate: format(updatedLeaveRequest.endDate, 'dd MMMM yyyy'),
+                days: updatedLeaveRequest.totalDays,
+                responsibilities: updatedLeaveRequest.substituteNotes || undefined,
+                contactInfo: updatedLeaveRequest.user.email || undefined,
+                companyName: process.env.COMPANY_NAME || 'Company'
+              });
+              console.log(`Substitute assignment email sent to: ${substitute.email}`);
+            }
+          }
         }
       } catch (emailError) {
         console.error('Error sending approval email:', emailError);

@@ -15,10 +15,10 @@ export async function PUT(
     }
 
     // Check ownership
-    const existingDelegation = await prisma.managerDelegation.findFirst({
+    const existingDelegation = await prisma.approvalDelegate.findFirst({
       where: {
         id: params.delegationId,
-        delegatedById: session.user.id
+        delegatorId: session.user.id
       }
     });
 
@@ -40,16 +40,16 @@ export async function PUT(
     }
 
     // Update delegation
-    const delegation = await prisma.managerDelegation.update({
+    const delegation = await prisma.approvalDelegate.update({
       where: { id: params.delegationId },
       data: {
-        delegateToId: data.delegateToId,
+        delegateId: data.delegateToId,
         startDate: new Date(data.startDate),
         endDate: data.endDate ? new Date(data.endDate) : null,
         reason: data.reason
       },
       include: {
-        delegateTo: {
+        delegate: {
           select: {
             id: true,
             firstName: true,
@@ -87,10 +87,10 @@ export async function DELETE(
     }
 
     // Check ownership
-    const delegation = await prisma.managerDelegation.findFirst({
+    const delegation = await prisma.approvalDelegate.findFirst({
       where: {
         id: params.delegationId,
-        delegatedById: session.user.id
+        delegatorId: session.user.id
       }
     });
 
@@ -101,7 +101,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.managerDelegation.delete({
+    await prisma.approvalDelegate.delete({
       where: { id: params.delegationId }
     });
 

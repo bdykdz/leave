@@ -44,6 +44,31 @@ export interface EscalationEmailData {
   requestId: string
 }
 
+export interface NewUserWelcomeEmailData {
+  firstName: string
+  lastName: string
+  email: string
+  employeeId: string
+  position: string
+  department: string
+  temporaryPassword?: string
+  managerName?: string
+  companyName: string
+  loginUrl: string
+}
+
+export interface SubstituteAssignmentEmailData {
+  substituteName: string
+  employeeName: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  days: number
+  responsibilities?: string
+  contactInfo?: string
+  companyName: string
+}
+
 class EmailService {
   private resend: Resend | null = null
 
@@ -553,6 +578,265 @@ This is an automated message from the Leave Management System.
   async sendWFHApprovalNotification(employeeEmail: string, data: Parameters<EmailService['generateWFHApprovalEmail']>[0]): Promise<boolean> {
     const template = this.generateWFHApprovalEmail(data)
     return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
+  }
+
+  generateNewUserWelcomeEmail(data: NewUserWelcomeEmailData): EmailTemplate {
+    const subject = `Bun venit la ${data.companyName} - Contul dvs. a fost creat`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #059669; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .welcome-box { background-color: #d1fae5; color: #065f46; padding: 15px; border-radius: 5px; text-align: center; margin: 15px 0; border: 1px solid #059669; }
+        .login-button { background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
+        .password-box { background-color: #fef3c7; color: #92400e; padding: 10px; border-radius: 5px; margin: 10px 0; border: 1px solid #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Bun venit la ${data.companyName}!</h1>
+        </div>
+        
+        <div class="content">
+            <div class="welcome-box">
+                <h2>Salut ${data.firstName}!</h2>
+                <p>Contul dvs. în sistemul de management al concediilor a fost creat cu succes.</p>
+            </div>
+            
+            <div class="details">
+                <h3>Detaliile Contului Dvs.:</h3>
+                <ul>
+                    <li><strong>Nume:</strong> ${data.firstName} ${data.lastName}</li>
+                    <li><strong>Email:</strong> ${data.email}</li>
+                    <li><strong>ID Angajat:</strong> ${data.employeeId}</li>
+                    <li><strong>Poziție:</strong> ${data.position}</li>
+                    <li><strong>Departament:</strong> ${data.department}</li>
+                    ${data.managerName ? `<li><strong>Manager:</strong> ${data.managerName}</li>` : ''}
+                </ul>
+            </div>
+            
+            ${data.temporaryPassword ? `
+            <div class="password-box">
+                <h4>🔐 Parola Temporară</h4>
+                <p><strong>Parola:</strong> ${data.temporaryPassword}</p>
+                <p><em>Vă rugăm să schimbați această parolă la prima conectare pentru securitate.</em></p>
+            </div>
+            ` : ''}
+            
+            <div style="text-align: center;">
+                <a href="${data.loginUrl}" class="login-button">
+                    Conectează-te la Sistem
+                </a>
+            </div>
+            
+            <div class="details">
+                <h3>Cum să Începeți:</h3>
+                <ol>
+                    <li>Faceți clic pe butonul de mai sus pentru a vă conecta</li>
+                    <li>Folosiți email-ul și parola ${data.temporaryPassword ? 'temporară' : 'furnizată'} pentru autentificare</li>
+                    ${data.temporaryPassword ? '<li>Schimbați parola temporară la prima conectare</li>' : ''}
+                    <li>Completați profilul dvs. dacă este necesar</li>
+                    <li>Explorați sistemul pentru a înțelege cum să solicitați concedii</li>
+                </ol>
+            </div>
+            
+            <p><strong>Aveți întrebări?</strong> Contactați departamentul HR sau managerul dvs. pentru asistență.</p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Pentru întrebări, contactați HR.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Bun venit la ${data.companyName}!
+
+Salut ${data.firstName}!
+
+Contul dvs. în sistemul de management al concediilor a fost creat cu succes.
+
+Detaliile Contului Dvs.:
+- Nume: ${data.firstName} ${data.lastName}
+- Email: ${data.email}
+- ID Angajat: ${data.employeeId}
+- Poziție: ${data.position}
+- Departament: ${data.department}
+${data.managerName ? `- Manager: ${data.managerName}` : ''}
+
+${data.temporaryPassword ? `
+🔐 Parola Temporară: ${data.temporaryPassword}
+Vă rugăm să schimbați această parolă la prima conectare pentru securitate.
+` : ''}
+
+Cum să Începeți:
+1. Accesați sistemul la: ${data.loginUrl}
+2. Folosiți email-ul și parola ${data.temporaryPassword ? 'temporară' : 'furnizată'} pentru autentificare
+${data.temporaryPassword ? '3. Schimbați parola temporară la prima conectare' : ''}
+${data.temporaryPassword ? '4' : '3'}. Completați profilul dvs. dacă este necesar
+${data.temporaryPassword ? '5' : '4'}. Explorați sistemul pentru a înțelege cum să solicitați concedii
+
+Aveți întrebări? Contactați departamentul HR sau managerul dvs. pentru asistență.
+
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
+    `
+
+    return { subject, html, text }
+  }
+
+  generateSubstituteAssignmentEmail(data: SubstituteAssignmentEmailData): EmailTemplate {
+    const subject = `Ați fost desemnat ca înlocuitor pentru ${data.employeeName}`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #3b82f6; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .assignment-alert { background-color: #dbeafe; color: #1e40af; padding: 15px; border-radius: 5px; text-align: center; margin: 15px 0; border: 1px solid #3b82f6; }
+        .action-button { background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+        .responsibilities { background-color: #fef3c7; color: #92400e; padding: 15px; border-radius: 5px; margin: 15px 0; border: 1px solid #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Desemnare ca Înlocuitor</h1>
+        </div>
+        
+        <div class="content">
+            <p>Bună ziua <strong>${data.substituteName}</strong>,</p>
+            
+            <div class="assignment-alert">
+                <h3>🔄 Ați fost desemnat ca înlocuitor oficial</h3>
+                <p>Veți acoperi responsabilitățile lui <strong>${data.employeeName}</strong> pe perioada concediului acestuia.</p>
+            </div>
+            
+            <div class="details">
+                <h3>Detalii Concediu:</h3>
+                <ul>
+                    <li><strong>Angajat în concediu:</strong> ${data.employeeName}</li>
+                    <li><strong>Tip concediu:</strong> ${data.leaveType}</li>
+                    <li><strong>Data început:</strong> ${data.startDate}</li>
+                    <li><strong>Data sfârșit:</strong> ${data.endDate}</li>
+                    <li><strong>Durata:</strong> ${data.days} zile</li>
+                </ul>
+            </div>
+            
+            ${data.responsibilities ? `
+            <div class="responsibilities">
+                <h4>📝 Responsabilități și Sarcini:</h4>
+                <p>${data.responsibilities}</p>
+            </div>
+            ` : ''}
+            
+            ${data.contactInfo ? `
+            <div class="details">
+                <h4>📞 Informații de Contact:</h4>
+                <p>${data.contactInfo}</p>
+            </div>
+            ` : ''}
+            
+            <div class="details">
+                <h4>Acțiuni Recomandate:</h4>
+                <ul>
+                    <li>Coordonați cu ${data.employeeName} înainte de începerea concediului</li>
+                    <li>Asigurați-vă că aveți acces la toate resursele necesare</li>
+                    <li>Clarificați procesele și prioritățile</li>
+                    <li>Notificați echipa despre noua structură temporară</li>
+                    <li>Pregătiți un raport pentru revenirea din concediu</li>
+                </ul>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="${process.env.NEXTAUTH_URL}/employee" class="action-button">
+                    Vezi Dashboard-ul
+                </a>
+            </div>
+            
+            <p><strong>Important:</strong> Pentru întrebări urgente sau clarificări, contactați managerul departamentului sau HR.</p>
+            
+            <p><em>Vă mulțumim pentru flexibilitate și colaborare!</em></p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Pentru întrebări, contactați HR sau managerul dvs.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Desemnare ca Înlocuitor
+
+Bună ziua ${data.substituteName},
+
+🔄 Ați fost desemnat ca înlocuitor oficial pentru ${data.employeeName} pe perioada concediului acestuia.
+
+Detalii Concediu:
+- Angajat în concediu: ${data.employeeName}
+- Tip concediu: ${data.leaveType}
+- Data început: ${data.startDate}
+- Data sfârșit: ${data.endDate}
+- Durata: ${data.days} zile
+
+${data.responsibilities ? `
+📝 Responsabilități și Sarcini:
+${data.responsibilities}
+` : ''}
+
+${data.contactInfo ? `
+📞 Informații de Contact:
+${data.contactInfo}
+` : ''}
+
+Acțiuni Recomandate:
+- Coordonați cu ${data.employeeName} înainte de începerea concediului
+- Asigurați-vă că aveți acces la toate resursele necesare
+- Clarificați procesele și prioritățile
+- Notificați echipa despre noua structură temporară
+- Pregătiți un raport pentru revenirea din concediu
+
+Pentru a accesa dashboard-ul: ${process.env.NEXTAUTH_URL}/employee
+
+Important: Pentru întrebări urgente sau clarificări, contactați managerul departamentului sau HR.
+
+Vă mulțumim pentru flexibilitate și colaborare!
+
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
+    `
+
+    return { subject, html, text }
+  }
+
+  async sendNewUserWelcomeEmail(userEmail: string, data: NewUserWelcomeEmailData): Promise<boolean> {
+    const template = this.generateNewUserWelcomeEmail(data)
+    return await this.sendEmail(userEmail, template.subject, template.html, template.text)
+  }
+
+  async sendSubstituteAssignmentEmail(substituteEmail: string, data: SubstituteAssignmentEmailData): Promise<boolean> {
+    const template = this.generateSubstituteAssignmentEmail(data)
+    return await this.sendEmail(substituteEmail, template.subject, template.html, template.text)
   }
 }
 

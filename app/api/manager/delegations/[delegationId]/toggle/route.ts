@@ -15,10 +15,10 @@ export async function POST(
     }
 
     // Check ownership
-    const delegation = await prisma.managerDelegation.findFirst({
+    const delegation = await prisma.approvalDelegate.findFirst({
       where: {
         id: params.delegationId,
-        delegatedById: session.user.id
+        delegatorId: session.user.id
       }
     });
 
@@ -31,9 +31,9 @@ export async function POST(
 
     // If activating, deactivate other active delegations
     if (!delegation.isActive) {
-      await prisma.managerDelegation.updateMany({
+      await prisma.approvalDelegate.updateMany({
         where: {
-          delegatedById: session.user.id,
+          delegatorId: session.user.id,
           isActive: true,
           id: {
             not: params.delegationId
@@ -46,13 +46,13 @@ export async function POST(
     }
 
     // Toggle the status
-    const updatedDelegation = await prisma.managerDelegation.update({
+    const updatedDelegation = await prisma.approvalDelegate.update({
       where: { id: params.delegationId },
       data: {
         isActive: !delegation.isActive
       },
       include: {
-        delegateTo: {
+        delegate: {
           select: {
             id: true,
             firstName: true,
