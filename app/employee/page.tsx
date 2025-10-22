@@ -61,6 +61,13 @@ export default function EmployeeDashboard() {
   const [allRequests, setAllRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(true)
   const [hasDirectReports, setHasDirectReports] = useState(false)
+  const [wfhStats, setWfhStats] = useState({ 
+    daysUsed: 0, 
+    workingDaysInMonth: 22, 
+    percentage: 0,
+    monthName: format(wfhCurrentMonth, 'MMMM yyyy')
+  })
+  const [wfhStatsLoading, setWfhStatsLoading] = useState(false)
 
   useEffect(() => {
     if (status === "loading") return
@@ -208,15 +215,6 @@ export default function EmployeeDashboard() {
   const normalLeave = leaveBalances.find(b => b.leaveTypeCode === 'AL' || b.leaveTypeCode === 'NL')
   const sickLeave = leaveBalances.find(b => b.leaveTypeCode === 'SL')
   const specialLeaves = leaveBalances.filter(b => !['AL', 'NL', 'SL'].includes(b.leaveTypeCode))
-
-  // WFH Stats State
-  const [wfhStats, setWfhStats] = useState({ 
-    daysUsed: 0, 
-    workingDaysInMonth: 22, 
-    percentage: 0,
-    monthName: format(wfhCurrentMonth, 'MMMM yyyy')
-  })
-  const [wfhStatsLoading, setWfhStatsLoading] = useState(false)
 
   // Fetch WFH stats for current selected month
   const fetchWfhStats = async (date: Date) => {
