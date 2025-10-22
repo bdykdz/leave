@@ -314,11 +314,20 @@ export class SmartDocumentGenerator {
       await prisma.generatedDocument.deleteMany({ where: { leaveRequestId } })
 
       const pdfBytes = await pdfDoc.save()
+      
+      // Determine if document should go to generated or draft folder based on approval status
+      const hasApprovedStatus = leaveRequest.status === 'APPROVED'
+      const hasApprovals = leaveRequest.approvals?.some((a: AnyObj) => a.status === 'APPROVED')
+      const isFullyApproved = hasApprovedStatus || hasApprovals
+      
+      const folderType = isFullyApproved ? 'generated' : 'draft'
+      const folderPath = isFullyApproved ? 'documents/generated' : 'documents/draft'
+      
       const fileName = generateLeaveDocumentName(
         leaveRequest.requestNumber,
         leaveRequest.user.email,
         leaveRequest.leaveType,
-        'draft' // Start as draft, will be moved to 'generated' when fully approved
+        folderType
       )
 
       const fileUrl = await uploadToMinio(
@@ -326,7 +335,7 @@ export class SmartDocumentGenerator {
         fileName,
         'application/pdf',
         'leave-management-uat',
-        'documents/draft'
+        folderPath
       )
 
       const hasRequiredSignatures = template.signaturePlacements.some(s => s.isRequired)
@@ -437,9 +446,9 @@ export class SmartDocumentGenerator {
     if (leaveRequest.approvals) {
       for (const approval of leaveRequest.approvals) {
         if (approval.status !== 'APPROVED' || !approval.approver) continue
-        if (!approval.approver.role) continue
-        const approverRoleStr = String(approval.approver.role)
-        if (!approverRoleStr || typeof approverRoleStr !== 'string' || approverRoleStr.length === 0) continue
+        
+        const approverRoleStr = String(approval.approver.role || '')
+        if (!approverRoleStr) continue
         
         // Map role to lowercase equivalent without using toLowerCase()
         let approverRole = ''
@@ -449,19 +458,28 @@ export class SmartDocumentGenerator {
         else if (approverRoleStr === 'HR' || approverRoleStr === 'hr' || approverRoleStr === 'Hr') approverRole = 'hr'
         else if (approverRoleStr === 'EXECUTIVE' || approverRoleStr === 'executive' || approverRoleStr === 'Executive') approverRole = 'executive'
 
-        let role: keyof typeof sig | null = 'manager'
+        let role: keyof typeof sig | null = null
         if (approverRole === 'executive') role = 'executive'
         else if (approverRole === 'department_director') role = 'director'
         else if (approverRole === 'hr') role = 'hr'
+        else if (approverRole === 'manager') role = 'manager'
 
-        if (role && !sig[role].signature) {
+        if (role) {
+          const approverName = `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim()
+          const signatureDate = approval.signedAt
+            ? format(new Date(approval.signedAt), 'dd.MM.yyyy')
+            : (approval.approvedAt ? format(new Date(approval.approvedAt), 'dd.MM.yyyy') : '')
+          
+          // Use actual signature data if available, otherwise mark as APPROVED
+          const signatureData = approval.signature || 'APPROVED'
+          
           sig[role] = {
-            name: `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim(),
-            date: approval.signedAt
-              ? format(new Date(approval.signedAt), 'dd.MM.yyyy')
-              : format(new Date(approval.approvedAt), 'dd.MM.yyyy'),
-            signature: approval.signature || 'APPROVED'
+            name: approverName,
+            date: signatureDate,
+            signature: signatureData
           }
+          
+          console.log(`Mapped approval signature: ${role} -> ${approverName} (${signatureDate})`)
         }
       }
     }
