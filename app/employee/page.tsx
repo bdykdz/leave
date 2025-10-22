@@ -65,7 +65,7 @@ export default function EmployeeDashboard() {
     daysUsed: 0, 
     workingDaysInMonth: 22, 
     percentage: 0,
-    monthName: format(wfhCurrentMonth, 'MMMM yyyy')
+    monthName: format(new Date(), 'MMMM yyyy')
   })
   const [wfhStatsLoading, setWfhStatsLoading] = useState(false)
 
