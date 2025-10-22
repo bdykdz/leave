@@ -57,9 +57,14 @@ export class SmartDocumentGenerator {
 
     const s = String(value ?? '').trim()
     if (s && typeof s === 'string' && s.length > 0) {
-      const lower = s.toLowerCase()
-      // add any other markers you use in templates here
-      return ['true', '1', 'x', '✓', 'yes', 'checked'].includes(lower)
+      try {
+        const lower = s.toLowerCase()
+        // add any other markers you use in templates here
+        return ['true', '1', 'x', '✓', 'yes', 'checked'].includes(lower)
+      } catch (error) {
+        console.warn('Error in toLowerCase for checkbox value:', error, 'value:', s)
+        return false
+      }
     }
     return false
   }
@@ -155,10 +160,18 @@ export class SmartDocumentGenerator {
           if (!fieldType && dataPath.includes('signature')) fieldType = 'signature'
           
           // Detect checkbox fields by name patterns
-          if ((formFieldName && formFieldName.toLowerCase().includes('check')) || 
-              (formFieldName && formFieldName.toLowerCase().includes('approved')) ||
-              dataPath.includes('.approved') ||
-              dataPath.includes('.rejected')) {
+          let isCheckboxField = false
+          try {
+            isCheckboxField = (formFieldName && formFieldName.toLowerCase().includes('check')) || 
+                              (formFieldName && formFieldName.toLowerCase().includes('approved')) ||
+                              dataPath.includes('.approved') ||
+                              dataPath.includes('.rejected')
+          } catch (error) {
+            console.warn('Error checking if field is checkbox:', error, 'formFieldName:', formFieldName)
+            isCheckboxField = dataPath.includes('.approved') || dataPath.includes('.rejected')
+          }
+          
+          if (isCheckboxField) {
             fieldType = 'checkbox'
           }
 
@@ -292,7 +305,15 @@ export class SmartDocumentGenerator {
         try {
           const fieldName = field.getName()
           const ctor = (field as any).constructor?.name
-          if (ctor === 'PDFTextField' && fieldName && typeof fieldName === 'string' && !fieldName.toLowerCase().includes('signature')) {
+          let isSignatureField = false
+          try {
+            isSignatureField = fieldName && typeof fieldName === 'string' && fieldName.toLowerCase().includes('signature')
+          } catch (error) {
+            console.warn('Error checking if field is signature field:', error, 'fieldName:', fieldName)
+            isSignatureField = false
+          }
+          
+          if (ctor === 'PDFTextField' && fieldName && typeof fieldName === 'string' && !isSignatureField) {
             if ('updateAppearances' in (field as any)) {
               ;(field as AnyObj).updateAppearances(helveticaFont)
             }
@@ -394,8 +415,15 @@ export class SmartDocumentGenerator {
 
     if (leaveRequest.generatedDocument?.signatures) {
       for (const s of leaveRequest.generatedDocument.signatures) {
-        const roleStr = String(s.signerRole || '')
-        const role = roleStr && typeof roleStr === 'string' && roleStr.length > 0 ? roleStr.toLowerCase() : ''
+        if (!s?.signerRole) continue
+        const roleStr = String(s.signerRole)
+        let role = ''
+        try {
+          role = roleStr && typeof roleStr === 'string' && roleStr.length > 0 ? roleStr.toLowerCase() : ''
+        } catch (error) {
+          console.warn('Error processing signerRole:', error, 'roleStr:', roleStr)
+          continue
+        }
         if (!role || !(role in sig)) continue
 
         let signerName = ''
@@ -421,8 +449,15 @@ export class SmartDocumentGenerator {
     if (leaveRequest.approvals) {
       for (const approval of leaveRequest.approvals) {
         if (approval.status !== 'APPROVED' || !approval.approver) continue
-        const approverRoleStr = String(approval.approver.role || '')
-        const approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
+        if (!approval.approver.role) continue
+        const approverRoleStr = String(approval.approver.role)
+        let approverRole = ''
+        try {
+          approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
+        } catch (error) {
+          console.warn('Error processing approver role:', error, 'roleStr:', approverRoleStr)
+          continue
+        }
 
         let role: keyof typeof sig | null = 'manager'
         if (approverRole === 'executive') role = 'executive'
@@ -563,9 +598,15 @@ export class SmartDocumentGenerator {
 
           if (approval.level === 1) {
             decisionRole = 'manager'
-          } else if (approval.approver) {
-            const approverRoleStr = String(approval.approver.role || '')
-            const approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
+          } else if (approval.approver && approval.approver.role) {
+            const approverRoleStr = String(approval.approver.role)
+            let approverRole = ''
+            try {
+              approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
+            } catch (error) {
+              console.warn('Error processing approver role in decisions:', error, 'roleStr:', approverRoleStr)
+              approverRole = ''
+            }
             if (approverRole === 'executive') decisionRole = 'executive'
             else if (approverRole === 'department_director') decisionRole = 'director'
             else if (approverRole === 'hr') decisionRole = 'hr'
