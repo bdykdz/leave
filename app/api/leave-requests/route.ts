@@ -340,6 +340,8 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           formattedDates: formattedDates,
           substituteNames: validatedData.substituteIds ? 
             await getSubstituteNames(validatedData.substituteIds) : null,
+          employeeSignature: signature, // Store employee signature
+          employeeSignatureDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         },
         approvals: {
           create: await generateApprovalWorkflow(user, validatedData.leaveTypeId, actualDays),

@@ -481,6 +481,18 @@ export class SmartDocumentGenerator {
         console.log('Found employee signature in supportingDocuments')
       }
     }
+    
+    // Also check for EMPLOYEE signatures in the preserved DocumentSignature records
+    if (leaveRequest.generatedDocument?.signatures) {
+      for (const s of leaveRequest.generatedDocument.signatures) {
+        if (s?.signerRole === 'EMPLOYEE' && s.signatureData && !sig.employee.signature) {
+          sig.employee.signature = s.signatureData
+          sig.employee.date = s.signedAt ? format(new Date(s.signedAt), 'dd.MM.yyyy') : format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy')
+          console.log('Found employee signature in DocumentSignature records')
+          break
+        }
+      }
+    }
 
     if (leaveRequest.generatedDocument?.signatures) {
       for (const s of leaveRequest.generatedDocument.signatures) {
