@@ -385,6 +385,17 @@ export default function EmployeeDashboard() {
     setRequestsCurrentPage(Math.min(totalPages, requestsCurrentPage + 1))
   }
 
+  // Check loading state before any conditional returns
+  if (status === "loading") {
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
+  }
+
+  if (!session) {
+    return null
+  }
+
   if (showRequestForm) {
     return <LeaveRequestForm onBack={() => {
       setShowRequestForm(false)
