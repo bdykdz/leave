@@ -114,7 +114,16 @@ export class SmartDocumentGenerator {
       }
       console.log(`Found ${formFields.length} form fields in template`)
 
-      // 5) Prepare signatures from approvals first
+      // 5) Get all existing signatures before we delete the document
+      const allExistingSignatures = await prisma.documentSignature.findMany({
+        where: {
+          document: { leaveRequestId }
+        },
+        include: { signer: true }
+      })
+      console.log(`Found ${allExistingSignatures.length} existing signatures to preserve`)
+      
+      // Prepare signatures from approvals first
       const existingSignatures = leaveRequest.generatedDocument?.signatures || []
       const newSignatures: any[] = []
       if (leaveRequest.approvals) {
@@ -144,13 +153,13 @@ export class SmartDocumentGenerator {
         }
       }
 
-      // Add new signatures to existing ones for field data preparation
-      const allSignatures = [...existingSignatures, ...newSignatures]
+      // Combine all signatures: existing preserved + new from approvals
+      const combinedSignatures = [...(leaveRequest.generatedDocument?.signatures || []), ...newSignatures]
       
       // Update leaveRequest with combined signatures for field data preparation
       leaveRequest.generatedDocument = {
         ...leaveRequest.generatedDocument,
-        signatures: allSignatures
+        signatures: combinedSignatures
       }
 
       // 6) Prepare data with updated signatures
@@ -413,10 +422,10 @@ export class SmartDocumentGenerator {
         }
       }
 
-      // 11) Restore previous signatures metadata (DB) and complete if all required present
-      if (existingSignatures.length > 0) {
-        console.log(`Restoring ${existingSignatures.length} signatures`)
-        for (const sig of existingSignatures) {
+      // 11) Restore ALL preserved signatures (including employee signatures)
+      if (allExistingSignatures.length > 0) {
+        console.log(`Restoring ${allExistingSignatures.length} preserved signatures`)
+        for (const sig of allExistingSignatures) {
           await prisma.documentSignature.create({
             data: {
               documentId: generatedDoc.id,
@@ -426,6 +435,7 @@ export class SmartDocumentGenerator {
               signedAt: sig.signedAt
             }
           })
+          console.log(`Restored ${sig.signerRole} signature for ${sig.signer?.firstName} ${sig.signer?.lastName}`)
         }
 
         const required = template.signaturePlacements.filter(s => s.isRequired)
@@ -461,6 +471,16 @@ export class SmartDocumentGenerator {
     }
 
     sig.employee.name = `${leaveRequest.user.firstName || ''} ${leaveRequest.user.lastName || ''}`.trim()
+    
+    // Check for employee signature in supportingDocuments
+    if (leaveRequest.supportingDocuments && typeof leaveRequest.supportingDocuments === 'object') {
+      const supportingDocs = leaveRequest.supportingDocuments
+      if (supportingDocs.employeeSignature) {
+        sig.employee.signature = supportingDocs.employeeSignature
+        sig.employee.date = supportingDocs.employeeSignatureDate || format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy')
+        console.log('Found employee signature in supportingDocuments')
+      }
+    }
 
     if (leaveRequest.generatedDocument?.signatures) {
       for (const s of leaveRequest.generatedDocument.signatures) {
@@ -468,13 +488,17 @@ export class SmartDocumentGenerator {
         const roleStr = String(s.signerRole)
         if (!roleStr || typeof roleStr !== 'string' || roleStr.length === 0) continue
         
-        // Map role to lowercase equivalent without using toLowerCase()
+        // Map role to signature field based on relationship context
         let role = ''
         if (roleStr === 'EMPLOYEE' || roleStr === 'employee' || roleStr === 'Employee') role = 'employee'
         else if (roleStr === 'MANAGER' || roleStr === 'manager' || roleStr === 'Manager') role = 'manager'
         else if (roleStr === 'DIRECTOR' || roleStr === 'director' || roleStr === 'Director') role = 'director'
         else if (roleStr === 'HR' || roleStr === 'hr' || roleStr === 'Hr') role = 'hr'
-        else if (roleStr === 'EXECUTIVE' || roleStr === 'executive' || roleStr === 'Executive') role = 'executive'
+        else if (roleStr === 'EXECUTIVE' || roleStr === 'executive' || roleStr === 'Executive') {
+          // Check if EXECUTIVE is direct manager or escalation
+          const isDirectManager = leaveRequest.user.managerId === s.signerId
+          role = isDirectManager ? 'manager' : 'director'  // Direct manager → manager field, escalation → director field
+        }
         
         if (!role || !(role in sig)) continue
 
