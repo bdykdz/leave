@@ -135,6 +135,12 @@ export class SmartDocumentGenerator {
             (mapping.documentPosition as AnyObj)?.formFieldName || mapping.fieldLabel
           const dataPath = mapping.fieldKey as string
 
+          // Skip if formFieldName is not valid
+          if (!formFieldName || typeof formFieldName !== 'string') {
+            console.warn(`Skipping mapping with invalid formFieldName: ${formFieldName}`)
+            continue
+          }
+
           const value = this.getFieldValue(fieldData, dataPath)
           console.log(`Mapping ${formFieldName} <- ${dataPath}: "${value}"`)
 
@@ -282,7 +288,7 @@ export class SmartDocumentGenerator {
         try {
           const fieldName = field.getName()
           const ctor = (field as any).constructor?.name
-          if (ctor === 'PDFTextField' && !fieldName.toLowerCase().includes('signature')) {
+          if (ctor === 'PDFTextField' && fieldName && typeof fieldName === 'string' && !fieldName.toLowerCase().includes('signature')) {
             if ('updateAppearances' in (field as any)) {
               ;(field as AnyObj).updateAppearances(helveticaFont)
             }
