@@ -66,6 +66,53 @@ interface DayDetailsModalProps {
 function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetailsModalProps) {
   if (!date) return null
 
+  // Helper function to format event dates properly
+  const formatEventDates = (event: CalendarEvent) => {
+    if (event.selectedDates && event.selectedDates.length > 0) {
+      // For non-consecutive days, show individual dates
+      const selectedDates = event.selectedDates.map(d => 
+        typeof d === 'string' ? parseISO(d) : d
+      ).sort((a, b) => a.getTime() - b.getTime())
+      
+      // Group consecutive dates
+      const groups: Date[][] = []
+      let currentGroup = [selectedDates[0]]
+      
+      for (let i = 1; i < selectedDates.length; i++) {
+        const prevDate = selectedDates[i - 1]
+        const currDate = selectedDates[i]
+        const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+        
+        if (dayDiff === 1) {
+          currentGroup.push(currDate)
+        } else {
+          groups.push(currentGroup)
+          currentGroup = [currDate]
+        }
+      }
+      groups.push(currentGroup)
+      
+      // Format each group
+      return groups.map(group => {
+        if (group.length === 1) {
+          return format(group[0], "MMM d")
+        } else {
+          return `${format(group[0], "MMM d")}-${format(group[group.length - 1], "d")}`
+        }
+      }).join(", ") + `, ${format(selectedDates[0], "yyyy")}`
+    } else {
+      // For consecutive days, show start-end range
+      const eventStart = typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate
+      const eventEnd = typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
+      
+      if (isSameDay(eventStart, eventEnd)) {
+        return format(eventStart, "MMM d")
+      } else {
+        return `${format(eventStart, "MMM d")} - ${format(eventEnd, "MMM d")}`
+      }
+    }
+  }
+
   const eventsForDate = events.filter(event => {
     const eventStart = typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate
     const eventEnd = typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
@@ -149,11 +196,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{event.department}</p>
                       <p className="text-sm">
-                        <span className="font-medium">{event.leaveType}</span> • {format(typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate, "MMM d")}
-                        {!isSameDay(
-                          typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate,
-                          typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
-                        ) && ` - ${format(typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate, "MMM d")}`}
+                        <span className="font-medium">{event.leaveType}</span> • {formatEventDates(event)}
                       </p>
                       {event.reason && <p className="text-sm text-gray-500 mt-1">"{event.reason}"</p>}
                       {event.substitute && <p className="text-sm text-blue-600 mt-1">Substitute: {event.substitute}</p>}
@@ -192,11 +235,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                       <p className="text-sm text-gray-600 mb-1">{event.department}</p>
                       {event.location && <p className="text-sm text-gray-600 mb-1">Location: {event.location}</p>}
                       <p className="text-sm">
-                        <span className="font-medium">Work From Home</span> • {format(typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate, "MMM d")}
-                        {!isSameDay(
-                          typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate,
-                          typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
-                        ) && ` - ${format(typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate, "MMM d")}`}
+                        <span className="font-medium">Work From Home</span> • {formatEventDates(event)}
                       </p>
                     </div>
                   </div>
