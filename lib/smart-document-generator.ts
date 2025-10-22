@@ -56,7 +56,7 @@ export class SmartDocumentGenerator {
     if (typeof value === 'number') return value !== 0
 
     const s = String(value ?? '').trim()
-    if (s && typeof s === 'string') {
+    if (s && typeof s === 'string' && s.length > 0) {
       const lower = s.toLowerCase()
       // add any other markers you use in templates here
       return ['true', '1', 'x', '✓', 'yes', 'checked'].includes(lower)
@@ -155,8 +155,8 @@ export class SmartDocumentGenerator {
           if (!fieldType && dataPath.includes('signature')) fieldType = 'signature'
           
           // Detect checkbox fields by name patterns
-          if (formFieldName.toLowerCase().includes('check') || 
-              formFieldName.toLowerCase().includes('approved') ||
+          if ((formFieldName && formFieldName.toLowerCase().includes('check')) || 
+              (formFieldName && formFieldName.toLowerCase().includes('approved')) ||
               dataPath.includes('.approved') ||
               dataPath.includes('.rejected')) {
             fieldType = 'checkbox'
@@ -395,7 +395,7 @@ export class SmartDocumentGenerator {
     if (leaveRequest.generatedDocument?.signatures) {
       for (const s of leaveRequest.generatedDocument.signatures) {
         const roleStr = String(s.signerRole || '')
-        const role = roleStr && typeof roleStr === 'string' ? roleStr.toLowerCase() : ''
+        const role = roleStr && typeof roleStr === 'string' && roleStr.length > 0 ? roleStr.toLowerCase() : ''
         if (!role || !(role in sig)) continue
 
         let signerName = ''
@@ -422,7 +422,7 @@ export class SmartDocumentGenerator {
       for (const approval of leaveRequest.approvals) {
         if (approval.status !== 'APPROVED' || !approval.approver) continue
         const approverRoleStr = String(approval.approver.role || '')
-        const approverRole = approverRoleStr && typeof approverRoleStr === 'string' ? approverRoleStr.toLowerCase() : ''
+        const approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
 
         let role: keyof typeof sig | null = 'manager'
         if (approverRole === 'executive') role = 'executive'
@@ -565,7 +565,7 @@ export class SmartDocumentGenerator {
             decisionRole = 'manager'
           } else if (approval.approver) {
             const approverRoleStr = String(approval.approver.role || '')
-            const approverRole = approverRoleStr && typeof approverRoleStr === 'string' ? approverRoleStr.toLowerCase() : ''
+            const approverRole = approverRoleStr && typeof approverRoleStr === 'string' && approverRoleStr.length > 0 ? approverRoleStr.toLowerCase() : ''
             if (approverRole === 'executive') decisionRole = 'executive'
             else if (approverRole === 'department_director') decisionRole = 'director'
             else if (approverRole === 'hr') decisionRole = 'hr'
