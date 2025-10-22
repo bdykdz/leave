@@ -372,7 +372,7 @@ export default function EmployeeDashboard() {
                   Admin Dashboard
                 </Button>
               )}
-              {session.user.role === "HR" && (
+              {(session.user.role === "HR" || (session.user.role === "EMPLOYEE" && session.user.department?.includes("HR"))) && (
                 <>
                   <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
                     <Building className="h-4 w-4" />

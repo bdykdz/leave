@@ -21,6 +21,7 @@ import {
   Heart,
   AlertTriangle,
   CalendarDays,
+  Building,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
@@ -544,6 +545,12 @@ export default function ManagerDashboard() {
                 <CalendarDays className="h-4 w-4" />
                 My Dashboard
               </Button>
+              {(session.user.role === "HR" || (session.user.role === "MANAGER" && session.user.department?.includes("HR"))) && (
+                <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  HR Dashboard
+                </Button>
+              )}
               <Badge
                 variant="outline"
                 className="text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"

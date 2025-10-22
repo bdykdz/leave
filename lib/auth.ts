@@ -28,3 +28,26 @@ export async function getCurrentUser() {
 
   return user
 }
+
+// Helper function to check if user is in HR department
+export function isHRDepartment(user: { department: string | null } | null): boolean {
+  if (!user?.department) return false
+  return user.department.includes('HR') || user.department.includes('hr') || user.department.includes('Hr')
+}
+
+// Helper function to determine effective role for HR users
+export function getEffectiveRole(user: { role: string; department: string | null } | null): string {
+  if (!user) return 'EMPLOYEE'
+  
+  // HR users with EMPLOYEE role act as employees but can access HR dashboard
+  if (user.role === 'EMPLOYEE' && isHRDepartment(user)) {
+    return 'HR_EMPLOYEE'
+  }
+  
+  // HR users with MANAGER role act as managers but can access HR dashboard  
+  if (user.role === 'MANAGER' && isHRDepartment(user)) {
+    return 'HR_MANAGER'
+  }
+  
+  return user.role
+}
