@@ -92,10 +92,14 @@ export default function EmployeeDashboard() {
       const response = await fetch('/api/employee/leave-balance')
       if (response.ok) {
         const data = await response.json()
-        setLeaveBalances(data.leaveBalances)
+        setLeaveBalances(data.leaveBalances || [])
+      } else {
+        console.error('Failed to fetch leave balances:', response.status)
+        setLeaveBalances([])
       }
     } catch (error) {
       console.error('Error fetching leave balances:', error)
+      setLeaveBalances([])
     } finally {
       setLoadingBalances(false)
     }
@@ -132,17 +136,33 @@ export default function EmployeeDashboard() {
       let wfhReqs: any[] = []
       
       if (leaveResponse.ok) {
-        const leaveData = await leaveResponse.json()
-        console.log('Fetched leave requests:', leaveData.leaveRequests)
-        leaveReqs = leaveData.leaveRequests || []
-        setLeaveRequests(leaveReqs)
+        try {
+          const leaveData = await leaveResponse.json()
+          console.log('Fetched leave requests:', leaveData.leaveRequests)
+          leaveReqs = leaveData.leaveRequests || []
+          setLeaveRequests(leaveReqs)
+        } catch (parseError) {
+          console.error('Error parsing leave requests response:', parseError)
+          setLeaveRequests([])
+        }
+      } else {
+        console.error('Failed to fetch leave requests:', leaveResponse.status)
+        setLeaveRequests([])
       }
       
       if (wfhResponse.ok) {
-        const wfhData = await wfhResponse.json()
-        console.log('Fetched WFH requests:', wfhData.wfhRequests)
-        wfhReqs = wfhData.wfhRequests || []
-        setWfhRequests(wfhReqs)
+        try {
+          const wfhData = await wfhResponse.json()
+          console.log('Fetched WFH requests:', wfhData.wfhRequests)
+          wfhReqs = wfhData.wfhRequests || []
+          setWfhRequests(wfhReqs)
+        } catch (parseError) {
+          console.error('Error parsing WFH requests response:', parseError)
+          setWfhRequests([])
+        }
+      } else {
+        console.error('Failed to fetch WFH requests:', wfhResponse.status)
+        setWfhRequests([])
       }
       
       // Combine and sort all requests by created date
@@ -159,6 +179,9 @@ export default function EmployeeDashboard() {
       setAllRequests(combinedRequests)
     } catch (error) {
       console.error('Error fetching leave requests:', error)
+      setLeaveRequests([])
+      setWfhRequests([])
+      setAllRequests([])
     } finally {
       setLoadingRequests(false)
     }
@@ -248,10 +271,11 @@ export default function EmployeeDashboard() {
     }
   }
 
-  // Update WFH stats when month changes
+  // Update WFH stats when month changes (only after session is loaded)
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchWfhStats(wfhCurrentMonth)
-  }, [wfhCurrentMonth])
+  }, [wfhCurrentMonth, session, status])
 
   // Format request dates
   const formatRequestDates = (request: any) => {
