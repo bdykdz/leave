@@ -358,7 +358,40 @@ export class SmartDocumentGenerator {
         }
       })
 
-      // 10) Restore previous signatures metadata (DB) and complete if all required present
+      // 10) Create DocumentSignature records from approval signatures
+      if (leaveRequest.approvals) {
+        for (const approval of leaveRequest.approvals) {
+          if (approval.status === 'APPROVED' && approval.signature && approval.approver) {
+            const approverRoleStr = String(approval.approver.role || '')
+            let signerRole = ''
+            
+            // Map approver role to document signature role
+            if (approverRoleStr === 'EXECUTIVE' || approverRoleStr === 'executive' || approverRoleStr === 'Executive') signerRole = 'EXECUTIVE'
+            else if (approverRoleStr === 'MANAGER' || approverRoleStr === 'manager' || approverRoleStr === 'Manager') signerRole = 'MANAGER'
+            else if (approverRoleStr === 'DEPARTMENT_DIRECTOR' || approverRoleStr === 'department_director' || approverRoleStr === 'Department_Director') signerRole = 'DIRECTOR'
+            else if (approverRoleStr === 'HR' || approverRoleStr === 'hr' || approverRoleStr === 'Hr') signerRole = 'HR'
+            
+            if (signerRole) {
+              try {
+                await prisma.documentSignature.create({
+                  data: {
+                    documentId: generatedDoc.id,
+                    signerId: approval.approverId,
+                    signerRole: signerRole,
+                    signatureData: approval.signature,
+                    signedAt: approval.signedAt || approval.approvedAt || new Date()
+                  }
+                })
+                console.log(`Created DocumentSignature for ${signerRole} from approval`)
+              } catch (error) {
+                console.warn(`Failed to create DocumentSignature for ${signerRole}:`, error)
+              }
+            }
+          }
+        }
+      }
+
+      // 11) Restore previous signatures metadata (DB) and complete if all required present
       if (existingSignatures.length > 0) {
         console.log(`Restoring ${existingSignatures.length} signatures`)
         for (const sig of existingSignatures) {
