@@ -114,7 +114,46 @@ export class SmartDocumentGenerator {
       }
       console.log(`Found ${formFields.length} form fields in template`)
 
-      // 5) Prepare data
+      // 5) Prepare signatures from approvals first
+      const existingSignatures = leaveRequest.generatedDocument?.signatures || []
+      const newSignatures: any[] = []
+      if (leaveRequest.approvals) {
+        for (const approval of leaveRequest.approvals) {
+          if (approval.status === 'APPROVED' && approval.signature && approval.approver) {
+            const approverRoleStr = String(approval.approver.role || '')
+            let signerRole = ''
+            
+            // Map approver role to document signature role
+            if (approverRoleStr === 'EXECUTIVE' || approverRoleStr === 'executive' || approverRoleStr === 'Executive') signerRole = 'EXECUTIVE'
+            else if (approverRoleStr === 'MANAGER' || approverRoleStr === 'manager' || approverRoleStr === 'Manager') signerRole = 'MANAGER'
+            else if (approverRoleStr === 'DEPARTMENT_DIRECTOR' || approverRoleStr === 'department_director' || approverRoleStr === 'Department_Director') signerRole = 'DIRECTOR'
+            else if (approverRoleStr === 'HR' || approverRoleStr === 'hr' || approverRoleStr === 'Hr') signerRole = 'HR'
+            
+            if (signerRole) {
+              const newSig = {
+                signerId: approval.approverId,
+                signerRole: signerRole,
+                signatureData: approval.signature,
+                signedAt: approval.signedAt || approval.approvedAt || new Date(),
+                signer: approval.approver
+              }
+              newSignatures.push(newSig)
+              console.log(`Prepared DocumentSignature for ${signerRole} from approval`)
+            }
+          }
+        }
+      }
+
+      // Add new signatures to existing ones for field data preparation
+      const allSignatures = [...existingSignatures, ...newSignatures]
+      
+      // Update leaveRequest with combined signatures for field data preparation
+      leaveRequest.generatedDocument = {
+        ...leaveRequest.generatedDocument,
+        signatures: allSignatures
+      }
+
+      // 6) Prepare data with updated signatures
       const fieldData = await this.prepareFieldData(leaveRequest as AnyObj)
       console.log('Prepared field data:', JSON.stringify(fieldData, null, 2))
       console.log('Substitute data:', { substitute: fieldData.substitute, substitutes: fieldData.substitutes })
@@ -309,8 +348,6 @@ export class SmartDocumentGenerator {
       }
 
       // 9) Replace existing generated doc metadata, upload new PDF
-      const existingSignatures = leaveRequest.generatedDocument?.signatures || []
-
       await prisma.generatedDocument.deleteMany({ where: { leaveRequestId } })
 
       const pdfBytes = await pdfDoc.save()
@@ -358,36 +395,21 @@ export class SmartDocumentGenerator {
         }
       })
 
-      // 10) Create DocumentSignature records from approval signatures
-      if (leaveRequest.approvals) {
-        for (const approval of leaveRequest.approvals) {
-          if (approval.status === 'APPROVED' && approval.signature && approval.approver) {
-            const approverRoleStr = String(approval.approver.role || '')
-            let signerRole = ''
-            
-            // Map approver role to document signature role
-            if (approverRoleStr === 'EXECUTIVE' || approverRoleStr === 'executive' || approverRoleStr === 'Executive') signerRole = 'EXECUTIVE'
-            else if (approverRoleStr === 'MANAGER' || approverRoleStr === 'manager' || approverRoleStr === 'Manager') signerRole = 'MANAGER'
-            else if (approverRoleStr === 'DEPARTMENT_DIRECTOR' || approverRoleStr === 'department_director' || approverRoleStr === 'Department_Director') signerRole = 'DIRECTOR'
-            else if (approverRoleStr === 'HR' || approverRoleStr === 'hr' || approverRoleStr === 'Hr') signerRole = 'HR'
-            
-            if (signerRole) {
-              try {
-                await prisma.documentSignature.create({
-                  data: {
-                    documentId: generatedDoc.id,
-                    signerId: approval.approverId,
-                    signerRole: signerRole,
-                    signatureData: approval.signature,
-                    signedAt: approval.signedAt || approval.approvedAt || new Date()
-                  }
-                })
-                console.log(`Created DocumentSignature for ${signerRole} from approval`)
-              } catch (error) {
-                console.warn(`Failed to create DocumentSignature for ${signerRole}:`, error)
-              }
+      // 10) Create DocumentSignature records in database from new signatures
+      for (const newSig of newSignatures) {
+        try {
+          await prisma.documentSignature.create({
+            data: {
+              documentId: generatedDoc.id,
+              signerId: newSig.signerId,
+              signerRole: newSig.signerRole,
+              signatureData: newSig.signatureData,
+              signedAt: newSig.signedAt
             }
-          }
+          })
+          console.log(`Created DocumentSignature record for ${newSig.signerRole}`)
+        } catch (error) {
+          console.warn(`Failed to create DocumentSignature for ${newSig.signerRole}:`, error)
         }
       }
 
