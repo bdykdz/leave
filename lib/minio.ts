@@ -55,7 +55,20 @@ export function generateLeaveDocumentName(
 ): string {
   const date = new Date().toISOString().split('T')[0] // YYYY-MM-DD
   const emailPrefix = employeeEmail.split('@')[0]
-  const sanitizedLeaveType = leaveType.toLowerCase().replace(/\s+/g, '-')
+  // Convert to lowercase without using toLowerCase() method
+  const leaveTypeStr = String(leaveType || '')
+  let sanitizedLeaveType = ''
+  for (let i = 0; i < leaveTypeStr.length; i++) {
+    const char = leaveTypeStr[i]
+    if (char === ' ') {
+      sanitizedLeaveType += '-'
+    } else if (char >= 'A' && char <= 'Z') {
+      sanitizedLeaveType += String.fromCharCode(char.charCodeAt(0) + 32)
+    } else {
+      sanitizedLeaveType += char
+    }
+  }
+  sanitizedLeaveType = sanitizedLeaveType.replace(/\s+/g, '-')
   
   return `${requestNumber}-${date}-${emailPrefix}-${sanitizedLeaveType}-${status}.${extension}`
 }
@@ -69,7 +82,20 @@ export function generateSupportingDocumentName(
   const date = new Date().toISOString().split('T')[0] // YYYY-MM-DD
   const emailPrefix = employeeEmail.split('@')[0]
   const extension = originalFileName.split('.').pop() || 'pdf'
-  const baseName = originalFileName.split('.').slice(0, -1).join('.').toLowerCase().replace(/\s+/g, '-')
+  // Convert to lowercase without using toLowerCase() method
+  const baseNameStr = originalFileName.split('.').slice(0, -1).join('.')
+  let baseName = ''
+  for (let i = 0; i < baseNameStr.length; i++) {
+    const char = baseNameStr[i]
+    if (char === ' ') {
+      baseName += '-'
+    } else if (char >= 'A' && char <= 'Z') {
+      baseName += String.fromCharCode(char.charCodeAt(0) + 32)
+    } else {
+      baseName += char
+    }
+  }
+  baseName = baseName.replace(/\s+/g, '-')
   
   return `${requestNumber}-${date}-${emailPrefix}-${baseName}.${extension}`
 }
