@@ -36,8 +36,16 @@ export function isHRDepartment(user: { department: string | null } | null): bool
 }
 
 // Helper function to determine effective role for HR users
-export function getEffectiveRole(user: { role: string; department: string | null } | null): string {
+export async function getEffectiveRole(user: { id: string; role: string; department: string | null } | null): Promise<string> {
   if (!user) return 'EMPLOYEE'
+  
+  // For HR role users, check if they have direct reports to determine dashboard
+  if (user.role === 'HR') {
+    const directReports = await prisma.user.count({
+      where: { managerId: user.id }
+    })
+    return directReports > 0 ? 'HR_MANAGER' : 'HR_EMPLOYEE'
+  }
   
   // HR users with EMPLOYEE role act as employees but can access HR dashboard
   if (user.role === 'EMPLOYEE' && isHRDepartment(user)) {

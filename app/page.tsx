@@ -8,8 +8,8 @@ export default async function HomePage() {
     redirect('/login')
   }
 
-  // Redirect based on effective role (considering HR department)
-  const effectiveRole = getEffectiveRole(user)
+  // Redirect based on effective role (considering HR department and direct reports)
+  const effectiveRole = await getEffectiveRole(user)
   
   switch (effectiveRole) {
     case 'EXECUTIVE':
