@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { emailService } from '@/lib/email-service';
 import bcrypt from 'bcryptjs';
 
 // GET: List all users
@@ -180,6 +181,28 @@ export async function POST(request: NextRequest) {
           carriedForward: 0
         }
       });
+    }
+
+    // Send welcome email to the new user
+    try {
+      const companyName = process.env.COMPANY_NAME || 'Compania Noastră';
+      const loginUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      
+      await emailService.sendNewUserWelcomeEmail(newUser.email, {
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        employeeId: newUser.employeeId,
+        position: newUser.position,
+        department: newUser.department,
+        temporaryPassword: data.password ? undefined : password, // Only include if we generated it
+        managerName: newUser.manager ? `${newUser.manager.firstName} ${newUser.manager.lastName}` : undefined,
+        companyName: companyName,
+        loginUrl: loginUrl
+      });
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail the user creation if email fails
     }
 
     return NextResponse.json({
