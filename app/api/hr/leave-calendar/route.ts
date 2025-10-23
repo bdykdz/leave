@@ -255,9 +255,36 @@ export async function GET() {
       email: event.user.email
     }))
 
+    // Get holidays for the calendar view period
+    const holidays = await prisma.holiday.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate
+        },
+        isActive: true
+      },
+      select: {
+        id: true,
+        nameEn: true,
+        nameRo: true,
+        date: true,
+        isBlocked: true
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    })
+
     return NextResponse.json({
       approvedEvents: [...formattedApprovedEvents, ...formattedWFHEvents],
-      pendingEvents: [...formattedPendingEvents, ...formattedPendingWFHEvents]
+      pendingEvents: [...formattedPendingEvents, ...formattedPendingWFHEvents],
+      holidays: holidays.map(h => ({
+        id: h.id,
+        name: h.nameEn,
+        date: h.date,
+        isBlocked: h.isBlocked // If true, no leave requests allowed on this day
+      }))
     })
   } catch (error) {
     console.error('Error fetching leave calendar data:', error)

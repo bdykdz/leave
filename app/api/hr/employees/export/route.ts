@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { logDataExport } from '@/lib/utils/audit-log';
 
 // Helper function to escape CSV fields
 function escapeCSV(field: any): string {
@@ -130,6 +131,9 @@ export async function GET(request: NextRequest) {
       });
 
       const csv = [headers.join(','), ...rows].join('\n');
+      
+      // Log the export action
+      await logDataExport(session.user.id, 'CSV', employees.length);
       
       // Return CSV file
       return new NextResponse(csv, {

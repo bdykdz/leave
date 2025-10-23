@@ -10,6 +10,7 @@ import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
+import { checkSelectedDatesOverlap, checkHolidayConflicts } from '@/lib/utils/date-validation';
 const documentGenerator = new SmartDocumentGenerator();
 
 // Validation schema for leave request
@@ -214,6 +215,35 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     let actualDays: number;
     
     if (validatedData.selectedDates?.length) {
+      // Check for holiday conflicts
+      const holidayCheck = await checkHolidayConflicts(validatedData.selectedDates);
+      if (holidayCheck.hasConflict) {
+        return NextResponse.json(
+          { 
+            error: 'Holiday conflict',
+            message: holidayCheck.message,
+            blockedDates: holidayCheck.blockedDates
+          },
+          { status: 400 }
+        );
+      }
+      
+      // Check for overlapping dates with existing requests
+      const overlapCheck = await checkSelectedDatesOverlap(
+        session.user.id,
+        validatedData.selectedDates
+      );
+      if (overlapCheck.hasOverlap) {
+        return NextResponse.json(
+          { 
+            error: 'Date conflict',
+            message: overlapCheck.message,
+            conflictingDates: overlapCheck.conflictingDates
+          },
+          { status: 400 }
+        );
+      }
+      
       // If specific dates are selected, count only the working days among them
       const workingDaysService = WorkingDaysService.getInstance();
       actualDays = 0;

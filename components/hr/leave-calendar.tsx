@@ -22,14 +22,26 @@ interface LeaveEvent {
   email: string
 }
 
+interface Holiday {
+  id: string
+  name: string
+  date: Date
+  isBlocked: boolean
+}
+
 interface CalendarData {
   approvedEvents: LeaveEvent[]
   pendingEvents: LeaveEvent[]
+  holidays: Holiday[]
 }
 
 export function LeaveCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
-  const [calendarData, setCalendarData] = useState<CalendarData>({ approvedEvents: [], pendingEvents: [] })
+  const [calendarData, setCalendarData] = useState<CalendarData>({ 
+    approvedEvents: [], 
+    pendingEvents: [],
+    holidays: []
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,9 +61,16 @@ export function LeaveCalendar() {
           selectedDates: event.selectedDates ? event.selectedDates.map(parseISO) : undefined
         }))
         
+        // Process holidays
+        const processHolidays = (holidays: any[]) => holidays.map(holiday => ({
+          ...holiday,
+          date: parseISO(holiday.date)
+        }))
+        
         setCalendarData({
           approvedEvents: processEvents(data.approvedEvents),
-          pendingEvents: processEvents(data.pendingEvents)
+          pendingEvents: processEvents(data.pendingEvents),
+          holidays: data.holidays ? processHolidays(data.holidays) : []
         })
       } else {
         toast.error('Failed to load calendar data')
@@ -108,6 +127,11 @@ export function LeaveCalendar() {
 
   const todayEvents = getEventsForDate(selectedDate)
   const totalEvents = todayEvents.approved.length + todayEvents.pending.length
+  
+  // Check if selected date is a holiday
+  const todayHoliday = selectedDate ? calendarData.holidays.find(h => 
+    isSameDay(h.date, selectedDate)
+  ) : null
 
   if (loading) {
     return (
@@ -153,10 +177,50 @@ export function LeaveCalendar() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Show holiday banner if selected date is a holiday */}
+          {todayHoliday && (
+            <div className={`mb-4 p-3 rounded-lg border ${
+              todayHoliday.isBlocked 
+                ? 'bg-red-50 border-red-200' 
+                : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <CalendarIcon className={`h-4 w-4 mr-2 ${
+                    todayHoliday.isBlocked ? 'text-red-600' : 'text-yellow-600'
+                  }`} />
+                  <span className={`font-medium ${
+                    todayHoliday.isBlocked ? 'text-red-900' : 'text-yellow-900'
+                  }`}>
+                    {todayHoliday.name}
+                  </span>
+                </div>
+                {todayHoliday.isBlocked && (
+                  <Badge variant="destructive" className="text-xs">
+                    No leave allowed
+                  </Badge>
+                )}
+              </div>
+              {todayHoliday.isBlocked && (
+                <p className="text-xs text-red-700 mt-1">
+                  This is a mandatory work day. Leave requests are not permitted.
+                </p>
+              )}
+            </div>
+          )}
+          
           <ScrollArea className="h-[350px]">
             {totalEvents === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No leaves scheduled for this date
+                {todayHoliday && !todayHoliday.isBlocked ? (
+                  <>
+                    <CalendarIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p>Public holiday - {todayHoliday.name}</p>
+                    <p className="text-sm mt-1">No leaves scheduled for this date</p>
+                  </>
+                ) : (
+                  "No leaves scheduled for this date"
+                )}
               </div>
             ) : (
               <div className="space-y-4">

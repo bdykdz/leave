@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { logDocumentVerification } from '@/lib/utils/audit-log'
 
 export async function POST(
   request: NextRequest,
@@ -93,7 +94,15 @@ export async function POST(
       })
     }
 
-    // Log the action
+    // Log the action with audit helper
+    await logDocumentVerification(
+      session.user.id,
+      params.id,
+      approved,
+      notes
+    )
+    
+    // Also create traditional audit log for backward compatibility
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
