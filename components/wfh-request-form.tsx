@@ -29,6 +29,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
   const { data: session } = useSession()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [signature, setSignature] = useState("")
+  const [isValidSignature, setIsValidSignature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
@@ -141,8 +142,8 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
       return
     }
 
-    if (!signature) {
-      showError("Signature Required", "Please provide your digital signature to submit the request.")
+    if (!signature || !isValidSignature) {
+      showError("Invalid Signature", "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.")
       return
     }
 
@@ -413,12 +414,18 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   </div>
 
                   {/* Signature Pad */}
-                  <SignaturePad signature={signature} onSignatureChange={setSignature} />
+                  <SignaturePad 
+                    signature={signature} 
+                    onSignatureChange={(sig, isValid) => {
+                      setSignature(sig)
+                      setIsValidSignature(isValid)
+                    }} 
+                  />
 
                   <div className="flex flex-col gap-2 pt-4">
                     <Button
                       type="submit"
-                      disabled={isSubmitting || selectedDates.length === 0 || !signature || !managerInfo}
+                      disabled={isSubmitting || selectedDates.length === 0 || !signature || !isValidSignature || !managerInfo}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       {isSubmitting ? "Submitting..." : 

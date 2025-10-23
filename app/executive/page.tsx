@@ -116,17 +116,19 @@ export default function ExecutiveDashboard() {
 
   // Separate useEffect for directReportPage changes
   useEffect(() => {
+    if (status === "loading" || !session) return
     if (session?.user?.role === "EXECUTIVE") {
       fetchDirectReportRequests()
     }
-  }, [directReportPage])
+  }, [directReportPage, session, status])
 
   // Separate useEffect for pendingRequestsPage changes
   useEffect(() => {
+    if (status === "loading" || !session) return
     if (session?.user?.role === "EXECUTIVE") {
       fetchEscalatedRequests()
     }
-  }, [pendingRequestsPage])
+  }, [pendingRequestsPage, session, status])
 
   const fetchExecutiveLeaveBalance = async () => {
     try {

@@ -36,6 +36,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
   const [leaveType, setLeaveType] = useState<string>("")
   const [reason, setReason] = useState<string>("")
   const [signature, setSignature] = useState<string>("")
+  const [isValidSignature, setIsValidSignature] = useState(false)
   const [selectedApprover, setSelectedApprover] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
@@ -115,10 +116,10 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
       return
     }
 
-    if (!signature) {
+    if (!signature || !isValidSignature) {
       showError(
-        "Signature Required",
-        "Please provide your digital signature to submit the request."
+        "Invalid Signature",
+        "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing."
       )
       return
     }
@@ -313,7 +314,13 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
 
                 {/* Signature */}
                 <div className="border-t pt-4">
-                  <SignaturePad signature={signature} onSignatureChange={setSignature} />
+                  <SignaturePad 
+                    signature={signature} 
+                    onSignatureChange={(sig, isValid) => {
+                      setSignature(sig)
+                      setIsValidSignature(isValid)
+                    }} 
+                  />
                 </div>
 
                 {/* Submit Button */}
@@ -324,6 +331,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
                       isSubmitting ||
                       selectedDates.length === 0 ||
                       !signature ||
+                      !isValidSignature ||
                       !leaveType ||
                       !selectedApprover
                     }

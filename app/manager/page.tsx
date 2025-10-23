@@ -114,50 +114,59 @@ export default function ManagerDashboard() {
     totalWorkingDays: 0 
   })
 
+  // All hooks must be called before any conditional returns
   // Fetch manager's leave balance
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchManagerLeaveBalance()
     fetchSuperior()
-  }, [])
+  }, [session, status])
 
   // Fetch team stats
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchTeamStats()
-  }, [])
+  }, [session, status])
 
   // Fetch pending requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchPendingRequests()
-  }, [pendingRequestsPage])
+  }, [pendingRequestsPage, session, status])
 
   // Fetch approved requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     if (teamRequestsTab === 'approved') {
       fetchApprovedRequests()
     }
-  }, [approvedRequestsPage, teamRequestsTab])
+  }, [approvedRequestsPage, teamRequestsTab, session, status])
 
   // Fetch denied requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     if (teamRequestsTab === 'denied') {
       fetchDeniedRequests()
     }
-  }, [deniedRequestsPage, teamRequestsTab])
+  }, [deniedRequestsPage, teamRequestsTab, session, status])
 
   // Fetch manager's WFH stats
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchManagerWfhStats()
-  }, [])
+  }, [session, status])
 
   // Fetch manager's own requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchManagerOwnRequests()
-  }, [myRequestsPage])
+  }, [myRequestsPage, session, status])
 
   // Fetch team WFH stats
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchTeamWfhStats()
-  }, [])
+  }, [session, status])
 
   const fetchSuperior = async () => {
     try {

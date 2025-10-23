@@ -55,6 +55,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [leaveType, setLeaveType] = useState("")
   const [reason, setReason] = useState("")
   const [signature, setSignature] = useState("")
+  const [isValidSignature, setIsValidSignature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
@@ -199,8 +200,8 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
       return
     }
 
-    if (!signature) {
-      showError("Signature Required", "Please provide your digital signature to submit the request.")
+    if (!signature || !isValidSignature) {
+      showError("Invalid Signature", "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.")
       return
     }
 
@@ -584,7 +585,13 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
                   {/* Signature Pad */}
                   <div className="border-t pt-4">
-                    <SignaturePad signature={signature} onSignatureChange={setSignature} />
+                    <SignaturePad 
+                      signature={signature} 
+                      onSignatureChange={(sig, isValid) => {
+                        setSignature(sig)
+                        setIsValidSignature(isValid)
+                      }} 
+                    />
                   </div>
 
                   <div className="flex flex-col gap-2 pt-4 border-t">
@@ -594,6 +601,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                         isSubmitting ||
                         selectedDates.length === 0 ||
                         !signature ||
+                        !isValidSignature ||
                         !leaveType ||
                         selectedSubstitutes.length === 0
                       }
