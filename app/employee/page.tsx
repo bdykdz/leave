@@ -80,10 +80,15 @@ export default function EmployeeDashboard() {
     // All authenticated users can see their personal dashboard
     // No need to redirect based on role
     
-    // Fetch leave balances and requests
-    fetchLeaveBalances()
-    fetchAllRequests()
-    checkManagementStatus()
+    // Add a small delay to ensure all state is initialized
+    const initTimer = setTimeout(() => {
+      // Fetch leave balances and requests
+      fetchLeaveBalances()
+      fetchAllRequests()
+      checkManagementStatus()
+    }, 50)
+    
+    return () => clearTimeout(initTimer)
   }, [session, status, router])
 
   const fetchLeaveBalances = async () => {
@@ -226,21 +231,11 @@ export default function EmployeeDashboard() {
     }
   }
 
-  if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  }
-
-  if (!session) {
-    return null
-  }
-
-  // Get specific leave types from balances
-  const normalLeave = leaveBalances.find(b => b.leaveTypeCode === 'AL' || b.leaveTypeCode === 'NL')
-  const sickLeave = leaveBalances.find(b => b.leaveTypeCode === 'SL')
-  const specialLeaves = leaveBalances.filter(b => !['AL', 'NL', 'SL'].includes(b.leaveTypeCode))
-
   // Fetch WFH stats for current selected month
   const fetchWfhStats = async (date: Date) => {
+    // Guard against calling before component is ready
+    if (!session || status === "loading") return
+    
     setWfhStatsLoading(true)
     try {
       const monthKey = format(date, "yyyy-MM")
@@ -272,12 +267,35 @@ export default function EmployeeDashboard() {
   }
 
   // Update WFH stats when month changes (only after session is loaded)
+  // This useEffect MUST be called after all other hooks and before any returns
   useEffect(() => {
     if (status === "loading" || !session) return
-    fetchWfhStats(wfhCurrentMonth)
+    
+    // Small delay to ensure component is fully mounted
+    const timer = setTimeout(() => {
+      fetchWfhStats(wfhCurrentMonth)
+    }, 100)
+    
+    return () => clearTimeout(timer)
   }, [wfhCurrentMonth, session, status])
 
-  // Format request dates
+  // All hooks must be called before this point
+  // Now we can have conditional returns
+
+  if (status === "loading") {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  }
+
+  if (!session) {
+    return null
+  }
+
+  // Get specific leave types from balances
+  const normalLeave = leaveBalances.find(b => b.leaveTypeCode === 'AL' || b.leaveTypeCode === 'NL')
+  const sickLeave = leaveBalances.find(b => b.leaveTypeCode === 'SL')
+  const specialLeaves = leaveBalances.filter(b => !['AL', 'NL', 'SL'].includes(b.leaveTypeCode))
+
+  // Format request dates - moved before useEffect to maintain hook order
   const formatRequestDates = (request: any) => {
     // Always format the dates ourselves to ensure consistency
     const start = new Date(request.startDate)
@@ -383,17 +401,6 @@ export default function EmployeeDashboard() {
 
   const nextRequestsPage = () => {
     setRequestsCurrentPage(Math.min(totalPages, requestsCurrentPage + 1))
-  }
-
-  // Check loading state before any conditional returns
-  if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>
-  }
-
-  if (!session) {
-    return null
   }
 
   if (showRequestForm) {
