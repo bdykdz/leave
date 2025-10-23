@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
-// GET: List all employees for HR dashboard
+// GET: List all employees for HR dashboard with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,8 +23,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get all employees with relevant information for HR
+    // Get query parameters for pagination and filtering
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const search = searchParams.get('search') || '';
+    const department = searchParams.get('department');
+    const role = searchParams.get('role');
+    
+    // Build where clause for filtering
+    const whereClause: any = {};
+    
+    if (search) {
+      whereClause.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { employeeId: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    
+    if (department) {
+      whereClause.department = department;
+    }
+    
+    if (role) {
+      whereClause.role = role;
+    }
+
+    // Get total count for pagination
+    const totalCount = await prisma.user.count({ where: whereClause });
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const skip = (page - 1) * pageSize;
+
+    // Get paginated employees with relevant information for HR
     const employees = await prisma.user.findMany({
+      where: whereClause,
+      skip,
+      take: pageSize,
       select: {
         id: true,
         email: true,
@@ -110,7 +146,13 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ employees: formattedEmployees });
+    return NextResponse.json({ 
+      employees: formattedEmployees,
+      totalCount,
+      totalPages,
+      page,
+      pageSize
+    });
   } catch (error) {
     console.error('Error fetching employees for HR:', error);
     return NextResponse.json(
