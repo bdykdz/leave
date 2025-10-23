@@ -70,12 +70,29 @@ export async function GET() {
       }
     })
 
-    // Get pending approvals
-    const pendingApprovals = await prisma.leaveRequest.count({
+    // Get employees working from home today
+    const employeesWFHToday = await prisma.workFromHomeRequest.count({
       where: {
-        status: 'PENDING_APPROVAL'
+        status: 'APPROVED',
+        startDate: { lte: today },
+        endDate: { gte: today }
       }
     })
+
+    // Get pending approvals for both leave and WFH
+    const pendingLeaveApprovals = await prisma.leaveRequest.count({
+      where: {
+        status: 'PENDING'
+      }
+    })
+
+    const pendingWFHApprovals = await prisma.workFromHomeRequest.count({
+      where: {
+        status: 'PENDING'
+      }
+    })
+
+    const pendingApprovals = pendingLeaveApprovals + pendingWFHApprovals
 
     // Calculate department statistics
     const departmentStats = await prisma.user.groupBy({
@@ -203,9 +220,9 @@ export async function GET() {
           color: averageChange < 0 ? "text-green-600" : "text-red-600"
         },
         {
-          title: "Employees on Leave Today",
-          value: employeesOnLeaveToday.toString(),
-          change: "real-time",
+          title: "Away Today",
+          value: `${employeesOnLeaveToday + employeesWFHToday}`,
+          change: `${employeesOnLeaveToday} leave, ${employeesWFHToday} WFH`,
           icon: "Users",
           color: "text-purple-600"
         },

@@ -78,7 +78,7 @@ export async function GET() {
     // Also get pending leave requests that might affect planning
     const pendingLeaveEvents = await prisma.leaveRequest.findMany({
       where: {
-        status: 'PENDING_APPROVAL',
+        status: 'PENDING',
         OR: [
           {
             startDate: {
@@ -129,6 +129,7 @@ export async function GET() {
       leaveType: event.leaveType.name,
       startDate: event.startDate,
       endDate: event.endDate,
+      selectedDates: event.selectedDates, // Include selectedDates for non-consecutive leave
       status: event.status,
       totalDays: event.totalDays,
       email: event.user.email
@@ -141,14 +142,122 @@ export async function GET() {
       leaveType: event.leaveType.name,
       startDate: event.startDate,
       endDate: event.endDate,
+      selectedDates: event.selectedDates, // Include selectedDates for non-consecutive leave
+      status: event.status,
+      totalDays: event.totalDays,
+      email: event.user.email
+    }))
+
+    // Get all WFH requests in the date range
+    const wfhEvents = await prisma.workFromHomeRequest.findMany({
+      where: {
+        status: 'APPROVED',
+        OR: [
+          {
+            startDate: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          {
+            endDate: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          {
+            AND: [
+              { startDate: { lte: startDate } },
+              { endDate: { gte: endDate } }
+            ]
+          }
+        ]
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            department: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        startDate: 'asc'
+      }
+    })
+
+    // Get pending WFH requests
+    const pendingWFHEvents = await prisma.workFromHomeRequest.findMany({
+      where: {
+        status: 'PENDING',
+        OR: [
+          {
+            startDate: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          {
+            endDate: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          {
+            AND: [
+              { startDate: { lte: startDate } },
+              { endDate: { gte: endDate } }
+            ]
+          }
+        ]
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            department: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        startDate: 'asc'
+      }
+    })
+
+    // Format WFH events
+    const formattedWFHEvents = wfhEvents.map(event => ({
+      id: event.id,
+      employeeName: `${event.user.firstName} ${event.user.lastName}`,
+      department: event.user.department || 'Unknown',
+      leaveType: `WFH - ${event.location}`,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      selectedDates: event.selectedDates as Date[] | undefined,
+      status: event.status,
+      totalDays: event.totalDays,
+      email: event.user.email
+    }))
+
+    const formattedPendingWFHEvents = pendingWFHEvents.map(event => ({
+      id: event.id,
+      employeeName: `${event.user.firstName} ${event.user.lastName}`,
+      department: event.user.department || 'Unknown',
+      leaveType: `WFH - ${event.location}`,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      selectedDates: event.selectedDates as Date[] | undefined,
       status: event.status,
       totalDays: event.totalDays,
       email: event.user.email
     }))
 
     return NextResponse.json({
-      approvedEvents: formattedApprovedEvents,
-      pendingEvents: formattedPendingEvents
+      approvedEvents: [...formattedApprovedEvents, ...formattedWFHEvents],
+      pendingEvents: [...formattedPendingEvents, ...formattedPendingWFHEvents]
     })
   } catch (error) {
     console.error('Error fetching leave calendar data:', error)

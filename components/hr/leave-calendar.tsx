@@ -16,6 +16,7 @@ interface LeaveEvent {
   leaveType: string
   startDate: Date
   endDate: Date
+  selectedDates?: Date[] // For non-consecutive leave days
   status: string
   totalDays: number
   email: string
@@ -44,7 +45,8 @@ export function LeaveCalendar() {
         const processEvents = (events: any[]) => events.map(event => ({
           ...event,
           startDate: parseISO(event.startDate),
-          endDate: parseISO(event.endDate)
+          endDate: parseISO(event.endDate),
+          selectedDates: event.selectedDates ? event.selectedDates.map(parseISO) : undefined
         }))
         
         setCalendarData({
@@ -66,12 +68,22 @@ export function LeaveCalendar() {
     if (!date) return { approved: [], pending: [] }
     
     const approved = calendarData.approvedEvents.filter(event => {
+      // If selectedDates exists, check if the date is in the array
+      if (event.selectedDates && event.selectedDates.length > 0) {
+        return event.selectedDates.some(selectedDate => isSameDay(selectedDate, date))
+      }
+      // Otherwise, check if date is within the range
       return isSameDay(event.startDate, date) || 
              isSameDay(event.endDate, date) ||
              (event.startDate <= date && event.endDate >= date)
     })
     
     const pending = calendarData.pendingEvents.filter(event => {
+      // If selectedDates exists, check if the date is in the array
+      if (event.selectedDates && event.selectedDates.length > 0) {
+        return event.selectedDates.some(selectedDate => isSameDay(selectedDate, date))
+      }
+      // Otherwise, check if date is within the range
       return isSameDay(event.startDate, date) || 
              isSameDay(event.endDate, date) ||
              (event.startDate <= date && event.endDate >= date)
@@ -81,7 +93,11 @@ export function LeaveCalendar() {
   }
 
   const getLeaveTypeBadgeColor = (type: string) => {
-    switch (type.toLowerCase()) {
+    const lowerType = type.toLowerCase()
+    if (lowerType.includes('wfh') || lowerType.includes('work from home')) {
+      return 'bg-green-100 text-green-800'
+    }
+    switch (lowerType) {
       case 'annual leave': return 'bg-blue-100 text-blue-800'
       case 'sick leave': return 'bg-red-100 text-red-800'
       case 'personal leave': return 'bg-purple-100 text-purple-800'
