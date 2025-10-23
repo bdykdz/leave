@@ -494,8 +494,16 @@ export default function ManagerDashboard() {
     )
   }
 
+  // Check if user should access manager dashboard
+  const isHREmployee = session?.user.role === "EMPLOYEE" && session?.user.department?.toLowerCase().includes("hr")
+  
   if (!session || !["MANAGER", "DEPARTMENT_DIRECTOR", "HR", "EXECUTIVE"].includes(session.user.role)) {
-    router.push('/')
+    // HR employees should go to HR dashboard
+    if (isHREmployee) {
+      router.push('/hr')
+    } else {
+      router.push('/')
+    }
     return null
   }
 

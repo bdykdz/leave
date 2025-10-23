@@ -387,13 +387,30 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     // Create notifications for approvers
     const firstApprover = leaveRequest.approvals.find(a => a.level === 1);
     if (firstApprover) {
+      // Check if approver is HR employee
+      const approverUser = await prisma.user.findUnique({
+        where: { id: firstApprover.approverId },
+        select: { role: true, department: true }
+      });
+      
+      // Determine the appropriate dashboard link based on approver's role/department
+      let notificationLink = `/manager/approvals/${leaveRequest.id}`;
+      if (approverUser) {
+        if (approverUser.role === 'HR' || 
+            (approverUser.role === 'EMPLOYEE' && approverUser.department?.toLowerCase().includes('hr'))) {
+          notificationLink = `/hr?request=${leaveRequest.id}`;
+        } else if (approverUser.role === 'EXECUTIVE') {
+          notificationLink = `/executive?request=${leaveRequest.id}`;
+        }
+      }
+      
       await prisma.notification.create({
         data: {
           userId: firstApprover.approverId,
           type: 'APPROVAL_REQUIRED',
           title: 'Leave Request Approval Required',
           message: `${user.firstName} ${user.lastName} has requested ${actualDays} days of leave`,
-          link: `/manager/approvals/${leaveRequest.id}`,
+          link: notificationLink,
         },
       });
     }

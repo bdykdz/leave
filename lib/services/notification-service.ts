@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { NotificationType } from '@prisma/client'
+import { getNotificationLink } from '@/lib/utils/dashboard-route'
 
 export interface CreateNotificationParams {
   userId: string
@@ -132,13 +133,19 @@ export class NotificationService {
     managerIds: string[],
     hrIds: string[]
   ) {
-    const link = `/manager?request=${leaveRequestId}`
     const notifications: CreateNotificationParams[] = []
 
-    // Notify managers
-    for (const managerId of managerIds) {
+    // Get user details for all managers to determine correct links
+    const managers = await prisma.user.findMany({
+      where: { id: { in: managerIds } },
+      select: { id: true, role: true, department: true }
+    })
+
+    // Notify managers with appropriate links
+    for (const manager of managers) {
+      const link = getNotificationLink(manager, leaveRequestId, 'leave')
       notifications.push({
-        userId: managerId,
+        userId: manager.id,
         type: 'APPROVAL_REQUIRED',
         ...notificationTemplates.APPROVAL_REQUIRED({ employeeName, leaveType, dates, requestNumber }),
         link

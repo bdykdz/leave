@@ -513,6 +513,22 @@ export class EscalationService {
       console.log(`Approval record already exists for approver ${escalateToId} on request ${approval.leaveRequestId}`);
     }
 
+    // Check if the new approver is HR employee to determine correct link
+    const escalatedApprover = await tx.user.findUnique({
+      where: { id: escalateToId },
+      select: { role: true, department: true }
+    });
+    
+    let notificationLink = `/manager/approvals/${leaveRequest.id}`;
+    if (escalatedApprover) {
+      if (escalatedApprover.role === 'HR' || 
+          (escalatedApprover.role === 'EMPLOYEE' && escalatedApprover.department?.toLowerCase().includes('hr'))) {
+        notificationLink = `/hr?request=${leaveRequest.id}`;
+      } else if (escalatedApprover.role === 'EXECUTIVE') {
+        notificationLink = `/executive?request=${leaveRequest.id}`;
+      }
+    }
+    
     // Create notification for the new approver
     await tx.notification.create({
       data: {
@@ -520,7 +536,7 @@ export class EscalationService {
         type: 'APPROVAL_REQUIRED',
         title: 'Escalated Leave Request Approval Required',
         message: `Leave request from ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} has been escalated to you for approval`,
-        link: `/manager/approvals/${leaveRequest.id}`
+        link: notificationLink
       }
     });
 
@@ -690,6 +706,22 @@ export class EscalationService {
       }
     });
 
+    // Check if initial approver is HR employee to determine correct link
+    const initialApprover = await prisma.user.findUnique({
+      where: { id: initialApproverId },
+      select: { role: true, department: true }
+    });
+    
+    let notificationLink = `/manager/approvals/${leaveRequestId}`;
+    if (initialApprover) {
+      if (initialApprover.role === 'HR' || 
+          (initialApprover.role === 'EMPLOYEE' && initialApprover.department?.toLowerCase().includes('hr'))) {
+        notificationLink = `/hr?request=${leaveRequestId}`;
+      } else if (initialApprover.role === 'EXECUTIVE') {
+        notificationLink = `/executive?request=${leaveRequestId}`;
+      }
+    }
+    
     // Create notification for approver
     await prisma.notification.create({
       data: {
@@ -697,7 +729,7 @@ export class EscalationService {
         type: 'APPROVAL_REQUIRED',
         title: 'Leave Request Approval Required',
         message: `New leave request from ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} requires your approval`,
-        link: `/manager/approvals/${leaveRequestId}`
+        link: notificationLink
       }
     });
   }

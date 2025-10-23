@@ -278,13 +278,30 @@ export const POST = asyncHandler(async (request: NextRequest) => {
 
   // Create notification for manager
   if (user.managerId) {
+    // Check if manager is HR employee
+    const managerUser = await prisma.user.findUnique({
+      where: { id: user.managerId },
+      select: { role: true, department: true }
+    });
+    
+    // Determine the appropriate dashboard link based on manager's role/department
+    let notificationLink = `/manager/wfh-approvals/${wfhRequest.id}`;
+    if (managerUser) {
+      if (managerUser.role === 'HR' || 
+          (managerUser.role === 'EMPLOYEE' && managerUser.department?.toLowerCase().includes('hr'))) {
+        notificationLink = `/hr?wfh=${wfhRequest.id}`;
+      } else if (managerUser.role === 'EXECUTIVE') {
+        notificationLink = `/executive?wfh=${wfhRequest.id}`;
+      }
+    }
+    
     await prisma.notification.create({
       data: {
         userId: user.managerId,
         type: 'APPROVAL_REQUIRED',
         title: 'WFH Request Approval Required',
         message: `${user.firstName} ${user.lastName} has requested ${totalDays} days of work from home`,
-        link: `/manager/wfh-approvals/${wfhRequest.id}`,
+        link: notificationLink,
       },
     });
   }

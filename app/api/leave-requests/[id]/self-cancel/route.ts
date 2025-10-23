@@ -196,12 +196,28 @@ export async function POST(
         // Notify managers and HR about the cancellation
         for (const managerId of managerIds) {
           if (managerId !== session.user.id) {
+            // Check if the manager is an HR employee to determine correct link
+            const managerUser = await prisma.user.findUnique({
+              where: { id: managerId },
+              select: { role: true, department: true }
+            });
+            
+            let notificationLink = `/manager?request=${params.id}`;
+            if (managerUser) {
+              if (managerUser.role === 'HR' || 
+                  (managerUser.role === 'EMPLOYEE' && managerUser.department?.toLowerCase().includes('hr'))) {
+                notificationLink = `/hr?request=${params.id}`;
+              } else if (managerUser.role === 'EXECUTIVE') {
+                notificationLink = `/executive?request=${params.id}`;
+              }
+            }
+            
             await NotificationService.createNotification({
               userId: managerId,
               type: 'LEAVE_CANCELLED',
               title: 'Leave Request Cancelled',
               message: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName} has cancelled their ${leaveRequest.leaveType?.name || 'leave'} request for ${leaveRequest.startDate.toDateString()} - ${leaveRequest.endDate.toDateString()}`,
-              link: `/manager?request=${params.id}`
+              link: notificationLink
             });
           }
         }

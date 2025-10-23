@@ -22,10 +22,18 @@ export async function GET(request: NextRequest) {
       }, { status: 403 })
     }
 
-    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
+    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, department: true }
+    })
+    
+    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    
+    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role) && !isHREmployee) {
       return NextResponse.json({ 
         error: 'Insufficient permissions',
-        message: `Access denied. Your role (${session.user.role}) does not have permission to access HR documents. Required roles: HR or ADMIN`
+        message: `Access denied. Your role (${session.user.role}) does not have permission to access HR documents. Required roles: HR, ADMIN, or HR Department`
       }, { status: 403 })
     }
 

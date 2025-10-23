@@ -12,13 +12,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is HR, ADMIN, or EXECUTIVE
+    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { role: true }
+      select: { role: true, department: true }
     })
 
-    if (!user || !['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role)) {
+    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    
+    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 

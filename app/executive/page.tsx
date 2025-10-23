@@ -91,6 +91,12 @@ export default function ExecutiveDashboard() {
 
     // Only allow EXECUTIVE role on this page
     if (session.user.role !== "EXECUTIVE") {
+      // Check if HR employee
+      if (session.user.role === "HR" || 
+          (session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr"))) {
+        router.push("/hr")
+        return
+      }
       // Redirect to appropriate dashboard
       switch (session.user.role) {
         case "EMPLOYEE":

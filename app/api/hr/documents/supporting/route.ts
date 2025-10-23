@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { getFromMinio } from '@/lib/minio';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,8 +11,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is HR or ADMIN
-    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user?.role || '')) {
+    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, department: true }
+    });
+    
+    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr');
+    
+    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user?.role || '') && !isHREmployee) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 

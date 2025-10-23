@@ -15,17 +15,20 @@ export default async function HomePage() {
     case 'EXECUTIVE':
       redirect('/executive')
     case 'MANAGER':
-    case 'HR_MANAGER':
-      // Managers and HR managers see their manager dashboard first
       redirect('/manager')
+    case 'HR_MANAGER':
+      // HR managers should go to HR dashboard
+      redirect('/hr')
     case 'ADMIN':
       redirect('/admin')
     case 'HR':
       redirect('/hr')
-    case 'EMPLOYEE':
     case 'HR_EMPLOYEE':
+      // HR employees should go to HR dashboard
+      redirect('/hr')
+    case 'EMPLOYEE':
     default:
-      // Employees and HR employees see employee dashboard first
+      // Regular employees see employee dashboard
       redirect('/employee')
   }
 }

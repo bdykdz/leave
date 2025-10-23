@@ -10,7 +10,19 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || !['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
+    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, department: true }
+    })
+    
+    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    
+    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

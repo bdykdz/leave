@@ -35,8 +35,9 @@ export default function HRDashboard() {
       return
     }
 
-    // Allow HR, ADMIN, and EXECUTIVE roles on this page
-    if (session.user.role !== "HR" && session.user.role !== "ADMIN" && session.user.role !== "EXECUTIVE") {
+    // Allow HR, ADMIN, and EXECUTIVE roles, or EMPLOYEE role with HR department
+    const isHREmployee = session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr")
+    if (session.user.role !== "HR" && session.user.role !== "ADMIN" && session.user.role !== "EXECUTIVE" && !isHREmployee) {
       router.push("/employee")
     }
   }, [session, status, router])
@@ -45,7 +46,8 @@ export default function HRDashboard() {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
 
-  if (!session || (session.user.role !== "HR" && session.user.role !== "ADMIN" && session.user.role !== "EXECUTIVE")) {
+  const isHREmployee = session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr")
+  if (!session || (session.user.role !== "HR" && session.user.role !== "ADMIN" && session.user.role !== "EXECUTIVE" && !isHREmployee)) {
     return null
   }
 
@@ -53,6 +55,11 @@ export default function HRDashboard() {
 
   // Helper function to get the correct dashboard route based on user role
   const getDashboardRoute = () => {
+    // Check if EMPLOYEE is actually in HR department
+    if (session?.user.role === "EMPLOYEE" && session?.user.department?.toLowerCase().includes("hr")) {
+      return "/hr"
+    }
+    
     switch (session?.user.role) {
       case "EXECUTIVE":
         return "/executive"

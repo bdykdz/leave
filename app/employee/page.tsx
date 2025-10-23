@@ -77,6 +77,13 @@ export default function EmployeeDashboard() {
       return
     }
 
+    // Check if HR employee should be redirected to HR dashboard
+    if (session.user.role === "HR" || 
+        (session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr"))) {
+      router.push("/hr")
+      return
+    }
+
     // All authenticated users can see their personal dashboard
     // No need to redirect based on role
     
