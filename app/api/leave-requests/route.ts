@@ -143,10 +143,17 @@ export const GET = asyncHandler(async (request: NextRequest) => {
         createdAt: 'desc',
       },
     });
+    
+    // Process leave requests to include selectedDates and supportingDocuments
+    const processedRequests = leaveRequests.map(request => ({
+      ...request,
+      selectedDates: request.selectedDates || [], // Include selectedDates array
+      supportingDocuments: request.supportingDocuments || {}, // Include supportingDocuments
+    }));
 
-    log.info('Leave requests fetched', { count: leaveRequests.length });
+    log.info('Leave requests fetched', { count: processedRequests.length });
 
-    return NextResponse.json({ leaveRequests });
+    return NextResponse.json({ leaveRequests: processedRequests });
 });
 
 // POST /api/leave-requests - Create a new leave request
