@@ -215,8 +215,9 @@ export function EmployeeList() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <>
+      <Card>
+        <CardHeader>
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Employee Directory</CardTitle>
@@ -598,5 +599,6 @@ export function EmployeeList() {
         )}
       </DialogContent>
     </Dialog>
+    </>
   )
 }
