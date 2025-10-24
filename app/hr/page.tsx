@@ -53,20 +53,17 @@ export default function HRDashboard() {
 
   const userName = `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim() || session.user.email
 
-  // Helper function to get the correct dashboard route based on user role
+  // Helper function to get the correct personal dashboard route
   const getDashboardRoute = () => {
-    // Check if EMPLOYEE is actually in HR department
-    if (session?.user.role === "EMPLOYEE" && session?.user.department?.toLowerCase().includes("hr")) {
-      return "/hr"
-    }
-    
+    // Return the appropriate dashboard based on the user's actual role
     switch (session?.user.role) {
       case "EXECUTIVE":
         return "/executive"
       case "MANAGER":
         return "/manager"
       case "HR":
-        return "/hr"
+        // HR role users go to employee dashboard for their personal requests
+        return "/employee"
       case "EMPLOYEE":
       default:
         return "/employee"

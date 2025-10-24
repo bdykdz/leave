@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, CalendarIcon, X, User, AlertCircle } from "lucide-react"
+import { ArrowLeft, CalendarIcon, X, User, AlertCircle, Upload, FileText } from "lucide-react"
 import { LeaveCalendar } from "@/components/leave-calendar"
 import { SignaturePad } from "@/components/signature-pad"
 import { Badge } from "@/components/ui/badge"
@@ -74,6 +74,8 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [blockedDates, setBlockedDates] = useState<string[]>([])
   const [blockedDateDetails, setBlockedDateDetails] = useState<Record<string, { status: string; leaveType: string }>>({})
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true)
+  const [supportingDocuments, setSupportingDocuments] = useState<File[]>([])
+  const [uploadingDocuments, setUploadingDocuments] = useState(false)
 
 
   // Helper to format date as YYYY-MM-DD in local time
@@ -88,6 +90,49 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const sortedDates = selectedDates.sort((a, b) => a.getTime() - b.getTime())
   const startDate = sortedDates.length > 0 ? sortedDates[0] : undefined
   const endDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : undefined
+
+  // Check if selected leave type is sick leave (with safety check)
+  const selectedLeaveType = leaveTypes.find(lt => lt.id === leaveType)
+  const isSickLeave = selectedLeaveType?.code === 'SL' && !loadingLeaveTypes
+
+  // Handle file upload for medical certificates
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (files) {
+      const newFiles: File[] = []
+      const errors: string[] = []
+      
+      Array.from(files).forEach(file => {
+        // Validate file type (images and PDFs)
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+        if (!allowedTypes.includes(file.type)) {
+          errors.push(`"${file.name}" - Only JPEG, PNG, or PDF files are allowed.`)
+          return
+        }
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          errors.push(`"${file.name}" - File size must be less than 5MB.`)
+          return
+        }
+        newFiles.push(file)
+      })
+      
+      if (errors.length > 0) {
+        showError('Invalid Files', errors.join('\n'))
+        // Clear the input to allow reselection
+        event.target.value = ''
+        return
+      }
+      setSupportingDocuments(prev => [...prev, ...newFiles])
+      // Clear the input to allow reselection of the same files if needed
+      event.target.value = ''
+    }
+  }
+
+  // Remove uploaded file
+  const removeFile = (index: number) => {
+    setSupportingDocuments(prev => prev.filter((_, i) => i !== index))
+  }
 
   // Fetch leave types on component mount
   useEffect(() => {
@@ -205,6 +250,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
       return
     }
 
+    // Validate medical certificate for sick leave
+    if (isSickLeave && supportingDocuments.length === 0) {
+      showError("Medical Certificate Required", "Please upload a medical certificate or doctor's note for sick leave requests.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -214,25 +265,50 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         return
       }
 
-      // Prepare request body
-      const requestBody = {
-        leaveTypeId: leaveType,
-        startDate: toLocalDateString(startDate),
-        endDate: toLocalDateString(endDate),
-        reason: reason.trim() || " ", // Send a space if empty to avoid template issues
-        substituteIds: selectedSubstitutes,
-        selectedDates: selectedDates.map(date => toLocalDateString(date)),
-        signature: signature, // Include the signature
-      }
+      let response: Response
 
-      // Submit to API
-      const response = await fetch('/api/leave-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
+      if (isSickLeave && supportingDocuments.length > 0) {
+        // Use FormData for file upload
+        const formData = new FormData()
+        formData.append('leaveTypeId', leaveType)
+        formData.append('startDate', toLocalDateString(startDate))
+        formData.append('endDate', toLocalDateString(endDate))
+        formData.append('reason', reason.trim() || " ")
+        formData.append('substituteIds', JSON.stringify(selectedSubstitutes))
+        formData.append('selectedDates', JSON.stringify(selectedDates.map(date => toLocalDateString(date))))
+        formData.append('signature', signature)
+        
+        // Add files
+        supportingDocuments.forEach((file, index) => {
+          formData.append(`supportingDocument_${index}`, file)
+        })
+        
+        setUploadingDocuments(true)
+        response = await fetch('/api/leave-requests', {
+          method: 'POST',
+          body: formData,
+        })
+        setUploadingDocuments(false)
+      } else {
+        // Use JSON for regular requests
+        const requestBody = {
+          leaveTypeId: leaveType,
+          startDate: toLocalDateString(startDate),
+          endDate: toLocalDateString(endDate),
+          reason: reason.trim() || " ",
+          substituteIds: selectedSubstitutes,
+          selectedDates: selectedDates.map(date => toLocalDateString(date)),
+          signature: signature,
+        }
+
+        response = await fetch('/api/leave-requests', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        })
+      }
 
       const data = await response.json()
 
@@ -275,7 +351,8 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         setLeaveType("")
         setReason("")
         setSignature("")
-        setSelectedSubstitute("")
+        setSelectedSubstitutes([])
+        setSupportingDocuments([])
         onBack()
       }, 3000)
     } catch (error) {
@@ -473,9 +550,74 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                             )}
                           </div>
                           {selected.requiresDocument && (
-                            <div className="flex items-center gap-1 text-amber-600">
-                              <AlertCircle className="h-3 w-3" />
-                              <span className="text-xs">Supporting document required</span>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1 text-amber-600">
+                                <AlertCircle className="h-3 w-3" />
+                                <span className="text-xs">Supporting document required</span>
+                              </div>
+                              
+                              {/* File upload for sick leave only */}
+                              {isSickLeave && (
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium">Medical Certificate Upload</Label>
+                                  
+                                  {/* File upload input */}
+                                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                                    <div className="text-center">
+                                      <Upload className="mx-auto h-6 w-6 text-gray-400 mb-2" />
+                                      <div className="text-sm text-gray-600 mb-2">
+                                        Upload medical certificate or doctor's note
+                                      </div>
+                                      <input
+                                        type="file"
+                                        multiple
+                                        accept="image/*,.pdf"
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                        id="medical-documents"
+                                      />
+                                      <label
+                                        htmlFor="medical-documents"
+                                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium bg-white hover:bg-gray-50 cursor-pointer"
+                                      >
+                                        Choose Files
+                                      </label>
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        JPEG, PNG, PDF up to 5MB each
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Display uploaded files */}
+                                  {supportingDocuments.length > 0 && (
+                                    <div className="space-y-2">
+                                      <Label className="text-sm font-medium">Uploaded Files:</Label>
+                                      {supportingDocuments.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border">
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-gray-500" />
+                                            <span className="text-sm truncate max-w-[200px]" title={file.name}>
+                                              {file.name}
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                              ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                                            </span>
+                                          </div>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeFile(index)}
+                                            className="h-6 w-6 p-0 hover:bg-red-100"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                           {selected.maxDaysPerRequest && selectedDates.length > selected.maxDaysPerRequest && (

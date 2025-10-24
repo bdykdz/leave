@@ -190,6 +190,18 @@ export class WorkflowEngine {
   async createDefaultWorkflowRules() {
     const rules = [
       {
+        name: 'Sick Leave - European Compliance',
+        description: 'Sick leave workflow for European compliance - only HR verification required',
+        conditions: {
+          leaveType: ['SL'],
+        },
+        approvalLevels: [
+          { role: 'employee', required: true },
+          { role: 'hr_verification', required: true }, // HR document verification only
+        ],
+        priority: 110, // Higher priority than special leave
+      },
+      {
         name: 'Special Leave - HR Verification Required',
         description: 'Special leaves requiring HR document verification',
         conditions: {

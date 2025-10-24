@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
             carryForward: false,
             requiresApproval: true,
             requiresDocument: true,
-            description: 'Paid sick leave with medical certificate'
+            requiresHRVerification: true,
+            documentTypes: ['medical_certificate', 'doctor_note'],
+            description: 'Paid sick leave with medical certificate - requires HR verification'
           }
         }),
         prisma.leaveType.create({

@@ -11,6 +11,7 @@ import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
 import { checkSelectedDatesOverlap, checkHolidayConflicts } from '@/lib/utils/date-validation';
+import { uploadToMinio, generateSupportingDocumentName, deleteFromMinio } from '@/lib/minio';
 const documentGenerator = new SmartDocumentGenerator();
 
 // Validation schema for leave request
@@ -164,7 +165,60 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    // Check content type to handle both JSON and FormData
+    const contentType = request.headers.get('content-type') || '';
+    let body: any;
+    let uploadedFiles: File[] = [];
+
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData (file uploads)
+      const formData = await request.formData();
+      body = {};
+      
+      // Extract form fields
+      for (const [key, value] of formData.entries()) {
+        if (key.startsWith('supportingDocument_')) {
+          uploadedFiles.push(value as File);
+        } else if (key === 'substituteIds' || key === 'selectedDates') {
+          body[key] = JSON.parse(value as string);
+        } else {
+          body[key] = value;
+        }
+      }
+      
+      // Server-side file validation
+      if (uploadedFiles.length > 0) {
+        const fileErrors: string[] = [];
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+        const maxFileSize = 5 * 1024 * 1024; // 5MB
+        
+        uploadedFiles.forEach((file, index) => {
+          if (!allowedTypes.includes(file.type)) {
+            fileErrors.push(`File ${index + 1}: Invalid file type. Only JPEG, PNG, and PDF files are allowed.`);
+          }
+          if (file.size > maxFileSize) {
+            fileErrors.push(`File ${index + 1}: File size too large. Maximum size is 5MB.`);
+          }
+          if (file.size === 0) {
+            fileErrors.push(`File ${index + 1}: Empty file detected.`);
+          }
+        });
+        
+        if (fileErrors.length > 0) {
+          log.warn('File validation failed', { errors: fileErrors, userId: session.user.id });
+          return NextResponse.json(
+            { 
+              error: 'File validation failed',
+              details: fileErrors
+            },
+            { status: 400 }
+          );
+        }
+      }
+    } else {
+      // Handle JSON
+      body = await request.json();
+    }
     
     // Validate request body
     let validatedData;
@@ -356,8 +410,63 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     // Format leave dates for display
     const formattedDates = formatLeaveDates(startDate, endDate, validatedData.selectedDates);
 
+    // Handle file uploads for supporting documents
+    let uploadedDocumentUrls: string[] = [];
+    if (uploadedFiles.length > 0) {
+      try {
+        log.info('Uploading supporting documents', { 
+          requestNumber, 
+          fileCount: uploadedFiles.length,
+          userEmail: user.email 
+        });
+        
+        const uploadPromises = uploadedFiles.map(async (file, index) => {
+          const fileBuffer = Buffer.from(await file.arrayBuffer());
+          const fileName = generateSupportingDocumentName(
+            requestNumber,
+            user.email,
+            file.name
+          );
+          
+          return await uploadToMinio(
+            fileBuffer,
+            fileName,
+            file.type,
+            undefined, // use default bucket
+            'documents/supporting'
+          );
+        });
+        
+        uploadedDocumentUrls = await Promise.all(uploadPromises);
+        log.info('Supporting documents uploaded', { 
+          requestNumber,
+          uploadedUrls: uploadedDocumentUrls 
+        });
+      } catch (uploadError) {
+        log.error('Failed to upload supporting documents', { 
+          requestNumber,
+          error: uploadError 
+        });
+        // Clean up any partially uploaded files
+        if (uploadedDocumentUrls.length > 0) {
+          await safeAsync(async () => {
+            for (const url of uploadedDocumentUrls) {
+              const filePath = url.replace('minio://', '').replace('leave-management/', '');
+              await deleteFromMinio(filePath);
+            }
+          }, undefined, 'Failed to cleanup uploaded files after error');
+        }
+        return NextResponse.json(
+          { error: 'Failed to upload supporting documents' },
+          { status: 500 }
+        );
+      }
+    }
+
     // Create leave request with approval workflow
-    const leaveRequest = await prisma.leaveRequest.create({
+    let leaveRequest;
+    try {
+      leaveRequest = await prisma.leaveRequest.create({
       data: {
         requestNumber,
         userId: session.user.id,
@@ -379,6 +488,8 @@ export const POST = asyncHandler(async (request: NextRequest) => {
             await getSubstituteNames(validatedData.substituteIds) : null,
           employeeSignature: signature, // Store employee signature
           employeeSignatureDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+          uploadedDocuments: uploadedDocumentUrls, // Store uploaded document URLs
+          documentUploadDate: uploadedDocumentUrls.length > 0 ? new Date().toISOString() : null,
         },
         approvals: {
           create: await generateApprovalWorkflow(user, validatedData.leaveTypeId, actualDays),
@@ -413,6 +524,25 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         },
       },
     });
+    } catch (dbError) {
+      log.error('Database operation failed, cleaning up uploaded files', { 
+        requestNumber,
+        uploadedUrls: uploadedDocumentUrls,
+        error: dbError 
+      });
+      
+      // Rollback: Delete uploaded files if database creation failed
+      if (uploadedDocumentUrls.length > 0) {
+        await safeAsync(async () => {
+          for (const url of uploadedDocumentUrls) {
+            const filePath = url.replace('minio://', '').replace('leave-management/', '');
+            await deleteFromMinio(filePath);
+          }
+        }, undefined, 'Failed to cleanup files after database error');
+      }
+      
+      throw dbError; // Re-throw to be handled by outer catch
+    }
 
     // Create notifications for approvers
     const firstApprover = leaveRequest.approvals.find(a => a.level === 1);
@@ -444,8 +574,76 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         },
       });
     }
+    
+    // Check if this is sick leave using the already fetched leave type
+    const isSickLeave = leaveRequest.leaveType.code === 'SL';
+    
+    // Special handling for sick leave - notify ALL HR users
+    if (isSickLeave) {
+      const hrUsers = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { role: 'HR' },
+            { 
+              role: 'EMPLOYEE',
+              department: { contains: 'hr', mode: 'insensitive' }
+            }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true
+        }
+      });
 
-    // Send email notification to the first approver
+      log.info('Sick leave submitted - notifying all HR users', {
+        requestId: leaveRequest.id,
+        requestNumber,
+        hrUserCount: hrUsers.length,
+        documentsUploaded: uploadedDocumentUrls.length
+      });
+
+      // Send notifications and emails to all HR users
+      for (const hrUser of hrUsers) {
+        // Create notification
+        await safeAsync(async () => {
+          await prisma.notification.create({
+            data: {
+              userId: hrUser.id,
+              type: 'SICK_LEAVE_SUBMITTED',
+              title: 'Sick Leave Verification Required',
+              message: `${user.firstName} ${user.lastName} has submitted sick leave with medical documents`,
+              link: `/hr?tab=verification&request=${leaveRequest.id}`,
+            },
+          });
+        }, undefined, `Failed to create notification for HR user ${hrUser.id}`);
+
+        // Send email
+        await safeAsync(async () => {
+          await emailService.sendLeaveRequestNotification(hrUser.email, {
+            employeeName: `${user.firstName} ${user.lastName}`,
+            leaveType: 'Sick Leave - Medical Verification Required',
+            startDate: format(startDate, 'dd MMMM yyyy'),
+            endDate: format(endDate, 'dd MMMM yyyy'),
+            days: actualDays,
+            reason: `Medical leave with ${uploadedDocumentUrls.length} document(s) for verification`,
+            managerName: `${hrUser.firstName} ${hrUser.lastName}`,
+            companyName: process.env.COMPANY_NAME || 'Company',
+            requestId: leaveRequest.id
+          });
+          
+          log.info('Sick leave email sent to HR', { 
+            to: hrUser.email,
+            requestNumber 
+          });
+        }, undefined, `Failed to send sick leave email to ${hrUser.email}`);
+      }
+    }
+
+    // Send email notification to the first approver (for all leave types)
     if (firstApprover?.approver?.email) {
       await safeAsync(async () => {
         log.info('Sending email notification', {
@@ -549,6 +747,14 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
     departmentDirectorId: user.departmentDirectorId || user.departmentDirector?.id
   });
   
+  // Get leave type information for workflow rules
+  const leaveType = await prisma.leaveType.findUnique({
+    where: { id: leaveTypeId },
+    select: { code: true, requiresHRVerification: true }
+  });
+  
+  console.log('[generateApprovalWorkflow] Leave type info:', leaveType);
+  
   // Determine approval requirements based on user role
   let approvalLevels = [];
   
@@ -617,7 +823,7 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
       isActive: true,
       OR: [
         { conditions: { path: ['userRole'], array_contains: user.role } },
-        { conditions: { path: ['leaveType'], array_contains: leaveTypeId } },
+        { conditions: { path: ['leaveType'], array_contains: leaveType?.code } },
         { conditions: { path: ['department'], array_contains: user.department } },
       ],
     },
@@ -669,9 +875,19 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
         approverId = user.departmentDirectorId || user.departmentDirector?.id;
         break;
       case 'HR':
-        // Find an HR user
+      case 'hr_verification':
+        // Find an HR user or employee in HR department
         const hrUser = await prisma.user.findFirst({
-          where: { role: 'HR', isActive: true },
+          where: { 
+            OR: [
+              { role: 'HR', isActive: true },
+              { 
+                role: 'EMPLOYEE', 
+                isActive: true,
+                department: { contains: 'hr', mode: 'insensitive' }
+              }
+            ]
+          },
         });
         approverId = hrUser?.id;
         break;
@@ -720,6 +936,18 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
         required: approvalLevel.required,
         approverId
       });
+    }
+  }
+
+  // Critical check: For sick leave requiring HR verification, ensure HR approver exists
+  if (leaveType?.code === 'SL' && leaveType?.requiresHRVerification) {
+    const hasHRApproval = approvals.some(approval => 
+      approval.approverId // Has valid approver ID
+    );
+    
+    if (!hasHRApproval) {
+      console.error('[generateApprovalWorkflow] Critical: No HR approver available for sick leave verification');
+      throw new Error('No HR personnel available for sick leave verification. Please contact your administrator.');
     }
   }
 

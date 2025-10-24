@@ -65,7 +65,15 @@ interface LeaveRequestForVerification {
   endDate: string
   totalDays: number
   reason: string
-  supportingDocuments: string[]
+  supportingDocuments: {
+    uploadedDocuments?: string[]
+    selectedDates?: string[]
+    formattedDates?: string
+    substituteNames?: string
+    employeeSignature?: string
+    employeeSignatureDate?: string
+    documentUploadDate?: string
+  } | string[]  // Keep backward compatibility
   createdAt: string
   hrDocumentVerified: boolean
   hrVerifiedBy?: string
@@ -77,6 +85,54 @@ interface LeaveRequestForVerification {
 export function DocumentVerification() {
   const [requests, setRequests] = useState<LeaveRequestForVerification[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Helper function to extract document URLs from supportingDocuments
+  const getDocumentUrls = (supportingDocs: any): { url: string; name: string }[] => {
+    try {
+      if (Array.isArray(supportingDocs)) {
+        // Backward compatibility: treat as string array
+        return supportingDocs
+          .filter(doc => typeof doc === 'string' && doc.trim().length > 0)
+          .map((doc, index) => ({
+            url: doc,
+            name: `Document ${index + 1}`
+          }))
+      } else if (supportingDocs?.uploadedDocuments && Array.isArray(supportingDocs.uploadedDocuments)) {
+        // New format: extract from uploadedDocuments
+        return supportingDocs.uploadedDocuments
+          .filter((url: any) => typeof url === 'string' && url.trim().length > 0)
+          .map((url: string, index: number) => {
+            try {
+              const fileName = url.split('/').pop() || `document_${index + 1}`
+              // Safely remove prefix and sanitize display name
+              const displayName = fileName
+                .replace(/^[^-]+-[^-]+-[^-]+-/, '') // Remove prefix
+                .replace(/[<>"/\\|?*]/g, '_') // Sanitize potentially dangerous characters
+                .substring(0, 50) // Limit length
+              
+              return {
+                url,
+                name: displayName || `Document ${index + 1}`
+              }
+            } catch (error) {
+              console.warn('Error processing document URL:', url, error)
+              return {
+                url,
+                name: `Document ${index + 1}`
+              }
+            }
+          })
+      }
+    } catch (error) {
+      console.error('Error extracting document URLs:', error)
+    }
+    return []
+  }
+
+  // Helper function to get document count for display
+  const getDocumentCount = (supportingDocs: any): number => {
+    return getDocumentUrls(supportingDocs).length
+  }
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequestForVerification | null>(null)
   const [verificationNotes, setVerificationNotes] = useState("")
   const [verifying, setVerifying] = useState(false)
@@ -143,7 +199,16 @@ export function DocumentVerification() {
 
   const downloadDocument = async (url: string, filename: string) => {
     try {
-      const response = await fetch(url)
+      // Convert MinIO URL to API endpoint
+      const apiUrl = url.startsWith('minio://') 
+        ? `/api/documents/${url.replace('minio://', '').replace('leave-management/', '')}`
+        : url
+
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.statusText}`)
+      }
+      
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -390,7 +455,7 @@ export function DocumentVerification() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary">
-                          {request.supportingDocuments.length} file{request.supportingDocuments.length !== 1 && 's'}
+                          {getDocumentCount(request.supportingDocuments)} file{getDocumentCount(request.supportingDocuments) !== 1 && 's'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
@@ -485,23 +550,59 @@ export function DocumentVerification() {
               <div>
                 <h4 className="font-medium mb-2">Supporting Documents</h4>
                 <div className="space-y-2">
-                  {selectedRequest.supportingDocuments.map((doc, index) => (
+                  {getDocumentUrls(selectedRequest.supportingDocuments).map((doc, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm">Document {index + 1}</span>
+                        <span className="text-sm" title={doc.name}>{doc.name}</span>
+                        {selectedRequest.leaveType.code === 'SL' && (
+                          <Badge variant="outline" className="text-xs">Medical Certificate</Badge>
+                        )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadDocument(doc, `document_${index + 1}.pdf`)}
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Download
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadDocument(doc.url, doc.name)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Download
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(doc.url, '_blank')}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          View
+                        </Button>
+                      </div>
                     </div>
                   ))}
+                  {getDocumentUrls(selectedRequest.supportingDocuments).length === 0 && (
+                    <p className="text-sm text-gray-500 italic">No documents uploaded</p>
+                  )}
                 </div>
+                
+                {/* Show upload date for sick leave */}
+                {selectedRequest.leaveType.code === 'SL' && 
+                 typeof selectedRequest.supportingDocuments === 'object' && 
+                 selectedRequest.supportingDocuments.documentUploadDate && (() => {
+                   try {
+                     const uploadDate = new Date(selectedRequest.supportingDocuments.documentUploadDate)
+                     if (isNaN(uploadDate.getTime())) {
+                       return null // Invalid date
+                     }
+                     return (
+                       <div className="mt-2 text-xs text-gray-500">
+                         Documents uploaded: {format(uploadDate, 'PPp')}
+                       </div>
+                     )
+                   } catch (error) {
+                     console.warn('Error parsing upload date:', error)
+                     return null
+                   }
+                 })()}
               </div>
 
               {/* Verification Notes */}

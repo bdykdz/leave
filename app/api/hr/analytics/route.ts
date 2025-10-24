@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
@@ -64,6 +64,16 @@ export async function GET(request: NextRequest) {
     if (startDateParam && endDateParam) {
       rangeStart = new Date(startDateParam)
       rangeEnd = new Date(endDateParam)
+      
+      // Validate dates
+      if (isNaN(rangeStart.getTime()) || isNaN(rangeEnd.getTime())) {
+        return NextResponse.json({ error: 'Invalid date parameters' }, { status: 400 })
+      }
+      
+      // Ensure start is before end
+      if (rangeStart > rangeEnd) {
+        return NextResponse.json({ error: 'Start date must be before end date' }, { status: 400 })
+      }
     } else {
       rangeStart = startOfMonth(currentDate)
       rangeEnd = endOfMonth(currentDate)
@@ -231,7 +241,7 @@ export async function GET(request: NextRequest) {
       : 0
 
     const averageLeaveDays = totalEmployees > 0 
-      ? Math.round((yearLeaves._sum.totalDays || 0) / totalEmployees * 10) / 10
+      ? Math.round(((yearLeaves?._sum?.totalDays ?? 0) / totalEmployees) * 10) / 10
       : 0
 
     // Get last year's average for comparison (simplified)
@@ -282,9 +292,9 @@ export async function GET(request: NextRequest) {
       ],
       departmentData: departmentLeaveData,
       monthlyTrend: monthlyTrendArray,
-      upcomingHolidays: holidays.slice(0, 3).map(h => ({
-        name: h.nameEn,
-        date: format(h.date, 'MMM dd')
+      upcomingHolidays: (holidays || []).slice(0, 3).map(h => ({
+        name: h?.nameEn || 'Holiday',
+        date: h?.date ? format(new Date(h.date), 'MMM dd') : 'TBD'
       }))
     }
 
@@ -303,9 +313,20 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(analytics)
   } catch (error) {
-    console.error('Error fetching HR analytics:', error)
+    console.error('Error fetching HR analytics:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: session?.user?.id,
+      dateRange: { rangeStart: rangeStart?.toString(), rangeEnd: rangeEnd?.toString() }
+    })
+    
+    // Return more specific error information for debugging
     return NextResponse.json(
-      { error: 'Failed to fetch analytics data' },
+      { 
+        error: 'Failed to fetch analytics data',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     )
   }

@@ -7,8 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, UserPlus, Mail, Phone, Calendar, ChevronLeft, ChevronRight, RefreshCw, Download, Filter, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Search, UserPlus, Mail, Phone, Calendar, ChevronLeft, ChevronRight, RefreshCw, Download, Filter, Loader2, Edit, Save } from "lucide-react"
+import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface Employee {
   id: string
@@ -49,6 +52,15 @@ export function EmployeeList() {
   const [totalCount, setTotalCount] = useState(0)
   const [departments, setDepartments] = useState<string[]>([])
   const [exporting, setExporting] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [showDetails, setShowDetails] = useState(false)
+  const [editingBalance, setEditingBalance] = useState(false)
+  const [balanceForm, setBalanceForm] = useState({
+    annual: 0,
+    sick: 0,
+    personal: 0
+  })
+  const [savingBalance, setSavingBalance] = useState(false)
 
   useEffect(() => {
     fetchEmployees()
@@ -96,6 +108,66 @@ export function EmployeeList() {
   const handleRefresh = () => {
     fetchEmployees()
     toast.success('Employee list refreshed')
+  }
+
+  const handleViewDetails = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setShowDetails(true)
+    setEditingBalance(false)
+    // Initialize balance form with current values
+    setBalanceForm({
+      annual: employee.leaveBalance?.annual || 0,
+      sick: employee.leaveBalance?.sick || 0,
+      personal: employee.leaveBalance?.personal || 0
+    })
+  }
+
+  const handleEditBalance = () => {
+    setEditingBalance(true)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingBalance(false)
+    if (selectedEmployee) {
+      setBalanceForm({
+        annual: selectedEmployee.leaveBalance?.annual || 0,
+        sick: selectedEmployee.leaveBalance?.sick || 0,
+        personal: selectedEmployee.leaveBalance?.personal || 0
+      })
+    }
+  }
+
+  const handleSaveBalance = async () => {
+    if (!selectedEmployee) return
+
+    setSavingBalance(true)
+    try {
+      const response = await fetch(`/api/hr/employees/${selectedEmployee.id}/balance`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(balanceForm)
+      })
+
+      if (response.ok) {
+        toast.success('Leave balance updated successfully')
+        // Update the local state
+        const updatedEmployees = employees.map(emp => 
+          emp.id === selectedEmployee.id 
+            ? { ...emp, leaveBalance: balanceForm }
+            : emp
+        )
+        setEmployees(updatedEmployees)
+        setSelectedEmployee({ ...selectedEmployee, leaveBalance: balanceForm })
+        setEditingBalance(false)
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || errorData.message || 'Failed to update balance')
+      }
+    } catch (error) {
+      toast.error('Failed to update leave balance')
+    } finally {
+      setSavingBalance(false)
+    }
   }
 
   const exportToCSV = async () => {
@@ -292,8 +364,12 @@ export function EmployeeList() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">
-                        View Details
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewDetails(employee)}
+                      >
+                        Manage
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -356,9 +432,171 @@ export function EmployeeList() {
         )}
       </CardContent>
     </Card>
-  )
-}
 
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ')
+    {/* Employee Details Dialog */}
+    <Dialog open={showDetails} onOpenChange={setShowDetails}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Employee Details</DialogTitle>
+        </DialogHeader>
+        {selectedEmployee && (
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Name</label>
+                <p className="text-sm">{selectedEmployee.firstName} {selectedEmployee.lastName}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Employee ID</label>
+                <p className="text-sm">{selectedEmployee.employeeId}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Email</label>
+                <p className="text-sm">{selectedEmployee.email}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Phone</label>
+                <p className="text-sm">{selectedEmployee.phoneNumber || 'Not provided'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Department</label>
+                <p className="text-sm">{selectedEmployee.department}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Position</label>
+                <p className="text-sm">{selectedEmployee.position}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Role</label>
+                <p className="text-sm">{selectedEmployee.role}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Status</label>
+                <Badge variant={selectedEmployee.isActive ? "default" : "secondary"}>
+                  {selectedEmployee.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500">Joining Date</label>
+              <p className="text-sm">{new Date(selectedEmployee.joiningDate).toLocaleDateString()}</p>
+            </div>
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-500">Leave Balance</label>
+                {!editingBalance && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditBalance}
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit Balance
+                  </Button>
+                )}
+              </div>
+              
+              {editingBalance ? (
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="annual">Annual Leave</Label>
+                    <Input
+                      id="annual"
+                      type="number"
+                      min="0"
+                      max="365"
+                      value={balanceForm.annual}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0
+                        setBalanceForm({...balanceForm, annual: Math.max(0, Math.min(365, val))})
+                      }}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sick">Sick Leave</Label>
+                    <Input
+                      id="sick"
+                      type="number"
+                      min="0"
+                      max="365"
+                      value={balanceForm.sick}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0
+                        setBalanceForm({...balanceForm, sick: Math.max(0, Math.min(365, val))})
+                      }}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="personal">Personal Leave</Label>
+                    <Input
+                      id="personal"
+                      type="number"
+                      min="0"
+                      max="365"
+                      value={balanceForm.personal}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0
+                        setBalanceForm({...balanceForm, personal: Math.max(0, Math.min(365, val))})
+                      }}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-3 bg-blue-50 rounded">
+                    <p className="text-xs text-gray-500">Annual</p>
+                    <p className="text-lg font-medium">{selectedEmployee.leaveBalance?.annual || 0} days</p>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded">
+                    <p className="text-xs text-gray-500">Sick</p>
+                    <p className="text-lg font-medium">{selectedEmployee.leaveBalance?.sick || 0} days</p>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded">
+                    <p className="text-xs text-gray-500">Personal</p>
+                    <p className="text-lg font-medium">{selectedEmployee.leaveBalance?.personal || 0} days</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {editingBalance && (
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelEdit}
+              disabled={savingBalance}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveBalance}
+              disabled={savingBalance}
+            >
+              {savingBalance ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }
