@@ -315,9 +315,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching HR analytics:', {
       error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-      userId: session?.user?.id,
-      dateRange: { rangeStart: rangeStart?.toString(), rangeEnd: rangeEnd?.toString() }
+      stack: error instanceof Error ? error.stack : undefined
     })
     
     // Return more specific error information for debugging

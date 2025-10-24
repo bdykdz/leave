@@ -122,11 +122,11 @@ export async function GET(request: NextRequest) {
       emp.leaveBalances.forEach(balance => {
         const leaveTypeCode = balance.leaveType.code?.toUpperCase();
         if (leaveTypeCode === 'AL' || leaveTypeCode === 'NL') {
-          leaveBalance.annual = balance.available || 0;
+          leaveBalance.annual = balance.entitled || 0;
         } else if (leaveTypeCode === 'SL') {
-          leaveBalance.sick = balance.used || 0;
+          leaveBalance.sick = balance.entitled || 0;
         } else if (leaveTypeCode === 'PL') {
-          leaveBalance.personal = balance.available || 0;
+          leaveBalance.personal = balance.entitled || 0;
         }
       });
 
