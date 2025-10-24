@@ -52,9 +52,11 @@ export async function middleware(request: NextRequest) {
   // Role-based route protection
   if (token) {
     const userRole = token.role as string
+    const userDepartment = token.department as string
     
-    // HR routes
-    if (pathname.startsWith("/hr") && userRole !== "HR" && userRole !== "EXECUTIVE" && userRole !== "ADMIN") {
+    // HR routes - allow HR role, EXECUTIVE, ADMIN, or EMPLOYEE with HR department
+    const isHREmployee = userRole === "EMPLOYEE" && userDepartment?.toLowerCase().includes("hr")
+    if (pathname.startsWith("/hr") && userRole !== "HR" && userRole !== "EXECUTIVE" && userRole !== "ADMIN" && !isHREmployee) {
       return NextResponse.redirect(new URL("/", request.url))
     }
     
