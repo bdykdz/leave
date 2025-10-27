@@ -28,7 +28,7 @@ export async function POST(
       },
       data: {
         status: 'APPROVED',
-        comment: comment || null,
+        comments: comment || null,
         approvedAt: new Date()
       }
     });
@@ -41,15 +41,57 @@ export async function POST(
     const allApproved = allApprovals.every(approval => approval.status === 'APPROVED');
 
     // Update the leave request status if all approvals are complete
-    const updatedRequest = await prisma.leaveRequest.update({
-      where: { id: params.requestId },
-      data: {
-        status: allApproved ? 'APPROVED' : 'PENDING'
-      },
-      include: {
-        user: true,
-        leaveType: true
+    const updatedRequest = await prisma.$transaction(async (tx) => {
+      const updated = await tx.leaveRequest.update({
+        where: { id: params.requestId },
+        data: {
+          status: allApproved ? 'APPROVED' : 'PENDING'
+        },
+        include: {
+          user: true,
+          leaveType: true
+        }
+      });
+
+      // If fully approved, update leave balance
+      if (allApproved && updated.leaveTypeId && updated.totalDays > 0) {
+        const currentYear = new Date().getFullYear();
+        try {
+          await tx.leaveBalance.update({
+            where: {
+              userId_leaveTypeId_year: {
+                userId: updated.userId,
+                leaveTypeId: updated.leaveTypeId,
+                year: currentYear
+              }
+            },
+            data: {
+              pending: {
+                decrement: updated.totalDays
+              },
+              used: {
+                increment: updated.totalDays
+              }
+            }
+          });
+        } catch (balanceError) {
+          console.error('Warning: Could not update leave balance:', balanceError);
+        }
       }
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'REQUEST_APPROVED',
+          entity: 'LEAVE_REQUEST',
+          entityId: params.requestId,
+          oldValues: { status: 'PENDING' },
+          newValues: { status: allApproved ? 'APPROVED' : 'PENDING', comment: comment || null }
+        }
+      });
+
+      return updated;
     });
 
     // Send notification to the employee

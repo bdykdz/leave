@@ -84,6 +84,18 @@ export async function POST(
       data: { status: 'REJECTED' }
     })
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'REQUEST_DENIED',
+        entity: 'LEAVE_REQUEST',
+        entityId: requestId,
+        oldValues: { status: leaveRequest.status },
+        newValues: { status: 'REJECTED', reason: comment }
+      }
+    })
+
     // Restore leave balance (move from pending back to available)
     const currentYear = new Date().getFullYear()
     try {
@@ -221,6 +233,18 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
     await prisma.workFromHomeRequest.update({
       where: { id: requestId },
       data: { status: 'REJECTED' }
+    })
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'REQUEST_DENIED',
+        entity: 'WFH_REQUEST',
+        entityId: requestId,
+        oldValues: { status: wfhRequest.status },
+        newValues: { status: 'REJECTED', reason: cleanComment }
+      }
     })
 
     // Send email to employee

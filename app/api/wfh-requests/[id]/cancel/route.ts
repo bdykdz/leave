@@ -73,9 +73,7 @@ export async function POST(
       where: { id: params.id },
       data: {
         status: 'CANCELLED',
-        approverComments: reason || 'Cancelled by administrator',
-        approvedAt: new Date(),
-        approverId: session.user.id
+        approverComments: reason || 'Cancelled by administrator'
       }
     });
 

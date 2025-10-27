@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
 
 // POST: Cancel a leave request (admin only)
 export async function POST(
@@ -8,13 +9,13 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getCurrentUser();
+    const session = await getServerSession(authOptions);
     
-    if (!user) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!user || !['ADMIN', 'HR'].includes(user.role)) {
+    if (!['ADMIN', 'HR'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
@@ -47,47 +48,80 @@ export async function POST(
       }
     }
 
-    // Cancel the request
-    const updatedRequest = await prisma.leaveRequest.update({
-      where: { id: params.id },
-      data: {
-        status: 'CANCELLED',
-        approverComments: reason || 'Cancelled by administrator',
-        approvedAt: new Date(),
-        approverId: session.user.id
-      }
-    });
-
-    // If the request was approved, restore the leave balance
-    if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveTypeId) {
-      const leaveBalance = await prisma.leaveBalance.findFirst({
-        where: {
-          userId: leaveRequest.userId,
-          leaveTypeId: leaveRequest.leaveTypeId
+    // Perform all database operations in a transaction for data consistency
+    const updatedRequest = await prisma.$transaction(async (tx) => {
+      // Cancel the request
+      const cancelledRequest = await tx.leaveRequest.update({
+        where: { id: params.id },
+        data: {
+          status: 'CANCELLED',
+          approverComments: reason || 'Cancelled by administrator'
         }
       });
 
-      if (leaveBalance) {
-        await prisma.leaveBalance.update({
-          where: { id: leaveBalance.id },
-          data: {
-            used: Math.max(0, leaveBalance.used - leaveRequest.totalDays),
-            balance: leaveBalance.balance + leaveRequest.totalDays
+      // Restore leave balance based on request status
+      if (leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
+        const currentYear = new Date().getFullYear();
+        
+        try {
+          if (leaveRequest.status === 'APPROVED') {
+            // For approved requests, restore from used back to available
+            await tx.leaveBalance.update({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: leaveRequest.userId,
+                  leaveTypeId: leaveRequest.leaveTypeId,
+                  year: currentYear
+                }
+              },
+              data: {
+                used: {
+                  decrement: leaveRequest.totalDays
+                },
+                available: {
+                  increment: leaveRequest.totalDays
+                }
+              }
+            });
+          } else if (leaveRequest.status === 'PENDING') {
+            // For pending requests, restore from pending back to available
+            await tx.leaveBalance.update({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: leaveRequest.userId,
+                  leaveTypeId: leaveRequest.leaveTypeId,
+                  year: currentYear
+                }
+              },
+              data: {
+                pending: {
+                  decrement: leaveRequest.totalDays
+                },
+                available: {
+                  increment: leaveRequest.totalDays
+                }
+              }
+            });
           }
-        });
+        } catch (balanceError) {
+          console.error('Warning: Could not restore leave balance:', balanceError);
+          // Continue with cancellation even if balance update fails
+        }
       }
-    }
+
+      return cancelledRequest;
+    });
 
     // Log the action
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'REQUEST_CANCELLED',
-        entityType: 'LEAVE_REQUEST',
+        entity: 'LEAVE_REQUEST',
         entityId: params.id,
-        details: {
-          requestId: params.id,
-          previousStatus: leaveRequest.status,
+        oldValues: { status: leaveRequest.status },
+        newValues: { 
+          status: 'CANCELLED', 
           reason: reason || 'Cancelled by administrator',
           cancelledBy: session.user.email
         }

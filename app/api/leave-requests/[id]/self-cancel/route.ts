@@ -86,57 +86,52 @@ export async function POST(
       });
 
       // Restore leave balance based on request status
-      if (leaveRequest.leaveTypeId && leaveRequest.leaveType) {
+      if (leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
         const currentYear = new Date().getFullYear();
         
-        if (leaveRequest.status === 'APPROVED') {
-          // For approved requests, we need to reverse the approval (remove from used, add back to available)
-          const existingBalance = await tx.leaveBalance.findUnique({
-            where: {
-              userId_leaveTypeId_year: {
-                userId: leaveRequest.userId,
-                leaveTypeId: leaveRequest.leaveTypeId,
-                year: currentYear
-              }
-            }
-          });
-
-          if (existingBalance && leaveRequest.leaveType.code === 'NL') {
-            const newUsed = Math.max(0, existingBalance.used - leaveRequest.totalDays);
-            const newAvailable = existingBalance.entitled - newUsed - existingBalance.pending;
-            
+        try {
+          if (leaveRequest.status === 'APPROVED') {
+            // For approved requests, restore from used back to available
             await tx.leaveBalance.update({
-              where: { id: existingBalance.id },
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: leaveRequest.userId,
+                  leaveTypeId: leaveRequest.leaveTypeId,
+                  year: currentYear
+                }
+              },
               data: {
-                used: newUsed,
-                available: newAvailable
+                used: {
+                  decrement: leaveRequest.totalDays
+                },
+                available: {
+                  increment: leaveRequest.totalDays
+                }
+              }
+            });
+          } else if (leaveRequest.status === 'PENDING') {
+            // For pending requests, restore from pending back to available
+            await tx.leaveBalance.update({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: leaveRequest.userId,
+                  leaveTypeId: leaveRequest.leaveTypeId,
+                  year: currentYear
+                }
+              },
+              data: {
+                pending: {
+                  decrement: leaveRequest.totalDays
+                },
+                available: {
+                  increment: leaveRequest.totalDays
+                }
               }
             });
           }
-        } else if (leaveRequest.status === 'PENDING') {
-          // For pending requests, handle the balance update manually since helper function uses separate prisma instance
-          const existingBalance = await tx.leaveBalance.findUnique({
-            where: {
-              userId_leaveTypeId_year: {
-                userId: leaveRequest.userId,
-                leaveTypeId: leaveRequest.leaveTypeId,
-                year: currentYear
-              }
-            }
-          });
-
-          if (existingBalance && leaveRequest.leaveType.code === 'NL') {
-            const newPending = Math.max(0, existingBalance.pending - leaveRequest.totalDays);
-            const newAvailable = existingBalance.entitled - existingBalance.used - newPending;
-            
-            await tx.leaveBalance.update({
-              where: { id: existingBalance.id },
-              data: {
-                pending: newPending,
-                available: newAvailable
-              }
-            });
-          }
+        } catch (balanceError) {
+          console.error('Warning: Could not restore leave balance:', balanceError);
+          // Continue with cancellation even if balance update fails
         }
       }
 
@@ -148,7 +143,7 @@ export async function POST(
         },
         data: {
           status: 'REJECTED',
-          comments: `Request cancelled by ${session.user.role.toLowerCase()}`,
+          comments: `Request cancelled by ${session.user.email}`,
           approvedAt: new Date()
         }
       });
@@ -161,7 +156,7 @@ export async function POST(
           entity: 'LEAVE_REQUEST',
           entityId: params.id,
           oldValues: { status: leaveRequest.status },
-          newValues: { status: 'CANCELLED', reason: reason || `Cancelled by ${session.user.role.toLowerCase()}` }
+          newValues: { status: 'CANCELLED', reason: reason || `Cancelled by ${session.user.email}` }
         }
       });
 
