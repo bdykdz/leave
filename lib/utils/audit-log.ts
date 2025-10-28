@@ -68,7 +68,7 @@ export async function createAuditLog({
         oldValues,
         newValues,
         details: metadata,
-        timestamp: new Date()
+        // Remove timestamp field - it's auto-managed by createdAt
       }
     })
   } catch (error) {
@@ -115,7 +115,7 @@ export async function getAuditLogs(filters: {
       }
     },
     orderBy: {
-      timestamp: 'desc'
+      createdAt: 'desc'
     },
     take: filters.limit || 100
   })

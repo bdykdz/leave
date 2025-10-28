@@ -81,13 +81,9 @@ export class CleanupService {
       results.oldNotifications = oldNotifications.count;
       log.info(`Cleaned ${oldNotifications.count} old notifications`);
 
-      // 4. Clean expired password reset tokens
-      const expiredTokens = await prisma.passwordResetToken.deleteMany({
-        where: {
-          expiresAt: { lt: new Date() },
-        },
-      });
-      log.info(`Cleaned ${expiredTokens.count} expired password reset tokens`);
+      // 4. Skip password reset tokens cleanup - table doesn't exist
+      // Note: Password reset tokens cleanup disabled as table is not defined
+      log.info('Skipped password reset tokens cleanup - table not defined');
 
       // 5. Clean old audit logs (older than 6 months)
       const oldLogsDate = subMonths(new Date(), 6);
@@ -102,9 +98,7 @@ export class CleanupService {
       // 6. Clean orphaned leave balances (for deleted users)
       const orphanedBalances = await prisma.leaveBalance.deleteMany({
         where: {
-          user: {
-            is: null,
-          },
+          user: null,
         },
       });
       log.info(`Cleaned ${orphanedBalances.count} orphaned leave balances`);
@@ -192,9 +186,7 @@ export class CleanupService {
       // 2. Fix approval chains with missing approvers
       const approvalsWithoutApprover = await prisma.approval.findMany({
         where: {
-          approver: {
-            is: null,
-          },
+          approver: null,
         },
         include: {
           leaveRequest: {

@@ -421,9 +421,6 @@ export class EscalationService {
     const currentApprover = approval.approver;
     const config = await this.getEscalationConfig();
     
-    // Use transaction to ensure atomicity
-    return await prisma.$transaction(async (tx) => {
-    
     // Get the next available approver, skipping absent ones if configured
     const { approverId: escalateToId, skippedApprovers } = await this.getNextAvailableApprover(
       leaveRequest.userId,
@@ -438,6 +435,9 @@ export class EscalationService {
     if (skippedApprovers.length > 0) {
       escalationReason += `. Skipped absent approvers: ${skippedApprovers.length}`;
     }
+    
+    // Use transaction to ensure atomicity
+    await prisma.$transaction(async (tx) => {
 
     // Check if we've reached max escalation levels
     if (!escalateToId) {

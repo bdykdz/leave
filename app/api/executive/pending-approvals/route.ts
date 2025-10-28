@@ -25,12 +25,38 @@ export async function GET(request: NextRequest) {
       prisma.leaveRequest.findMany({
         where: {
           status: 'PENDING',
-          approvals: {
-            some: {
-              approverId: session.user.id,
-              status: 'PENDING'
+          OR: [
+            {
+              // Has pending approval for this executive
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              // Escalated requests from managers who report to this executive
+              user: {
+                role: 'MANAGER',
+                managerId: session.user.id
+              }
+            },
+            {
+              // High-level requests that might need executive approval
+              AND: [
+                { totalDays: { gte: 10 } }, // Requests >= 10 days typically need executive approval
+                {
+                  user: {
+                    OR: [
+                      { role: 'MANAGER' },
+                      { role: 'DEPARTMENT_DIRECTOR' }
+                    ]
+                  }
+                }
+              ]
             }
-          }
+          ]
         },
         include: {
           user: {
@@ -65,12 +91,35 @@ export async function GET(request: NextRequest) {
       prisma.leaveRequest.count({
         where: {
           status: 'PENDING',
-          approvals: {
-            some: {
-              approverId: session.user.id,
-              status: 'PENDING'
+          OR: [
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              user: {
+                role: 'MANAGER',
+                managerId: session.user.id
+              }
+            },
+            {
+              AND: [
+                { totalDays: { gte: 10 } },
+                {
+                  user: {
+                    OR: [
+                      { role: 'MANAGER' },
+                      { role: 'DEPARTMENT_DIRECTOR' }
+                    ]
+                  }
+                }
+              ]
             }
-          }
+          ]
         }
       })
     ]);

@@ -157,9 +157,11 @@ export class SmartDocumentGenerator {
       const combinedSignatures = [...(leaveRequest.generatedDocument?.signatures || []), ...newSignatures]
       
       // Update leaveRequest with combined signatures for field data preparation
-      leaveRequest.generatedDocument = {
-        ...leaveRequest.generatedDocument,
-        signatures: combinedSignatures
+      if (leaveRequest.generatedDocument) {
+        leaveRequest.generatedDocument = {
+          ...leaveRequest.generatedDocument,
+          signatures: combinedSignatures
+        }
       }
 
       // 6) Prepare data with updated signatures
@@ -373,7 +375,7 @@ export class SmartDocumentGenerator {
         leaveRequest.requestNumber,
         leaveRequest.user.email,
         leaveRequest.leaveType.name,
-        folderType
+        folderType as 'draft' | 'final'
       )
 
       const fileUrl = await uploadToMinio(

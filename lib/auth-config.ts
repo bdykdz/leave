@@ -101,7 +101,11 @@ export const authOptions: NextAuthOptions = {
           id: profile.sub,
           name: profile.name,
           email: profile.email,
-          image: profile.picture || null // Azure AD sometimes provides picture in the profile
+          image: profile.picture || null, // Azure AD sometimes provides picture in the profile
+          role: 'EMPLOYEE' as const, // Default role, will be overridden by JWT callback
+          department: '', // Will be populated from database
+          firstName: profile.given_name || '',
+          lastName: profile.family_name || ''
         }
       }
     })

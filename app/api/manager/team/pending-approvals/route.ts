@@ -21,16 +21,27 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    // Get pending leave requests where this user is an approver
+    // Get pending leave requests where this user is an approver OR from direct reports
     const pendingLeaveRequests = await prisma.leaveRequest.findMany({
       where: {
         status: 'PENDING',
-        approvals: {
-          some: {
-            approverId: session.user.id,
-            status: 'PENDING'
+        OR: [
+          {
+            // Has pending approval for this user
+            approvals: {
+              some: {
+                approverId: session.user.id,
+                status: 'PENDING'
+              }
+            }
+          },
+          {
+            // Direct report request that might not have approval record yet
+            user: {
+              managerId: session.user.id
+            }
           }
-        }
+        ]
       },
       include: {
         user: true,
@@ -54,16 +65,27 @@ export async function GET(request: Request) {
       take: Math.ceil(limit / 2) // Split limit between leave and WFH
     })
 
-    // Get pending WFH requests where this user needs to approve
+    // Get pending WFH requests where this user needs to approve OR from direct reports
     const pendingWFHRequests = await prisma.workFromHomeRequest.findMany({
       where: {
         status: 'PENDING',
-        approvals: {
-          some: {
-            approverId: session.user.id,
-            status: 'PENDING'
+        OR: [
+          {
+            // Has pending approval for this user
+            approvals: {
+              some: {
+                approverId: session.user.id,
+                status: 'PENDING'
+              }
+            }
+          },
+          {
+            // Direct report request that might not have approval record yet
+            user: {
+              managerId: session.user.id
+            }
           }
-        }
+        ]
       },
       include: {
         user: true,
@@ -84,24 +106,42 @@ export async function GET(request: Request) {
     const totalLeaveCount = await prisma.leaveRequest.count({
       where: {
         status: 'PENDING',
-        approvals: {
-          some: {
-            approverId: session.user.id,
-            status: 'PENDING'
+        OR: [
+          {
+            approvals: {
+              some: {
+                approverId: session.user.id,
+                status: 'PENDING'
+              }
+            }
+          },
+          {
+            user: {
+              managerId: session.user.id
+            }
           }
-        }
+        ]
       }
     })
 
     const totalWFHCount = await prisma.workFromHomeRequest.count({
       where: {
         status: 'PENDING',
-        approvals: {
-          some: {
-            approverId: session.user.id,
-            status: 'PENDING'
+        OR: [
+          {
+            approvals: {
+              some: {
+                approverId: session.user.id,
+                status: 'PENDING'
+              }
+            }
+          },
+          {
+            user: {
+              managerId: session.user.id
+            }
           }
-        }
+        ]
       }
     })
 
