@@ -537,6 +537,14 @@ export default function EmployeeDashboard() {
           <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
             {t.dashboard.teamCalendar}
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/holiday-planning')}
+            className="flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Holiday Planning
+          </Button>
         </div>
 
         {activeTab === "dashboard" && (

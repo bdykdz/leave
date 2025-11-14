@@ -633,6 +633,14 @@ export default function ManagerDashboard() {
           <Button variant={activeTab === "delegation" ? "default" : "outline"} onClick={() => setActiveTab("delegation")}>
             Delegation
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/holiday-planning')}
+            className="flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Holiday Planning
+          </Button>
         </div>
 
         {activeTab === "dashboard" && (

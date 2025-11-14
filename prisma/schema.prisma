@@ -67,6 +67,7 @@ model User {
   delegatorRelations    ApprovalDelegate[]   @relation("DelegatorRelation")
   delegateRelations     ApprovalDelegate[]   @relation("DelegateRelation")
   auditLogs             AuditLog[]
+  holidayPlans          HolidayPlan[]
 }
 
 model LeaveType {
@@ -467,4 +468,86 @@ model WFHSignature {
   @@unique([documentId, signerId, signerRole])
   @@index([documentId])
   @@index([signerId])
+}
+
+// Holiday Planning Models
+model HolidayPlanningWindow {
+  id          String                @id @default(cuid())
+  year        Int                   @unique
+  openDate    DateTime
+  closeDate   DateTime
+  stage       PlanningStage         @default(CLOSED)
+  isActive    Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  createdBy   String?
+  
+  holidayPlans HolidayPlan[]
+  
+  @@index([year])
+  @@index([stage])
+}
+
+model HolidayPlan {
+  id          String                @id @default(cuid())
+  windowId    String
+  userId      String
+  year        Int
+  status      PlanStatus            @default(DRAFT)
+  submittedAt DateTime?
+  finalizedAt DateTime?
+  notes       String?
+  version     Int                   @default(0)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  
+  window      HolidayPlanningWindow @relation(fields: [windowId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dates       HolidayPlanDate[]
+  
+  @@unique([userId, year])
+  @@index([windowId])
+  @@index([userId])
+  @@index([year])
+  @@index([status])
+}
+
+model HolidayPlanDate {
+  id          String         @id @default(cuid())
+  planId      String
+  date        DateTime
+  priority    PlanPriority   @default(PREFERRED)
+  reason      String?
+  isHalfDay   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  plan        HolidayPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  @@unique([planId, date])
+  @@index([planId])
+  @@index([date])
+}
+
+enum PlanningStage {
+  CLOSED
+  DRAFT        // Oct 1-15: Employees can freely edit
+  SUBMISSION   // Oct 16-Nov 30: Submit for review
+  COORDINATION // Dec 1-15: Managers negotiate conflicts
+  FINALIZATION // Dec 16-31: Lock in plans
+  LOCKED       // Jan 1+: Read-only reference
+}
+
+enum PlanStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  FINALIZED
+  LOCKED
+}
+
+enum PlanPriority {
+  ESSENTIAL    // Must have these dates
+  PREFERRED    // Would like these dates
+  NICE_TO_HAVE // Flexible on these dates
 }
