@@ -49,16 +49,31 @@ export default function HolidayPlanningPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [holidays, setHolidays] = useState<Date[]>([])
 
   const currentYear = new Date().getFullYear()
   const planningYear = currentYear + 1
 
-  // Load user's holiday plan
+  // Load user's holiday plan and holidays
   useEffect(() => {
     if (session) {
       loadPlan()
+      loadHolidays()
     }
   }, [session])
+
+  const loadHolidays = async () => {
+    try {
+      const response = await fetch(`/api/holidays?year=${planningYear}`)
+      if (response.ok) {
+        const data = await response.json()
+        const holidayDates = data.holidays.map((holiday: any) => new Date(holiday.date))
+        setHolidays(holidayDates)
+      }
+    } catch (error) {
+      console.error('Error loading holidays:', error)
+    }
+  }
 
   const loadPlan = async () => {
     try {
@@ -82,9 +97,33 @@ export default function HolidayPlanningPage() {
     }
   }
 
+  const isWeekend = (date: Date) => {
+    const day = date.getDay()
+    return day === 0 || day === 6 // Sunday = 0, Saturday = 6
+  }
+
+  const isHoliday = (date: Date) => {
+    return holidays.some(holiday => 
+      holiday.getFullYear() === date.getFullYear() &&
+      holiday.getMonth() === date.getMonth() &&
+      holiday.getDate() === date.getDate()
+    )
+  }
+
+  const isDateDisabled = (date: Date) => {
+    return isWeekend(date) || isHoliday(date)
+  }
+
   const handleDateSelect = (dates: Date[] | undefined) => {
     if (dates) {
-      setSelectedDates(dates)
+      // Filter out any disabled dates that might have been selected
+      const validDates = dates.filter(date => !isDateDisabled(date))
+      setSelectedDates(validDates)
+      
+      // Show warning if some dates were filtered out
+      if (validDates.length !== dates.length) {
+        toast.error('Weekends and holidays cannot be selected for holiday planning')
+      }
     }
   }
 
@@ -291,7 +330,9 @@ export default function HolidayPlanningPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Add Holiday Dates</CardTitle>
-                <CardDescription>Select dates for your {planningYear} holiday plan</CardDescription>
+                <CardDescription>
+                  Select dates for your {planningYear} holiday plan. Weekends and holidays are automatically blocked.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <CalendarComponent
@@ -300,6 +341,7 @@ export default function HolidayPlanningPage() {
                   onSelect={handleDateSelect}
                   fromDate={new Date(planningYear, 0, 1)}
                   toDate={new Date(planningYear, 11, 31)}
+                  disabled={isDateDisabled}
                   className="rounded-md border"
                 />
 
