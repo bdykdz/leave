@@ -227,8 +227,12 @@ export default function HolidayPlanningPage() {
     )
   }
 
-  const canEdit = plan?.window?.stage === 'DRAFT' && plan?.status === 'DRAFT'
-  const canSubmit = plan?.window?.stage === 'SUBMISSION' && plan?.status === 'DRAFT'
+  // Simplified logic: Allow editing and submission anytime during Oct-Dec (when window is active)
+  const windowIsOpen = plan?.window?.stage === 'DRAFT' || plan?.window?.stage === 'SUBMISSION' || plan?.window?.stage === 'COORDINATION' || plan?.window?.stage === 'FINALIZATION'
+  const planNotLocked = plan?.status !== 'LOCKED'
+  
+  const canEdit = windowIsOpen && planNotLocked
+  const canSubmit = windowIsOpen && planNotLocked
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -260,9 +264,9 @@ export default function HolidayPlanningPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Planning Stage</p>
-                    <Badge variant={plan?.window?.stage === 'DRAFT' ? 'default' : 'secondary'}>
-                      {plan?.window?.stage || 'CLOSED'}
+                    <p className="text-sm text-gray-600">Planning Window</p>
+                    <Badge variant={windowIsOpen ? 'default' : 'secondary'}>
+                      {windowIsOpen ? 'OPEN' : 'CLOSED'}
                     </Badge>
                   </div>
                   <div>

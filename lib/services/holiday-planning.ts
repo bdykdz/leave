@@ -30,33 +30,29 @@ export class HolidayPlanningService {
     const openDate = new Date(currentYear, 9, 1) // October 1st
     const closeDate = new Date(currentYear, 11, 31) // December 31st
     
-    // Determine stage based on current date
+    // Simple stage logic: OPEN during Oct-Dec, CLOSED otherwise
     let stage: PlanningStage = PlanningStage.CLOSED
     const currentMonth = now.getMonth()
-    const currentDay = now.getDate()
     
-    if (currentMonth === 9) { // October
-      stage = currentDay <= 15 ? PlanningStage.DRAFT : PlanningStage.SUBMISSION
-    } else if (currentMonth === 10) { // November
-      stage = PlanningStage.SUBMISSION
-    } else if (currentMonth === 11) { // December
-      stage = currentDay <= 15 ? PlanningStage.COORDINATION : PlanningStage.FINALIZATION
-    } else if (currentMonth >= 0 && currentMonth <= 8) { // Jan-Sep of following year
-      stage = PlanningStage.LOCKED
+    if (currentMonth >= 9 && currentMonth <= 11) { // October-December
+      stage = PlanningStage.DRAFT // Use DRAFT as "OPEN" status
+    } else if (currentYear > year || (currentYear === year && currentMonth > 11)) {
+      stage = PlanningStage.LOCKED // Past planning windows are locked
     }
 
     const window = await prisma.holidayPlanningWindow.upsert({
       where: { year },
       update: {
         stage,
-        updatedAt: now
+        updatedAt: now,
+        isActive: stage === PlanningStage.DRAFT
       },
       create: {
         year,
         openDate,
         closeDate,
         stage,
-        isActive: true,
+        isActive: stage === PlanningStage.DRAFT,
         createdBy: userId
       },
       include: { holidayPlans: true }
@@ -72,34 +68,38 @@ export class HolidayPlanningService {
     const now = new Date()
     const currentYear = now.getFullYear()
     const nextYear = currentYear + 1
+    const currentMonth = now.getMonth()
     
-    // Update current year window to LOCKED if needed
+    // Simple logic: Open Oct-Dec, Closed/Locked otherwise
+    
+    // Lock past year windows
     await prisma.holidayPlanningWindow.updateMany({
       where: {
-        year: currentYear,
+        year: { lt: nextYear },
         stage: { not: PlanningStage.LOCKED }
       },
-      data: { stage: PlanningStage.LOCKED }
+      data: { 
+        stage: PlanningStage.LOCKED,
+        isActive: false
+      }
     })
     
-    // Update next year window based on current date
-    const currentMonth = now.getMonth()
-    const currentDay = now.getDate()
-    
-    let stage: PlanningStage = PlanningStage.CLOSED
-    
-    if (currentMonth === 9) { // October
-      stage = currentDay <= 15 ? PlanningStage.DRAFT : PlanningStage.SUBMISSION
-    } else if (currentMonth === 10) { // November
-      stage = PlanningStage.SUBMISSION
-    } else if (currentMonth === 11) { // December
-      stage = currentDay <= 15 ? PlanningStage.COORDINATION : PlanningStage.FINALIZATION
-    }
-    
-    if (stage !== PlanningStage.CLOSED) {
+    // Update next year window: Open during Oct-Dec, Closed otherwise
+    if (currentMonth >= 9 && currentMonth <= 11) { // October-December
       await prisma.holidayPlanningWindow.updateMany({
         where: { year: nextYear },
-        data: { stage }
+        data: { 
+          stage: PlanningStage.DRAFT, // Use DRAFT as "OPEN"
+          isActive: true
+        }
+      })
+    } else {
+      await prisma.holidayPlanningWindow.updateMany({
+        where: { year: nextYear },
+        data: { 
+          stage: PlanningStage.CLOSED,
+          isActive: false
+        }
       })
     }
   }
@@ -146,7 +146,7 @@ export class HolidayPlanningService {
       throw new Error('Planning window not available')
     }
 
-    // Check if planning window allows editing
+    // Check if planning window allows editing (only block if LOCKED or CLOSED)
     if (window.stage === PlanningStage.LOCKED || window.stage === PlanningStage.CLOSED) {
       throw new Error('Planning window is not active')
     }
@@ -170,8 +170,8 @@ export class HolidayPlanningService {
       })
     }
 
-    // Check if plan can be edited
-    if (plan.status === PlanStatus.LOCKED || plan.status === PlanStatus.FINALIZED) {
+    // Check if plan can be edited (only block if LOCKED)
+    if (plan.status === PlanStatus.LOCKED) {
       throw new Error('Plan is locked and cannot be edited')
     }
 
@@ -229,12 +229,13 @@ export class HolidayPlanningService {
       throw new Error('Plan not found')
     }
 
-    if (plan.window.stage !== PlanningStage.SUBMISSION) {
-      throw new Error('Plan submission is not currently open')
+    // Allow submission anytime during Oct-Dec (when window is active)
+    if (plan.window.stage === PlanningStage.LOCKED || plan.window.stage === PlanningStage.CLOSED) {
+      throw new Error('Planning window is not open for submissions')
     }
 
-    if (plan.status !== PlanStatus.DRAFT) {
-      throw new Error('Plan is not in draft status')
+    if (plan.status === PlanStatus.LOCKED) {
+      throw new Error('Plan is already locked')
     }
 
     const updatedPlan = await prisma.holidayPlan.update({

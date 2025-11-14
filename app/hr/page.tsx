@@ -205,24 +205,24 @@ export default function HRDashboard() {
                 <h3 className="font-semibold mb-4">Planning Timeline</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span>Oct 1-15:</span>
-                    <span className="text-gray-600">Draft phase</span>
+                    <span>October - December:</span>
+                    <span className="text-gray-600">Planning window OPEN</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Oct 16-Nov 30:</span>
-                    <span className="text-gray-600">Submission phase</span>
+                    <span>• Create & edit plans</span>
+                    <span className="text-gray-600">Anytime during period</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Dec 1-15:</span>
-                    <span className="text-gray-600">Coordination phase</span>
+                    <span>• Submit for review</span>
+                    <span className="text-gray-600">Anytime during period</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Dec 16-31:</span>
-                    <span className="text-gray-600">Finalization phase</span>
+                    <span>• Manager review</span>
+                    <span className="text-gray-600">Anytime during period</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Jan 1:</span>
-                    <span className="text-gray-600">Plans locked</span>
+                    <span>January - September:</span>
+                    <span className="text-gray-600">Planning window CLOSED</span>
                   </div>
                 </div>
               </div>
