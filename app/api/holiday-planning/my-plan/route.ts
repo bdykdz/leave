@@ -29,7 +29,21 @@ export async function GET(request: NextRequest) {
 
     const plan = await HolidayPlanningService.getUserHolidayPlan(session.user?.id || '', year)
     
-    return NextResponse.json(plan || null)
+    // If no plan exists, return a minimal plan structure with window info
+    if (!plan) {
+      const window = await HolidayPlanningService.getCurrentPlanningWindow(year)
+      return NextResponse.json({
+        id: null,
+        year,
+        status: null,
+        submittedAt: null,
+        dates: [],
+        window,
+        user: null
+      })
+    }
+    
+    return NextResponse.json(plan)
   } catch (error) {
     console.error('Error fetching user plan:', error)
     return NextResponse.json(
