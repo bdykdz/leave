@@ -133,29 +133,37 @@ export default function HolidayPlanningPage() {
 
     // Check if adding these dates would exceed the 30-day limit
     const currentDayCount = plan?.dates?.length || 0
-    const existingSelectedDates = plan?.dates?.filter(d => 
-      selectedDates.some(sd => sd.toDateString() === parseISO(d.date).toDateString())
-    ).length || 0
-    const newDayCount = currentDayCount - existingSelectedDates + selectedDates.length
+    const trulyNewDates = selectedDates.filter(selectedDate => 
+      !plan?.dates?.some(existingDate => 
+        parseISO(existingDate.date).toDateString() === selectedDate.toDateString()
+      )
+    )
+    const newDayCount = currentDayCount + trulyNewDates.length
     
     if (newDayCount > 30) {
       toast.error(`Cannot add ${selectedDates.length} days. This would exceed the 30-day annual limit (currently ${currentDayCount}/30)`)
       return
     }
 
-    // Create new plan dates
-    const newPlanDates: Partial<HolidayPlanDate>[] = selectedDates.map(date => ({
-      date: date.toISOString(),
+    // Only add truly new dates, preserve existing ones
+    const existingDates = plan?.dates || []
+    const newDates = selectedDates.filter(selectedDate => 
+      !existingDates.some(existingDate => 
+        parseISO(existingDate.date).toDateString() === selectedDate.toDateString()
+      )
+    )
+
+    // Create new plan dates only for truly new dates
+    const newPlanDates: Partial<HolidayPlanDate>[] = newDates.map(date => ({
+      date: date.toISOString().split('T')[0], // Just date part: YYYY-MM-DD
       priority: currentPriority,
       reason: currentReason || undefined
     }))
 
-    // Update plan
+    // Update plan by keeping existing dates and adding new ones
     const updatedPlan = plan ? {
       ...plan,
-      dates: [...plan.dates.filter(d => 
-        !selectedDates.some(sd => sd.toDateString() === parseISO(d.date).toDateString())
-      ), ...newPlanDates as HolidayPlanDate[]]
+      dates: [...existingDates, ...newPlanDates as HolidayPlanDate[]]
     } : null
 
     if (updatedPlan) {
@@ -166,7 +174,11 @@ export default function HolidayPlanningPage() {
     setSelectedDates([])
     setCurrentReason('')
     
-    toast.success(`Added ${selectedDates.length} date(s) to your plan`)
+    if (newDates.length > 0) {
+      toast.success(`Added ${newDates.length} new date(s) to your plan`)
+    } else {
+      toast.info('All selected dates were already in your plan')
+    }
   }
 
   const removePlanDate = (dateToRemove: string) => {
@@ -357,6 +369,16 @@ export default function HolidayPlanningPage() {
                   toDate={new Date(planningYear, 11, 31)}
                   disabled={isDateDisabled}
                   className="rounded-md border"
+                  modifiers={{
+                    essential: plan?.dates?.filter(d => d.priority === 'ESSENTIAL').map(d => parseISO(d.date)) || [],
+                    preferred: plan?.dates?.filter(d => d.priority === 'PREFERRED').map(d => parseISO(d.date)) || [],
+                    niceToHave: plan?.dates?.filter(d => d.priority === 'NICE_TO_HAVE').map(d => parseISO(d.date)) || []
+                  }}
+                  modifiersClassNames={{
+                    essential: "border-red-500 border-2 bg-red-50 hover:bg-red-100",
+                    preferred: "border-blue-500 border-2 bg-blue-50 hover:bg-blue-100", 
+                    niceToHave: "border-green-500 border-2 bg-green-50 hover:bg-green-100"
+                  }}
                 />
 
                 <div className="space-y-4">

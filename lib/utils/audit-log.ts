@@ -29,12 +29,19 @@ export enum AuditAction {
   BULK_APPROVE = 'BULK_APPROVE',
   UPDATE_LEAVE_BALANCE = 'UPDATE_LEAVE_BALANCE',
   MANAGE_HOLIDAYS = 'MANAGE_HOLIDAYS',
+  
+  // Holiday Planning Actions
+  CREATE_HOLIDAY_PLAN = 'CREATE_HOLIDAY_PLAN',
+  UPDATE_HOLIDAY_PLAN = 'UPDATE_HOLIDAY_PLAN',
+  SUBMIT_HOLIDAY_PLAN = 'SUBMIT_HOLIDAY_PLAN',
+  APPROVE_HOLIDAY_PLAN = 'APPROVE_HOLIDAY_PLAN',
+  REJECT_HOLIDAY_PLAN = 'REJECT_HOLIDAY_PLAN',
 }
 
 interface AuditLogParams {
   userId: string
   action: AuditAction | string
-  entity: 'LEAVE_REQUEST' | 'WFH_REQUEST' | 'USER' | 'DOCUMENT' | 'HOLIDAY' | 'LEAVE_BALANCE'
+  entity: 'LEAVE_REQUEST' | 'WFH_REQUEST' | 'USER' | 'DOCUMENT' | 'HOLIDAY' | 'LEAVE_BALANCE' | 'HOLIDAY_PLAN'
   entityId: string
   oldValues?: any
   newValues?: any

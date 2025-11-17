@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { AuditAction } from '@prisma/client'
+import { AuditAction } from '@/lib/utils/audit-log'
 
 export interface AuditContext {
   userId?: string
@@ -79,11 +79,11 @@ export class AuditService {
     newPlan?: any
     context?: AuditContext
   }) {
-    const auditAction = action === 'CREATED' ? AuditAction.CREATE :
-                       action === 'UPDATED' ? AuditAction.UPDATE :
-                       action === 'SUBMITTED' ? AuditAction.UPDATE :
-                       action === 'APPROVED' ? AuditAction.APPROVE :
-                       AuditAction.REJECT
+    const auditAction = action === 'CREATED' ? AuditAction.CREATE_HOLIDAY_PLAN :
+                       action === 'UPDATED' ? AuditAction.UPDATE_HOLIDAY_PLAN :
+                       action === 'SUBMITTED' ? AuditAction.SUBMIT_HOLIDAY_PLAN :
+                       action === 'APPROVED' ? AuditAction.APPROVE_HOLIDAY_PLAN :
+                       AuditAction.REJECT_HOLIDAY_PLAN
 
     await this.log({
       action: auditAction,
@@ -119,12 +119,12 @@ export class AuditService {
     newRequest?: any
     context?: AuditContext
   }) {
-    const auditAction = action === 'CREATED' ? AuditAction.CREATE :
-                       action === 'UPDATED' ? AuditAction.UPDATE :
-                       action === 'SUBMITTED' ? AuditAction.UPDATE :
-                       action === 'APPROVED' ? AuditAction.APPROVE :
-                       action === 'REJECTED' ? AuditAction.REJECT :
-                       AuditAction.DELETE
+    const auditAction = action === 'CREATED' ? AuditAction.CREATE_LEAVE :
+                       action === 'UPDATED' ? AuditAction.EDIT_LEAVE :
+                       action === 'SUBMITTED' ? AuditAction.EDIT_LEAVE :
+                       action === 'APPROVED' ? AuditAction.APPROVE_LEAVE :
+                       action === 'REJECTED' ? AuditAction.REJECT_LEAVE :
+                       AuditAction.CANCEL_LEAVE
 
     await this.log({
       action: auditAction,
@@ -159,7 +159,7 @@ export class AuditService {
     context?: AuditContext
   }) {
     await this.log({
-      action: action === 'LOGIN' || action === 'LOGIN_FAILED' ? AuditAction.READ : AuditAction.UPDATE,
+      action: AuditAction.UPDATE_EMPLOYEE,
       entityType: 'User',
       entityId: userId,
       userId,
@@ -191,7 +191,7 @@ export class AuditService {
     context?: AuditContext
   }) {
     await this.log({
-      action: AuditAction.UPDATE,
+      action: AuditAction.UPDATE_EMPLOYEE,
       entityType,
       entityId,
       userId,

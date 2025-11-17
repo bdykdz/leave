@@ -86,11 +86,14 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate request body
     const body = await request.json()
+    console.log('POST /my-plan - Request body:', JSON.stringify(body, null, 2))
     
     let validatedData
     try {
       validatedData = createPlanSchema.parse(body)
+      console.log('POST /my-plan - Validation successful')
     } catch (error) {
+      console.error('POST /my-plan - Validation error:', error)
       if (error instanceof z.ZodError) {
         return NextResponse.json(
           { error: 'Validation failed', details: error.errors },
