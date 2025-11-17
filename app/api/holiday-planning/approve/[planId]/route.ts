@@ -62,7 +62,6 @@ export async function POST(
     const hasPermission = 
       (currentUser.role === 'MANAGER' && plan.user.managerId === currentUser.id) ||
       (currentUser.role === 'DIRECTOR' && plan.user.departmentDirectorId === currentUser.id) ||
-      (currentUser.role === 'DIRECTOR' && plan.user.department === currentUser.department) ||
       (currentUser.role === 'EXECUTIVE')
 
     if (!hasPermission) {
