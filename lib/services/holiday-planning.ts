@@ -177,41 +177,50 @@ export class HolidayPlanningService {
       throw new Error('Plan is locked and cannot be edited')
     }
 
-    // Delete existing dates and create new ones
-    await prisma.holidayPlanDate.deleteMany({
-      where: { planId: plan.id }
-    })
-
-    if (dates.length > 0) {
-      await prisma.holidayPlanDate.createMany({
-        data: dates.map(date => ({
-          planId: plan.id,
-          date: new Date(date.date),
-          priority: date.priority,
-          reason: date.reason
-        }))
-      })
+    // Validate 30-day limit
+    if (dates.length > 30) {
+      throw new Error('Cannot exceed 30 holiday days per year')
     }
 
-    // Update plan version
-    const updatedPlan = await prisma.holidayPlan.update({
-      where: { id: plan.id },
-      data: {
-        version: { increment: 1 },
-        updatedAt: new Date()
-      },
-      include: {
-        dates: { orderBy: { date: 'asc' } },
-        window: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            email: true,
-            department: true
+    // Use transaction to ensure atomic updates
+    const updatedPlan = await prisma.$transaction(async (tx) => {
+      // Delete existing dates
+      await tx.holidayPlanDate.deleteMany({
+        where: { planId: plan.id }
+      })
+
+      // Create new dates if any
+      if (dates.length > 0) {
+        await tx.holidayPlanDate.createMany({
+          data: dates.map(date => ({
+            planId: plan.id,
+            date: new Date(date.date),
+            priority: date.priority,
+            reason: date.reason
+          }))
+        })
+      }
+
+      // Update plan version atomically
+      return await tx.holidayPlan.update({
+        where: { id: plan.id },
+        data: {
+          version: { increment: 1 },
+          updatedAt: new Date()
+        },
+        include: {
+          dates: { orderBy: { date: 'asc' } },
+          window: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              department: true
+            }
           }
         }
-      }
+      })
     })
 
     return updatedPlan
@@ -284,8 +293,12 @@ export class HolidayPlanningService {
       throw new Error('Plan is already locked')
     }
 
+    // Use atomic update with where condition to prevent race conditions
     const updatedPlan = await prisma.holidayPlan.update({
-      where: { id: plan.id },
+      where: { 
+        id: plan.id,
+        status: { notIn: [PlanStatus.LOCKED, PlanStatus.SUBMITTED] } // Only update if not already submitted/locked
+      },
       data: {
         status: PlanStatus.SUBMITTED,
         submittedAt: new Date()

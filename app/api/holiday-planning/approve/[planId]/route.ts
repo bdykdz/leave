@@ -8,7 +8,10 @@ import { z } from 'zod'
 
 const approvalSchema = z.object({
   action: z.enum(['approve', 'reject', 'request_revision']),
-  comments: z.string().optional()
+  comments: z.string().max(1000).optional().transform(val => {
+    // Basic sanitization: trim whitespace and remove potentially harmful characters
+    return val ? val.trim().replace(/[<>]/g, '') : undefined
+  })
 })
 
 export async function POST(
@@ -46,6 +49,14 @@ export async function POST(
 
     if (!plan) {
       return NextResponse.json({ error: 'Holiday plan not found' }, { status: 404 })
+    }
+
+    // Check if plan is in a valid state for approval
+    if (plan.status !== PlanStatus.SUBMITTED) {
+      return NextResponse.json({ 
+        error: 'Plan cannot be approved in current status', 
+        currentStatus: plan.status 
+      }, { status: 400 })
     }
 
     // Check if user has permission to approve this plan

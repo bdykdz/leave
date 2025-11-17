@@ -12,9 +12,21 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '3');
+    const pageParam = searchParams.get('page') || '1'
+    const limitParam = searchParams.get('limit') || '3'
     const status = searchParams.get('status'); // optional filter
+    
+    // Validate pagination parameters
+    const page = parseInt(pageParam)
+    const limit = parseInt(limitParam)
+    
+    if (isNaN(page) || page < 1 || page > 1000) {
+      return NextResponse.json({ error: 'Invalid page parameter' }, { status: 400 })
+    }
+    
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json({ error: 'Invalid limit parameter' }, { status: 400 })
+    }
 
     // Build where clause
     const where: any = {

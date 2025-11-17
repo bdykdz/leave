@@ -19,9 +19,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Month parameter is required' }, { status: 400 })
     }
 
+    // Validate month parameter format
+    const monthRegex = /^\d{4}-\d{2}$/
+    if (!monthRegex.test(monthParam)) {
+      return NextResponse.json({ error: 'Invalid month format. Expected YYYY-MM' }, { status: 400 })
+    }
+
     // Parse the month parameter
     const [year, month] = monthParam.split('-').map(Number)
+    
+    // Validate year and month ranges
+    if (year < 2020 || year > 2030 || month < 1 || month > 12) {
+      return NextResponse.json({ error: 'Invalid year or month value' }, { status: 400 })
+    }
+    
     const targetDate = new Date(year, month - 1, 1) // month is 0-indexed in Date constructor
+    
+    // Additional validation - ensure date was created correctly
+    if (isNaN(targetDate.getTime())) {
+      return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
+    }
 
     const monthStart = startOfMonth(targetDate)
     const monthEnd = endOfMonth(targetDate)

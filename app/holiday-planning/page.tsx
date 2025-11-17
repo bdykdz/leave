@@ -131,6 +131,18 @@ export default function HolidayPlanningPage() {
       return
     }
 
+    // Check if adding these dates would exceed the 30-day limit
+    const currentDayCount = plan?.dates?.length || 0
+    const existingSelectedDates = plan?.dates?.filter(d => 
+      selectedDates.some(sd => sd.toDateString() === parseISO(d.date).toDateString())
+    ).length || 0
+    const newDayCount = currentDayCount - existingSelectedDates + selectedDates.length
+    
+    if (newDayCount > 30) {
+      toast.error(`Cannot add ${selectedDates.length} days. This would exceed the 30-day annual limit (currently ${currentDayCount}/30)`)
+      return
+    }
+
     // Create new plan dates
     const newPlanDates: Partial<HolidayPlanDate>[] = selectedDates.map(date => ({
       date: date.toISOString(),
@@ -310,10 +322,13 @@ export default function HolidayPlanningPage() {
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Total Days</p>
-                    <p className="text-lg font-semibold">
-                      {plan?.dates?.length || 0}
+                    <p className="text-sm text-gray-600">Holiday Days</p>
+                    <p className={`text-lg font-semibold ${(plan?.dates?.length || 0) > 30 ? 'text-red-600' : (plan?.dates?.length || 0) > 25 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {plan?.dates?.length || 0} / 30
                     </p>
+                    {(plan?.dates?.length || 0) > 30 && (
+                      <p className="text-xs text-red-600">Exceeds maximum limit</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -327,6 +342,10 @@ export default function HolidayPlanningPage() {
                 <CardTitle>Add Holiday Dates</CardTitle>
                 <CardDescription>
                   Select dates for your {planningYear} holiday plan. Weekends and holidays are automatically blocked.
+                  <br />
+                  <span className={`font-medium ${(plan?.dates?.length || 0) > 25 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {30 - (plan?.dates?.length || 0)} days remaining out of 30 annual limit
+                  </span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
