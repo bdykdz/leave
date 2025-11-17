@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { PlanningStage, PlanStatus, PlanPriority } from '@prisma/client'
+import { emailService, HolidayPlanSubmissionEmailData } from '@/lib/email-service'
+import { format } from 'date-fns'
 
 export class HolidayPlanningService {
   /**
@@ -137,7 +139,7 @@ export class HolidayPlanningService {
   static async createOrUpdateUserPlan(
     userId: string, 
     year: number, 
-    dates: { date: string; priority: PlanPriority; reason?: string; isHalfDay?: boolean }[]
+    dates: { date: string; priority: PlanPriority; reason?: string }[]
   ) {
     // Get or create planning window
     const window = await this.getCurrentPlanningWindow(year)
@@ -186,8 +188,7 @@ export class HolidayPlanningService {
           planId: plan.id,
           date: new Date(date.date),
           priority: date.priority,
-          reason: date.reason,
-          isHalfDay: date.isHalfDay || false
+          reason: date.reason
         }))
       })
     }
@@ -222,7 +223,20 @@ export class HolidayPlanningService {
   static async submitPlan(userId: string, year: number) {
     const plan = await prisma.holidayPlan.findUnique({
       where: { userId_year: { userId, year } },
-      include: { window: true, dates: true }
+      include: { 
+        window: true, 
+        dates: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            department: true,
+            managerId: true,
+            departmentDirectorId: true
+          }
+        }
+      }
     })
 
     if (!plan) {
@@ -252,13 +266,90 @@ export class HolidayPlanningService {
             firstName: true,
             lastName: true,
             email: true,
-            department: true
+            department: true,
+            managerId: true,
+            departmentDirectorId: true
           }
         }
       }
     })
 
+    // Send email notifications to manager and department director
+    await this.sendSubmissionNotifications(updatedPlan)
+
     return updatedPlan
+  }
+
+  /**
+   * Send email notifications when a holiday plan is submitted
+   */
+  static async sendSubmissionNotifications(plan: any) {
+    try {
+      const employeeName = `${plan.user.firstName} ${plan.user.lastName}`
+      const totalDays = plan.dates.length
+      const submissionDate = format(plan.submittedAt, 'MMMM d, yyyy')
+      const companyName = process.env.COMPANY_NAME || 'Company'
+
+      // Prepare notification data
+      const notificationData: HolidayPlanSubmissionEmailData = {
+        employeeName,
+        managerName: '', // Will be set below
+        year: plan.year,
+        totalDays,
+        submissionDate,
+        companyName,
+        planId: plan.id
+      }
+
+      const promises: Promise<boolean>[] = []
+
+      // Send to manager if exists
+      if (plan.user.managerId) {
+        const manager = await prisma.user.findUnique({
+          where: { id: plan.user.managerId },
+          select: { firstName: true, lastName: true, email: true }
+        })
+
+        if (manager) {
+          const managerNotificationData = {
+            ...notificationData,
+            managerName: `${manager.firstName} ${manager.lastName}`
+          }
+          promises.push(
+            emailService.sendHolidayPlanSubmissionNotification(manager.email, managerNotificationData)
+          )
+        }
+      }
+
+      // Send to department director if exists and different from manager
+      if (plan.user.departmentDirectorId && plan.user.departmentDirectorId !== plan.user.managerId) {
+        const director = await prisma.user.findUnique({
+          where: { id: plan.user.departmentDirectorId },
+          select: { firstName: true, lastName: true, email: true }
+        })
+
+        if (director) {
+          const directorNotificationData = {
+            ...notificationData,
+            managerName: `${director.firstName} ${director.lastName}`
+          }
+          promises.push(
+            emailService.sendHolidayPlanSubmissionNotification(director.email, directorNotificationData)
+          )
+        }
+      }
+
+      // Wait for all emails to be sent
+      if (promises.length > 0) {
+        const results = await Promise.all(promises)
+        const successCount = results.filter(Boolean).length
+        console.log(`Holiday plan submission notifications: ${successCount}/${promises.length} sent successfully`)
+      }
+
+    } catch (error) {
+      console.error('Error sending holiday plan submission notifications:', error)
+      // Don't throw error to prevent blocking the submission process
+    }
   }
 
   /**
@@ -317,9 +408,7 @@ export class HolidayPlanningService {
       }
     }
 
-    const plannedDays = plan.dates.reduce((total, date) => {
-      return total + (date.isHalfDay ? 0.5 : 1)
-    }, 0)
+    const plannedDays = plan.dates.length
 
     return {
       plannedDays,

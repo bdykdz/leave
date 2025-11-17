@@ -18,7 +18,6 @@ interface HolidayPlanDate {
   date: string
   priority: 'ESSENTIAL' | 'PREFERRED' | 'NICE_TO_HAVE'
   reason?: string
-  isHalfDay: boolean
 }
 
 interface HolidayPlan {
@@ -45,7 +44,6 @@ export default function HolidayPlanningPage() {
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [currentPriority, setCurrentPriority] = useState<'ESSENTIAL' | 'PREFERRED' | 'NICE_TO_HAVE'>('PREFERRED')
   const [currentReason, setCurrentReason] = useState('')
-  const [isHalfDay, setIsHalfDay] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -137,8 +135,7 @@ export default function HolidayPlanningPage() {
     const newPlanDates: Partial<HolidayPlanDate>[] = selectedDates.map(date => ({
       date: date.toISOString(),
       priority: currentPriority,
-      reason: currentReason || undefined,
-      isHalfDay
+      reason: currentReason || undefined
     }))
 
     // Update plan
@@ -156,7 +153,6 @@ export default function HolidayPlanningPage() {
     // Reset form
     setSelectedDates([])
     setCurrentReason('')
-    setIsHalfDay(false)
     
     toast.success(`Added ${selectedDates.length} date(s) to your plan`)
   }
@@ -188,8 +184,7 @@ export default function HolidayPlanningPage() {
           dates: plan.dates.map(d => ({
             date: d.date,
             priority: d.priority,
-            reason: d.reason,
-            isHalfDay: d.isHalfDay
+            reason: d.reason
           }))
         })
       })
@@ -317,7 +312,7 @@ export default function HolidayPlanningPage() {
                   <div>
                     <p className="text-sm text-gray-600">Total Days</p>
                     <p className="text-lg font-semibold">
-                      {plan?.dates?.reduce((total, date) => total + (date.isHalfDay ? 0.5 : 1), 0) || 0}
+                      {plan?.dates?.length || 0}
                     </p>
                   </div>
                 </div>
@@ -375,15 +370,6 @@ export default function HolidayPlanningPage() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      id="halfDay" 
-                      checked={isHalfDay}
-                      onChange={(e) => setIsHalfDay(e.target.checked)}
-                    />
-                    <label htmlFor="halfDay" className="text-sm">Half day</label>
-                  </div>
 
                   <Button onClick={addSelectedDates} className="w-full">
                     Add Selected Dates ({selectedDates.length})
@@ -425,7 +411,6 @@ export default function HolidayPlanningPage() {
                               <div>
                                 <p className="font-medium">
                                   {format(parseISO(date.date), 'EEEE, MMMM d, yyyy')}
-                                  {date.isHalfDay && ' (Half Day)'}
                                 </p>
                                 {date.reason && (
                                   <p className="text-sm text-gray-600">{date.reason}</p>

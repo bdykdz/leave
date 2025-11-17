@@ -8,8 +8,7 @@ export const createPlanSchema = z.object({
       message: "Invalid date format"
     }),
     priority: z.nativeEnum(PlanPriority),
-    reason: z.string().optional(),
-    isHalfDay: z.boolean().optional().default(false)
+    reason: z.string().optional()
   }))
 })
 

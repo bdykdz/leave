@@ -518,7 +518,6 @@ model HolidayPlanDate {
   date        DateTime
   priority    PlanPriority   @default(PREFERRED)
   reason      String?
-  isHalfDay   Boolean        @default(false)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   

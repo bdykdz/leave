@@ -69,6 +69,27 @@ export interface SubstituteAssignmentEmailData {
   companyName: string
 }
 
+export interface HolidayPlanSubmissionEmailData {
+  employeeName: string
+  managerName: string
+  year: number
+  totalDays: number
+  submissionDate: string
+  companyName: string
+  planId: string
+}
+
+export interface HolidayPlanApprovalEmailData {
+  employeeName: string
+  managerName: string
+  year: number
+  totalDays: number
+  status: 'approved' | 'rejected' | 'needs_revision'
+  comments?: string
+  companyName: string
+  planId: string
+}
+
 class EmailService {
   private resend: Resend | null = null
 
@@ -837,6 +858,208 @@ Vă mulțumim pentru flexibilitate și colaborare!
   async sendSubstituteAssignmentEmail(substituteEmail: string, data: SubstituteAssignmentEmailData): Promise<boolean> {
     const template = this.generateSubstituteAssignmentEmail(data)
     return await this.sendEmail(substituteEmail, template.subject, template.html, template.text)
+  }
+
+  generateHolidayPlanSubmissionEmail(data: HolidayPlanSubmissionEmailData): EmailTemplate {
+    const subject = `Holiday Plan Submission - ${data.employeeName} (${data.year})`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .button { display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+        .review { background-color: #059669; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 New Holiday Plan Submission</h1>
+        </div>
+        
+        <div class="content">
+            <p>Dear <strong>${data.managerName}</strong>,</p>
+            
+            <p><strong>${data.employeeName}</strong> has submitted their holiday plan for ${data.year} that requires your review and approval.</p>
+            
+            <div class="details">
+                <h3>Plan Details:</h3>
+                <ul>
+                    <li><strong>Employee:</strong> ${data.employeeName}</li>
+                    <li><strong>Planning Year:</strong> ${data.year}</li>
+                    <li><strong>Total Days Requested:</strong> ${data.totalDays}</li>
+                    <li><strong>Submitted On:</strong> ${data.submissionDate}</li>
+                </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <a href="${process.env.NEXTAUTH_URL}/manager/holiday-planning" class="button review">
+                    Review Holiday Plan
+                </a>
+            </div>
+            
+            <p>Please review the holiday plan and coordinate with your team to ensure proper coverage during the requested periods.</p>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ul>
+                <li>Review the requested dates and priorities</li>
+                <li>Check for conflicts with other team members</li>
+                <li>Approve, reject, or request revisions as needed</li>
+                <li>Coordinate with other managers if necessary</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Holiday Plan Submission
+
+Dear ${data.managerName},
+
+${data.employeeName} has submitted their holiday plan for ${data.year} that requires your review and approval.
+
+Plan Details:
+- Employee: ${data.employeeName}
+- Planning Year: ${data.year}
+- Total Days Requested: ${data.totalDays}
+- Submitted On: ${data.submissionDate}
+
+Please log in to the system to review and approve this holiday plan:
+${process.env.NEXTAUTH_URL}/manager/holiday-planning
+
+Next Steps:
+- Review the requested dates and priorities
+- Check for conflicts with other team members
+- Approve, reject, or request revisions as needed
+- Coordinate with other managers if necessary
+
+© ${new Date().getFullYear()} ${data.companyName}. All rights reserved.
+    `
+
+    return { subject, html, text }
+  }
+
+  generateHolidayPlanApprovalEmail(data: HolidayPlanApprovalEmailData): EmailTemplate {
+    const statusText = data.status === 'approved' ? 'Approved' : 
+                      data.status === 'rejected' ? 'Rejected' : 'Needs Revision'
+    const subject = `Your Holiday Plan for ${data.year} - ${statusText}`
+    
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: ${data.status === 'approved' ? '#059669' : data.status === 'rejected' ? '#dc2626' : '#f59e0b'}; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .status { padding: 10px; border-radius: 5px; text-align: center; margin: 15px 0; }
+        .approved { background-color: #d1fae5; color: #065f46; border: 1px solid #059669; }
+        .rejected { background-color: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+        .revision { background-color: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Holiday Plan ${statusText}</h1>
+        </div>
+        
+        <div class="content">
+            <p>Dear <strong>${data.employeeName}</strong>,</p>
+            
+            <div class="status ${data.status === 'approved' ? 'approved' : data.status === 'rejected' ? 'rejected' : 'revision'}">
+                <h3>Your holiday plan for ${data.year} has been ${statusText.toUpperCase()}</h3>
+            </div>
+            
+            <div class="details">
+                <h3>Plan Details:</h3>
+                <ul>
+                    <li><strong>Planning Year:</strong> ${data.year}</li>
+                    <li><strong>Total Days:</strong> ${data.totalDays}</li>
+                    <li><strong>Reviewed by:</strong> ${data.managerName}</li>
+                    ${data.comments ? `<li><strong>Comments:</strong> ${data.comments}</li>` : ''}
+                </ul>
+            </div>
+            
+            ${data.status === 'approved' 
+              ? '<p>Your holiday plan has been approved! You can now proceed with booking your holidays according to the approved dates.</p>'
+              : data.status === 'rejected'
+              ? '<p>Unfortunately, your holiday plan could not be approved. Please contact your manager to discuss alternative dates or arrangements.</p>'
+              : '<p>Your manager has requested some revisions to your holiday plan. Please review the comments and update your plan accordingly.</p>'
+            }
+            
+            <p>To view your holiday plan and make any necessary changes, please visit:</p>
+            <p style="text-align: center;">
+                <a href="${process.env.NEXTAUTH_URL}/holiday-planning" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    View Holiday Plan
+                </a>
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Holiday Plan ${statusText}
+
+Dear ${data.employeeName},
+
+Your holiday plan for ${data.year} has been ${statusText.toUpperCase()}.
+
+Plan Details:
+- Planning Year: ${data.year}
+- Total Days: ${data.totalDays}
+- Reviewed by: ${data.managerName}
+${data.comments ? `- Comments: ${data.comments}` : ''}
+
+${data.status === 'approved' 
+  ? 'Your holiday plan has been approved! You can now proceed with booking your holidays according to the approved dates.'
+  : data.status === 'rejected'
+  ? 'Unfortunately, your holiday plan could not be approved. Please contact your manager to discuss alternative dates or arrangements.'
+  : 'Your manager has requested some revisions to your holiday plan. Please review the comments and update your plan accordingly.'
+}
+
+To view your holiday plan: ${process.env.NEXTAUTH_URL}/holiday-planning
+
+© ${new Date().getFullYear()} ${data.companyName}. All rights reserved.
+    `
+
+    return { subject, html, text }
+  }
+
+  async sendHolidayPlanSubmissionNotification(managerEmail: string, data: HolidayPlanSubmissionEmailData): Promise<boolean> {
+    const template = this.generateHolidayPlanSubmissionEmail(data)
+    return await this.sendEmail(managerEmail, template.subject, template.html, template.text)
+  }
+
+  async sendHolidayPlanApprovalNotification(employeeEmail: string, data: HolidayPlanApprovalEmailData): Promise<boolean> {
+    const template = this.generateHolidayPlanApprovalEmail(data)
+    return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
   }
 }
 

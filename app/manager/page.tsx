@@ -639,7 +639,15 @@ export default function ManagerDashboard() {
             className="flex items-center gap-2"
           >
             <Calendar className="h-4 w-4" />
-            Holiday Planning
+            My Holiday Planning
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/manager/holiday-planning')}
+            className="flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Team Holiday Plans
           </Button>
         </div>
 
