@@ -17,6 +17,7 @@ import { ErrorDialog } from "@/components/error-dialog"
 import { format } from "date-fns/format"
 import { isSameDay } from "date-fns/isSameDay"
 import { BasicSubstitutePicker } from "@/components/basic-substitute-picker"
+import { ConflictResolutionWizard } from "@/components/conflict-resolution-wizard"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -76,7 +77,26 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true)
   const [supportingDocuments, setSupportingDocuments] = useState<File[]>([])
   const [uploadingDocuments, setUploadingDocuments] = useState(false)
+  const [showConflictWizard, setShowConflictWizard] = useState(false)
 
+  // Handle conflict check button click
+  const handleCheckConflicts = () => {
+    if (selectedDates.length === 0) {
+      showError("No Dates Selected", "Please select dates first to check for team conflicts.")
+      return
+    }
+    if (!approvers.manager?.id) {
+      showError("Manager Not Available", "Your manager information is not available. Please contact HR.")
+      return
+    }
+    setShowConflictWizard(true)
+  }
+
+  // Handle date suggestion from conflict wizard
+  const handleDateSuggestionSelect = (newDates: Date[]) => {
+    setSelectedDates(newDates)
+    setShowConflictWizard(false)
+  }
 
   // Helper to format date as YYYY-MM-DD in local time
   const toLocalDateString = (date: Date) => {
@@ -737,6 +757,20 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                   </div>
 
                   <div className="flex flex-col gap-2 pt-4 border-t">
+                    {/* Conflict Check Button */}
+                    {selectedDates.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCheckConflicts}
+                        disabled={isSubmitting}
+                        className="w-full flex items-center gap-2"
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                        Check Team Conflicts & Get Smart Suggestions
+                      </Button>
+                    )}
+                    
                     <Button
                       type="submit"
                       disabled={
@@ -778,6 +812,15 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         onClose={() => setShowErrorDialog(false)}
         title={errorDetails.title}
         message={errorDetails.message}
+      />
+
+      {/* Conflict Resolution Wizard */}
+      <ConflictResolutionWizard
+        isOpen={showConflictWizard}
+        onClose={() => setShowConflictWizard(false)}
+        requestedDates={selectedDates}
+        onDateSuggestionSelect={handleDateSuggestionSelect}
+        managerId={approvers.manager?.id}
       />
     </div>
   )

@@ -547,6 +547,14 @@ export default function EmployeeDashboard() {
           </Button>
           <Button 
             variant="outline" 
+            onClick={() => router.push('/team-calendar')}
+            className="flex items-center gap-2"
+          >
+            <Users className="h-4 w-4" />
+            Team Calendar
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={() => router.push('/department-holiday-view')}
             className="flex items-center gap-2"
           >

@@ -4,7 +4,17 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { HolidayPlanningService } from '@/lib/services/holiday-planning'
 import { PlanPriority } from '@prisma/client'
 import { createPlanSchema, submitPlanSchema, isPlanningWindowOpen } from '@/lib/validators/holiday-planning'
+import { rateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { z } from 'zod'
+
+function getAuditContext(request: NextRequest, sessionId?: string) {
+  return {
+    sessionId,
+    ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+    userAgent: request.headers.get('user-agent') || 'unknown',
+    requestId: crypto.randomUUID()
+  }
+}
 
 // Prevent static generation
 export const dynamic = 'force-dynamic'
@@ -54,6 +64,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResponse = rateLimit(rateLimitConfigs.submission)(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -89,7 +105,8 @@ export async function POST(request: NextRequest) {
     await HolidayPlanningService.createOrUpdateUserPlan(
       session.user?.id || '',
       year,
-      dates
+      dates,
+      getAuditContext(request, session.user?.id)
     )
     
     const updatedPlan = await HolidayPlanningService.getUserHolidayPlan(session.user?.id || '', year)
@@ -105,6 +122,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  // Apply rate limiting for submissions
+  const rateLimitResponse = rateLimit(rateLimitConfigs.submission)(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -130,7 +153,11 @@ export async function PUT(request: NextRequest) {
     const { year, action } = validatedData
 
     if (action === 'submit') {
-      const plan = await HolidayPlanningService.submitPlan(session.user?.id || '', year)
+      const plan = await HolidayPlanningService.submitPlan(
+        session.user?.id || '', 
+        year,
+        getAuditContext(request, session.user?.id)
+      )
       return NextResponse.json(plan)
     }
 

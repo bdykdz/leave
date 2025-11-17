@@ -4,7 +4,18 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { PlanStatus } from '@prisma/client'
 import { emailService, HolidayPlanApprovalEmailData } from '@/lib/email-service'
+import { AuditService } from '@/lib/services/audit-service'
+import { rateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { z } from 'zod'
+
+function getAuditContext(request: NextRequest, sessionId?: string) {
+  return {
+    sessionId,
+    ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+    userAgent: request.headers.get('user-agent') || 'unknown',
+    requestId: crypto.randomUUID()
+  }
+}
 
 const approvalSchema = z.object({
   action: z.enum(['approve', 'reject', 'request_revision']),
@@ -18,6 +29,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { planId: string } }
 ) {
+  // Apply rate limiting for approval actions
+  const rateLimitResponse = rateLimit(rateLimitConfigs.approval)(request)
+  if (rateLimitResponse) {
+    return rateLimitResponse
+  }
+
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -129,6 +146,16 @@ export async function POST(
       companyName: process.env.COMPANY_NAME || 'Company',
       planId: plan.id
     }
+
+    // Log audit trail
+    await AuditService.logHolidayPlan({
+      action: action.toUpperCase() as 'APPROVED' | 'REJECTED',
+      planId: plan.id,
+      userId: currentUser.id,
+      oldPlan: plan,
+      newPlan: updatedPlan,
+      context: getAuditContext(request, session.user?.id)
+    })
 
     try {
       await emailService.sendHolidayPlanApprovalNotification(plan.user.email, emailData)

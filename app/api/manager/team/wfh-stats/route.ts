@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-import { startOfMonth, endOfMonth, isWeekend, eachDayOfInterval } from 'date-fns';
+import { startOfMonth, endOfMonth, isWeekend, eachDayOfInterval, format } from 'date-fns';
+import { CacheService } from '@/lib/services/cache-service';
 
 // GET: Fetch team WFH statistics for manager's direct reports
 export async function GET(request: NextRequest) {
@@ -10,6 +11,15 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const now = new Date();
+    const currentMonth = format(now, 'yyyy-MM');
+    
+    // Try to get from cache first
+    const cachedData = await CacheService.getTeamWfhStats(session.user.id, currentMonth);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
     }
 
     // Get all direct reports
@@ -34,7 +44,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
@@ -113,7 +122,7 @@ export async function GET(request: NextRequest) {
       };
     }).sort((a, b) => b.percentage - a.percentage); // Sort by percentage descending
 
-    return NextResponse.json({
+    const wfhStatsData = {
       averageWfhPercentage,
       totalWfhDays,
       totalWorkingDays,
@@ -121,7 +130,12 @@ export async function GET(request: NextRequest) {
       workingDaysInMonth,
       month: now.toISOString(),
       monthlyBreakdown
-    });
+    };
+
+    // Cache the result
+    await CacheService.setTeamWfhStats(session.user.id, wfhStatsData, currentMonth);
+
+    return NextResponse.json(wfhStatsData);
   } catch (error) {
     console.error('Error fetching team WFH stats:', error);
     return NextResponse.json(

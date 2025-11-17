@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { PlanningStage, PlanStatus, PlanPriority } from '@prisma/client'
 import { emailService, HolidayPlanSubmissionEmailData } from '@/lib/email-service'
 import { format } from 'date-fns'
+import { AuditService, AuditContext } from './audit-service'
 
 export class HolidayPlanningService {
   /**
@@ -139,7 +140,8 @@ export class HolidayPlanningService {
   static async createOrUpdateUserPlan(
     userId: string, 
     year: number, 
-    dates: { date: string; priority: PlanPriority; reason?: string }[]
+    dates: { date: string; priority: PlanPriority; reason?: string }[],
+    auditContext?: AuditContext
   ) {
     // Get or create planning window
     const window = await this.getCurrentPlanningWindow(year)
@@ -223,13 +225,23 @@ export class HolidayPlanningService {
       })
     })
 
+    // Log audit trail
+    await AuditService.logHolidayPlan({
+      action: plan ? 'UPDATED' : 'CREATED',
+      planId: updatedPlan.id,
+      userId,
+      oldPlan: plan ? { dates: plan.dates, version: plan.version } : null,
+      newPlan: { dates: updatedPlan.dates, version: updatedPlan.version },
+      context: auditContext
+    })
+
     return updatedPlan
   }
 
   /**
    * Submit plan for review
    */
-  static async submitPlan(userId: string, year: number) {
+  static async submitPlan(userId: string, year: number, auditContext?: AuditContext) {
     // Get or create planning window first
     const window = await this.getCurrentPlanningWindow(year)
     
@@ -317,6 +329,16 @@ export class HolidayPlanningService {
           }
         }
       }
+    })
+
+    // Log audit trail
+    await AuditService.logHolidayPlan({
+      action: 'SUBMITTED',
+      planId: updatedPlan.id,
+      userId,
+      oldPlan: plan,
+      newPlan: updatedPlan,
+      context: auditContext
     })
 
     // Send email notifications to manager and department director

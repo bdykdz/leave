@@ -46,6 +46,10 @@ model User {
   isActive              Boolean                  @default(true)
   managerId             String?
   departmentDirectorId  String?
+  workingPattern        WorkingPattern           @default(FULL_TIME)
+  workingDaysPerWeek    Float                    @default(5.0)
+  workingHoursPerWeek   Float                    @default(40.0)
+  contractType          ContractType             @default(PERMANENT)
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   approvals             Approval[]
@@ -549,4 +553,19 @@ enum PlanPriority {
   ESSENTIAL    // Must have these dates
   PREFERRED    // Would like these dates
   NICE_TO_HAVE // Flexible on these dates
+}
+
+enum WorkingPattern {
+  FULL_TIME
+  PART_TIME
+  COMPRESSED_HOURS
+  JOB_SHARE
+}
+
+enum ContractType {
+  PERMANENT
+  FIXED_TERM
+  CASUAL
+  CONTRACTOR
+  INTERN
 }

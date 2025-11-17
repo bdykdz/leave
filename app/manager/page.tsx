@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MobileNav } from "@/components/mobile/mobile-nav"
+import { MobileManagerDashboard } from "@/components/mobile/mobile-manager-dashboard"
 import {
   Calendar,
   Users,
@@ -449,6 +451,20 @@ export default function ManagerDashboard() {
     setShowApprovalDialog(true)
   }
 
+  const handleApprovalResponse = async (requestId: string, action: 'approve' | 'reject' | 'request_revision', comments?: string) => {
+    try {
+      if (action === 'approve') {
+        await handleApprove(requestId, comments)
+      } else if (action === 'reject') {
+        await handleDeny(requestId, comments)
+      }
+      // Note: 'request_revision' is not implemented yet, but included for mobile component compatibility
+    } catch (error) {
+      console.error('Error processing approval:', error)
+      toast.error('Failed to process request')
+    }
+  }
+
   // Navigation functions
   const previousTeamStatsMonth = () => {
     setTeamStatsMonth(subMonths(teamStatsMonth, 1))
@@ -538,51 +554,105 @@ export default function ManagerDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push(getDashboardRoute())}
-                title="Back to Personal Dashboard"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center space-x-3">
+                <MobileNav pendingCount={pendingRequests.length} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => router.push(getDashboardRoute())}
+                  title="Back to Personal Dashboard"
+                  className="hidden md:flex"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
-                <p className="text-gray-600">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
+                <p className="text-sm md:text-base text-gray-600">
                   {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Hide text on mobile for these buttons */}
               <Button 
                 onClick={() => router.push(getDashboardRoute())} 
                 variant="outline" 
-                className="flex items-center gap-2"
+                className="hidden md:flex items-center gap-2"
               >
                 <CalendarDays className="h-4 w-4" />
                 My Dashboard
               </Button>
+              
+              {/* Mobile-only button - icon only */}
+              <Button 
+                onClick={() => router.push(getDashboardRoute())} 
+                variant="outline" 
+                size="icon"
+                className="md:hidden"
+                title="My Dashboard"
+              >
+                <CalendarDays className="h-4 w-4" />
+              </Button>
+
               {(session.user.role === "HR" || (session.user.role === "MANAGER" && session.user.department?.includes("HR"))) && (
-                <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
-                  <Building className="h-4 w-4" />
-                  HR Dashboard
-                </Button>
+                <>
+                  <Button onClick={() => router.push("/hr")} variant="outline" className="hidden md:flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    HR Dashboard
+                  </Button>
+                  <Button 
+                    onClick={() => router.push("/hr")} 
+                    variant="outline" 
+                    size="icon"
+                    className="md:hidden"
+                    title="HR Dashboard"
+                  >
+                    <Building className="h-4 w-4" />
+                  </Button>
+                </>
               )}
+              
+              {/* Responsive badge */}
               <Badge
                 variant="outline"
-                className="text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"
+                className="text-xs md:text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"
               >
                 <AlertTriangle className="h-3 w-3" />
-                {teamStats.pendingRequests} team approvals pending
+                <span className="hidden sm:inline">{teamStats.pendingRequests} team approvals pending</span>
+                <span className="sm:hidden">{teamStats.pendingRequests}</span>
               </Badge>
-              <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                {t.dashboard.newRemoteRequest}
-              </Button>
-              <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                {t.dashboard.newLeaveRequest}
-              </Button>
+
+              {/* Mobile-only action buttons */}
+              <div className="flex md:hidden gap-1">
+                <Button 
+                  onClick={() => setShowWFHForm(true)} 
+                  variant="outline" 
+                  size="icon"
+                  title="Work From Home Request"
+                >
+                  <Home className="h-4 w-4" />
+                </Button>
+                <Button 
+                  onClick={() => setShowRequestForm(true)} 
+                  size="icon"
+                  title="New Leave Request"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Desktop action buttons */}
+              <div className="hidden md:flex gap-2">
+                <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
+                  <Home className="h-4 w-4" />
+                  {t.dashboard.newRemoteRequest}
+                </Button>
+                <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  {t.dashboard.newLeaveRequest}
+                </Button>
+              </div>
 
               <LanguageToggle />
               <NotificationBell />
@@ -620,41 +690,91 @@ export default function ManagerDashboard() {
 
       {/* Navigation */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex gap-4 mb-6">
-          <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
+        <div className="flex gap-2 md:gap-4 mb-6 overflow-x-auto pb-2">
+          <Button 
+            variant={activeTab === "dashboard" ? "default" : "outline"} 
+            onClick={() => setActiveTab("dashboard")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
             {t.nav.dashboard}
           </Button>
-          <Button variant={activeTab === "team" ? "default" : "outline"} onClick={() => setActiveTab("team")}>
+          <Button 
+            variant={activeTab === "team" ? "default" : "outline"} 
+            onClick={() => setActiveTab("team")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
             {t.dashboard.teamOverview}
           </Button>
-          <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
+          <Button 
+            variant={activeTab === "calendar" ? "default" : "outline"} 
+            onClick={() => setActiveTab("calendar")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
             {t.dashboard.teamCalendar}
           </Button>
-          <Button variant={activeTab === "delegation" ? "default" : "outline"} onClick={() => setActiveTab("delegation")}>
+          <Button 
+            variant={activeTab === "delegation" ? "default" : "outline"} 
+            onClick={() => setActiveTab("delegation")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
             Delegation
           </Button>
           <Button 
             variant="outline" 
             onClick={() => router.push('/holiday-planning')}
-            className="flex items-center gap-2"
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
           >
             <Calendar className="h-4 w-4" />
-            My Holiday Planning
+            <span className="hidden sm:inline">My Holiday Planning</span>
+            <span className="sm:hidden">My Plans</span>
           </Button>
           <Button 
             variant="outline" 
             onClick={() => router.push('/manager/holiday-planning')}
-            className="flex items-center gap-2"
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
           >
             <Calendar className="h-4 w-4" />
-            Team Holiday Plans
+            <span className="hidden sm:inline">Team Holiday Plans</span>
+            <span className="sm:hidden">Team Plans</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/analytics')}
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Analytics</span>
+            <span className="sm:hidden">Stats</span>
           </Button>
         </div>
 
         {activeTab === "dashboard" && (
           <div className="space-y-6">
-            {/* Dashboard Summary */}
-            <DashboardSummary userRole="MANAGER" />
+            {/* Mobile Dashboard - only show on small screens */}
+            <div className="block md:hidden">
+              <MobileManagerDashboard
+                pendingRequests={pendingRequests}
+                teamStats={{
+                  totalMembers: teamStats.totalMembers,
+                  onLeaveToday: teamStats.onLeaveToday,
+                  pendingRequests: pendingRequests.length,
+                  approvalRate: 85 // Calculate from actual data
+                }}
+                onApproval={handleApprovalResponse}
+              />
+            </div>
+
+            {/* Desktop Dashboard - hidden on small screens */}
+            <div className="hidden md:block space-y-6">
+              {/* Dashboard Summary */}
+              <DashboardSummary userRole="MANAGER" />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Manager's Personal Dashboard */}
@@ -985,6 +1105,7 @@ export default function ManagerDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
             </div>
             </div>
           </div>

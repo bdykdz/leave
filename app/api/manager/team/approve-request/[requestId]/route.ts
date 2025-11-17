@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { SmartDocumentGenerator } from "@/lib/smart-document-generator"
 import { emailService } from "@/lib/email-service"
+import { CacheService } from "@/lib/services/cache-service"
 import { format } from "date-fns"
 import { ValidationService } from "@/lib/validation-service"
 import { WFHValidationService } from "@/lib/wfh-validation-service"
@@ -278,6 +279,18 @@ export async function POST(
       }
     }
 
+    // Invalidate related caches after approval
+    try {
+      await CacheService.invalidateTeamCache(session.user.id)
+      // Also invalidate the requester's manager cache if different
+      if (leaveRequest.user.managerId && leaveRequest.user.managerId !== session.user.id) {
+        await CacheService.invalidateTeamCache(leaveRequest.user.managerId)
+      }
+    } catch (cacheError) {
+      console.error('Cache invalidation error:', cacheError)
+      // Don't fail approval if cache invalidation fails
+    }
+
     return NextResponse.json({ 
       success: true,
       message: "Request approved successfully",
@@ -387,6 +400,17 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       managerName: `${session.user.firstName} ${session.user.lastName}`,
       comments: cleanComment
     })
+
+    // Invalidate related caches after WFH approval
+    try {
+      await CacheService.invalidateTeamCache(session.user.id)
+      if (wfhRequest.user.managerId && wfhRequest.user.managerId !== session.user.id) {
+        await CacheService.invalidateTeamCache(wfhRequest.user.managerId)
+      }
+    } catch (cacheError) {
+      console.error('Cache invalidation error:', cacheError)
+      // Don't fail approval if cache invalidation fails
+    }
 
     log.info('WFH request approved', { requestId })
 

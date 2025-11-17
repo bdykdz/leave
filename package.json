@@ -62,6 +62,7 @@
     "docxtemplater": "^3.42.0",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
+    "ioredis": "^5.8.2",
     "isomorphic-fetch": "^3.0.0",
     "lucide-react": "^0.454.0",
     "minio": "^8.0.6",
