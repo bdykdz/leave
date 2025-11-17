@@ -303,7 +303,7 @@ export class HolidayPlanningService {
 
       const promises: Promise<boolean>[] = []
 
-      // Send to manager if exists
+      // Send to direct manager only
       if (plan.user.managerId) {
         const manager = await prisma.user.findUnique({
           where: { id: plan.user.managerId },
@@ -317,24 +317,6 @@ export class HolidayPlanningService {
           }
           promises.push(
             emailService.sendHolidayPlanSubmissionNotification(manager.email, managerNotificationData)
-          )
-        }
-      }
-
-      // Send to department director if exists and different from manager
-      if (plan.user.departmentDirectorId && plan.user.departmentDirectorId !== plan.user.managerId) {
-        const director = await prisma.user.findUnique({
-          where: { id: plan.user.departmentDirectorId },
-          select: { firstName: true, lastName: true, email: true }
-        })
-
-        if (director) {
-          const directorNotificationData = {
-            ...notificationData,
-            managerName: `${director.firstName} ${director.lastName}`
-          }
-          promises.push(
-            emailService.sendHolidayPlanSubmissionNotification(director.email, directorNotificationData)
           )
         }
       }
@@ -389,6 +371,176 @@ export class HolidayPlanningService {
     
     // Planning is open October through December
     return currentMonth >= 9 && currentMonth <= 11
+  }
+
+  /**
+   * Detect holiday plan overlaps and gaps for a team/department
+   */
+  static async detectOverlapsAndGaps(managerId: string, year: number, isDepartmentDirector: boolean = false) {
+    try {
+      let teamMembers = []
+      
+      if (isDepartmentDirector) {
+        // Get all users in the department
+        const manager = await prisma.user.findUnique({
+          where: { id: managerId },
+          select: { department: true }
+        })
+        
+        if (manager) {
+          teamMembers = await prisma.user.findMany({
+            where: {
+              department: manager.department,
+              isActive: true
+            },
+            include: {
+              holidayPlans: {
+                where: { year },
+                include: {
+                  dates: {
+                    orderBy: { date: 'asc' }
+                  }
+                }
+              }
+            }
+          })
+        }
+      } else {
+        // Get direct reports only
+        teamMembers = await prisma.user.findMany({
+          where: {
+            managerId,
+            isActive: true
+          },
+          include: {
+            holidayPlans: {
+              where: { year },
+              include: {
+                dates: {
+                  orderBy: { date: 'asc' }
+                }
+              }
+            }
+          }
+        })
+      }
+
+      // Create a map of all planned holiday dates
+      const dateMap: { [key: string]: Array<{ user: any; priority: string; reason?: string }> } = {}
+      
+      teamMembers.forEach(member => {
+        if (member.holidayPlans.length > 0) {
+          const plan = member.holidayPlans[0]
+          plan.dates.forEach(date => {
+            const dateKey = date.date.toISOString().split('T')[0]
+            if (!dateMap[dateKey]) {
+              dateMap[dateKey] = []
+            }
+            dateMap[dateKey].push({
+              user: {
+                id: member.id,
+                firstName: member.firstName,
+                lastName: member.lastName,
+                position: member.position
+              },
+              priority: date.priority,
+              reason: date.reason
+            })
+          })
+        }
+      })
+
+      // Detect overlaps (multiple people on the same date)
+      const overlaps = Object.entries(dateMap)
+        .filter(([date, users]) => users.length > 1)
+        .map(([date, users]) => ({
+          date,
+          users,
+          conflictLevel: this.calculateConflictLevel(users),
+          riskLevel: this.calculateRiskLevel(users)
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+      // Detect gaps (periods with no coverage)
+      const gaps = this.detectCoverageGaps(dateMap, year)
+
+      // Get team size for context
+      const totalTeamSize = teamMembers.length
+      const membersWithPlans = teamMembers.filter(m => m.holidayPlans.length > 0).length
+
+      return {
+        overlaps,
+        gaps,
+        teamSize: totalTeamSize,
+        membersWithPlans,
+        planningCoverage: totalTeamSize > 0 ? (membersWithPlans / totalTeamSize) * 100 : 0
+      }
+
+    } catch (error) {
+      console.error('Error detecting overlaps and gaps:', error)
+      return {
+        overlaps: [],
+        gaps: [],
+        teamSize: 0,
+        membersWithPlans: 0,
+        planningCoverage: 0
+      }
+    }
+  }
+
+  /**
+   * Calculate conflict level based on users and priorities
+   */
+  private static calculateConflictLevel(users: Array<{ priority: string; user: any }>): 'HIGH' | 'MEDIUM' | 'LOW' {
+    const essentialCount = users.filter(u => u.priority === 'ESSENTIAL').length
+    const preferredCount = users.filter(u => u.priority === 'PREFERRED').length
+    
+    if (essentialCount > 1) return 'HIGH'
+    if (essentialCount === 1 && preferredCount > 0) return 'MEDIUM'
+    if (users.length >= 3) return 'MEDIUM'
+    return 'LOW'
+  }
+
+  /**
+   * Calculate risk level based on team coverage
+   */
+  private static calculateRiskLevel(users: Array<any>): 'HIGH' | 'MEDIUM' | 'LOW' {
+    // This is a simplified risk calculation
+    // In practice, you'd factor in team size, critical roles, etc.
+    if (users.length >= 3) return 'HIGH'
+    if (users.length === 2) return 'MEDIUM'
+    return 'LOW'
+  }
+
+  /**
+   * Detect periods with potential coverage gaps
+   */
+  private static detectCoverageGaps(dateMap: { [key: string]: any[] }, year: number): Array<{ startDate: string; endDate: string; duration: number; type: string }> {
+    const gaps = []
+    const dates = Object.keys(dateMap).sort()
+    
+    // Look for consecutive periods with high absence
+    let gapStart = null
+    let consecutiveDays = 0
+    
+    // This is a simplified gap detection
+    // You could enhance this based on your business rules
+    for (let i = 0; i < dates.length - 1; i++) {
+      const currentDate = new Date(dates[i])
+      const nextDate = new Date(dates[i + 1])
+      const daysDiff = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+      
+      if (daysDiff > 7) { // Gap of more than 7 days
+        gaps.push({
+          startDate: dates[i],
+          endDate: dates[i + 1],
+          duration: daysDiff,
+          type: 'EXTENDED_GAP'
+        })
+      }
+    }
+    
+    return gaps
   }
 
   /**

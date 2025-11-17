@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Eye, Check, X, MessageCircle, ArrowLeft } from "lucide-react"
+import { Calendar, Eye, Check, X, MessageCircle, ArrowLeft, AlertTriangle, Users, TrendingDown } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface HolidayPlan {
   id: string
@@ -34,6 +35,33 @@ interface HolidayPlan {
   }
 }
 
+interface OverlapAnalysis {
+  overlaps: Array<{
+    date: string
+    users: Array<{
+      user: {
+        id: string
+        firstName: string
+        lastName: string
+        position: string
+      }
+      priority: string
+      reason?: string
+    }>
+    conflictLevel: 'HIGH' | 'MEDIUM' | 'LOW'
+    riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'
+  }>
+  gaps: Array<{
+    startDate: string
+    endDate: string
+    duration: number
+    type: string
+  }>
+  teamSize: number
+  membersWithPlans: number
+  planningCoverage: number
+}
+
 const PRIORITY_OPTIONS = [
   { value: 'ESSENTIAL', label: 'Essential', color: 'bg-red-500' },
   { value: 'PREFERRED', label: 'Preferred', color: 'bg-blue-500' },
@@ -51,7 +79,9 @@ export default function ManagerHolidayPlanningPage() {
   const { data: session } = useSession()
   const router = useRouter()
   const [holidayPlans, setHolidayPlans] = useState<HolidayPlan[]>([])
+  const [overlapAnalysis, setOverlapAnalysis] = useState<OverlapAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<HolidayPlan | null>(null)
   const [comments, setComments] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
@@ -62,6 +92,7 @@ export default function ManagerHolidayPlanningPage() {
   useEffect(() => {
     if (session) {
       loadTeamHolidayPlans()
+      loadOverlapAnalysis()
     }
   }, [session])
 
@@ -81,6 +112,25 @@ export default function ManagerHolidayPlanningPage() {
       toast.error('Failed to load team holiday plans')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadOverlapAnalysis = async () => {
+    try {
+      setAnalysisLoading(true)
+      const response = await fetch(`/api/holiday-planning/overlaps?year=${planningYear}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setOverlapAnalysis(data)
+      } else {
+        toast.error('Failed to load overlap analysis')
+      }
+    } catch (error) {
+      console.error('Error loading overlap analysis:', error)
+      toast.error('Failed to load overlap analysis')
+    } finally {
+      setAnalysisLoading(false)
     }
   }
 
@@ -134,6 +184,24 @@ export default function ManagerHolidayPlanningPage() {
     }
   }
 
+  const getConflictLevelColor = (level: 'HIGH' | 'MEDIUM' | 'LOW') => {
+    switch (level) {
+      case 'HIGH': return 'bg-red-100 text-red-800 border-red-200'
+      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'LOW': return 'bg-green-100 text-green-800 border-green-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getConflictLevelIcon = (level: 'HIGH' | 'MEDIUM' | 'LOW') => {
+    switch (level) {
+      case 'HIGH': return <AlertTriangle className="h-4 w-4" />
+      case 'MEDIUM': return <Users className="h-4 w-4" />
+      case 'LOW': return <Calendar className="h-4 w-4" />
+      default: return <Calendar className="h-4 w-4" />
+    }
+  }
+
   if (!session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -175,13 +243,20 @@ export default function ManagerHolidayPlanningPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {holidayPlans.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Holiday Plans Yet</h3>
-            <p className="text-gray-600">Your team members haven't submitted any holiday plans for {planningYear}.</p>
-          </div>
-        ) : (
+        <Tabs defaultValue="plans" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="plans">Holiday Plans</TabsTrigger>
+            <TabsTrigger value="analysis">Overlaps & Coverage</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="plans">
+            {holidayPlans.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Holiday Plans Yet</h3>
+                <p className="text-gray-600">Your team members haven't submitted any holiday plans for {planningYear}.</p>
+              </div>
+            ) : (
           <div className="grid grid-cols-1 gap-6">
             {holidayPlans.map((plan) => (
               <Card key={plan.id}>
@@ -419,8 +494,169 @@ export default function ManagerHolidayPlanningPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        )}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="analysis">
+            {analysisLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p>Loading coverage analysis...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Coverage Summary */}
+                {overlapAnalysis && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingDown className="h-5 w-5" />
+                        Team Coverage Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-blue-600">{overlapAnalysis.teamSize}</p>
+                          <p className="text-sm text-gray-600">Total Team Members</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-green-600">{overlapAnalysis.membersWithPlans}</p>
+                          <p className="text-sm text-gray-600">Plans Submitted</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-purple-600">{overlapAnalysis.planningCoverage.toFixed(0)}%</p>
+                          <p className="text-sm text-gray-600">Planning Coverage</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Conflicts & Overlaps */}
+                {overlapAnalysis && overlapAnalysis.overlaps.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                        Holiday Conflicts ({overlapAnalysis.overlaps.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Multiple team members planning holidays on the same dates
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {overlapAnalysis.overlaps.map((overlap, index) => (
+                          <div key={index} className={`border rounded-lg p-4 ${getConflictLevelColor(overlap.conflictLevel)}`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                {getConflictLevelIcon(overlap.conflictLevel)}
+                                <h4 className="font-medium">
+                                  {format(new Date(overlap.date), 'EEEE, MMMM d, yyyy')}
+                                </h4>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {overlap.conflictLevel} Risk
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {overlap.users.length} People
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              {overlap.users.map((userEntry, userIndex) => (
+                                <div key={userIndex} className="flex items-center justify-between bg-white bg-opacity-50 rounded p-2">
+                                  <div>
+                                    <span className="font-medium">
+                                      {userEntry.user.firstName} {userEntry.user.lastName}
+                                    </span>
+                                    <span className="text-sm text-gray-600 ml-2">
+                                      ({userEntry.user.position})
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge 
+                                      variant="outline"
+                                      className={`text-xs ${
+                                        userEntry.priority === 'ESSENTIAL' ? 'border-red-300 text-red-700' :
+                                        userEntry.priority === 'PREFERRED' ? 'border-blue-300 text-blue-700' :
+                                        'border-green-300 text-green-700'
+                                      }`}
+                                    >
+                                      {userEntry.priority}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {overlap.users[0]?.reason && (
+                              <div className="mt-2 text-sm text-gray-700">
+                                <strong>Reason:</strong> {overlap.users[0].reason}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-green-500" />
+                        No Conflicts Detected
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-600">Great! No holiday conflicts found in your team's plans.</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Coverage Gaps */}
+                {overlapAnalysis && overlapAnalysis.gaps.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingDown className="h-5 w-5 text-yellow-500" />
+                        Coverage Gaps ({overlapAnalysis.gaps.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Extended periods with potential coverage issues
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {overlapAnalysis.gaps.map((gap, index) => (
+                          <div key={index} className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {format(new Date(gap.startDate), 'MMM d')} - {format(new Date(gap.endDate), 'MMM d, yyyy')}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {Math.round(gap.duration)} day gap in holiday planning
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                                {gap.type.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
