@@ -148,8 +148,15 @@ export async function POST(
     }
 
     // Log audit trail
+    let auditAction: 'APPROVED' | 'REJECTED'
+    if (action === 'approve') {
+      auditAction = 'APPROVED'
+    } else {
+      auditAction = 'REJECTED' // Both reject and request_revision are logged as rejected
+    }
+    
     await AuditService.logHolidayPlan({
-      action: action.toUpperCase() as 'APPROVED' | 'REJECTED',
+      action: auditAction,
       planId: plan.id,
       userId: currentUser.id,
       oldPlan: plan,
@@ -171,6 +178,9 @@ export async function POST(
 
   } catch (error: any) {
     console.error('Error approving holiday plan:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Plan ID:', params.planId)
+    console.error('Action:', body)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -180,7 +190,11 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: 'Failed to update holiday plan' },
+      { 
+        error: 'Failed to update holiday plan',
+        details: error.message,
+        planId: params.planId
+      },
       { status: 500 }
     )
   }

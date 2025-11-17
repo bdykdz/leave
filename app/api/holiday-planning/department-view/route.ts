@@ -83,8 +83,22 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Ensure dates are properly serialized for JSON response
+    const serializedDeptPlans = departmentPlans.map(plan => ({
+      ...plan,
+      dates: plan.dates.map(date => ({
+        ...date,
+        date: date.date.toISOString()
+      }))
+    }))
+
+    console.log('Department view - total plans:', serializedDeptPlans.length)
+    serializedDeptPlans.forEach((plan, index) => {
+      console.log(`Dept Plan ${index}: ${plan.user?.firstName} ${plan.user?.lastName} - ${plan.dates.length} dates`)
+    })
+
     return NextResponse.json({ 
-      departmentPlans,
+      departmentPlans: serializedDeptPlans,
       department: user.department,
       summary: {
         totalMembers: departmentMembers,

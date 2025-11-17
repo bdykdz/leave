@@ -131,6 +131,27 @@ export class HolidayPlanningService {
       }
     })
 
+    // Debug logging
+    console.log('getUserHolidayPlan - userId:', userId, 'year:', year)
+    console.log('Found plan:', plan ? 'YES' : 'NO')
+    if (plan) {
+      console.log('Plan has dates:', plan.dates?.length || 0)
+      console.log('Raw dates:', plan.dates)
+    }
+
+    // Ensure dates are properly serialized
+    if (plan && plan.dates) {
+      const serializedPlan = {
+        ...plan,
+        dates: plan.dates.map(date => ({
+          ...date,
+          date: date.date.toISOString()
+        }))
+      }
+      console.log('Serialized plan dates:', serializedPlan.dates)
+      return serializedPlan
+    }
+
     return plan
   }
 

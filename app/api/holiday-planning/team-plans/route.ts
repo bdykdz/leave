@@ -114,7 +114,21 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ holidayPlans })
+    // Ensure dates are properly serialized for JSON response
+    const serializedPlans = holidayPlans.map(plan => ({
+      ...plan,
+      dates: plan.dates.map(date => ({
+        ...date,
+        date: date.date.toISOString()
+      }))
+    }))
+
+    console.log('Team plans - total plans:', serializedPlans.length)
+    serializedPlans.forEach((plan, index) => {
+      console.log(`Plan ${index}: ${plan.user?.firstName} ${plan.user?.lastName} - ${plan.dates.length} dates`)
+    })
+
+    return NextResponse.json({ holidayPlans: serializedPlans })
   } catch (error) {
     console.error('Error fetching team holiday plans:', error)
     return NextResponse.json(
