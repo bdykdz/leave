@@ -469,7 +469,7 @@ export class HolidayPlanningService {
                 position: member.position
               },
               priority: date.priority,
-              reason: date.reason
+              reason: date.reason || undefined
             })
           })
         }
