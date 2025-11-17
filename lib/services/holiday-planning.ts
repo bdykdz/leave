@@ -221,7 +221,20 @@ export class HolidayPlanningService {
    * Submit plan for review
    */
   static async submitPlan(userId: string, year: number) {
-    const plan = await prisma.holidayPlan.findUnique({
+    // Get or create planning window first
+    const window = await this.getCurrentPlanningWindow(year)
+    
+    if (!window) {
+      throw new Error('Planning window not available')
+    }
+
+    // Check if planning window allows submission
+    if (window.stage === PlanningStage.LOCKED || window.stage === PlanningStage.CLOSED) {
+      throw new Error('Planning window is not open for submissions')
+    }
+
+    // Try to find existing plan or create empty one
+    let plan = await prisma.holidayPlan.findUnique({
       where: { userId_year: { userId, year } },
       include: { 
         window: true, 
@@ -239,15 +252,34 @@ export class HolidayPlanningService {
       }
     })
 
+    // If no plan exists, create an empty one
     if (!plan) {
-      throw new Error('Plan not found')
+      plan = await prisma.holidayPlan.create({
+        data: {
+          windowId: window.id,
+          userId,
+          year,
+          status: PlanStatus.DRAFT,
+          version: 0
+        },
+        include: { 
+          window: true, 
+          dates: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              department: true,
+              managerId: true,
+              departmentDirectorId: true
+            }
+          }
+        }
+      })
     }
 
-    // Allow submission anytime during Oct-Dec (when window is active)
-    if (plan.window.stage === PlanningStage.LOCKED || plan.window.stage === PlanningStage.CLOSED) {
-      throw new Error('Planning window is not open for submissions')
-    }
-
+    // Check if plan can be submitted
     if (plan.status === PlanStatus.LOCKED) {
       throw new Error('Plan is already locked')
     }
@@ -381,30 +413,23 @@ export class HolidayPlanningService {
       let teamMembers = []
       
       if (isDepartmentDirector) {
-        // Get all users in the department
-        const manager = await prisma.user.findUnique({
-          where: { id: managerId },
-          select: { department: true }
-        })
-        
-        if (manager) {
-          teamMembers = await prisma.user.findMany({
-            where: {
-              department: manager.department,
-              isActive: true
-            },
-            include: {
-              holidayPlans: {
-                where: { year },
-                include: {
-                  dates: {
-                    orderBy: { date: 'asc' }
-                  }
+        // Get all users where this director is the departmentDirectorId (handles multi-department)
+        teamMembers = await prisma.user.findMany({
+          where: {
+            departmentDirectorId: managerId,
+            isActive: true
+          },
+          include: {
+            holidayPlans: {
+              where: { year },
+              include: {
+                dates: {
+                  orderBy: { date: 'asc' }
                 }
               }
             }
-          })
-        }
+          }
+        })
       } else {
         // Get direct reports only
         teamMembers = await prisma.user.findMany({

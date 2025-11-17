@@ -543,7 +543,15 @@ export default function EmployeeDashboard() {
             className="flex items-center gap-2"
           >
             <Calendar className="h-4 w-4" />
-            Holiday Planning
+            My Holiday Planning
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/department-holiday-view')}
+            className="flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Department Plans
           </Button>
         </div>
 

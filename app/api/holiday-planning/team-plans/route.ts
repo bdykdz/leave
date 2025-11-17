@@ -59,12 +59,12 @@ export async function GET(request: NextRequest) {
         ]
       })
     } else if (user.role === 'DIRECTOR') {
-      // Get department team members' plans
+      // Get all users where this director is the departmentDirectorId (handles multi-department directors)
       holidayPlans = await prisma.holidayPlan.findMany({
         where: {
           year,
           user: {
-            department: user.department,
+            departmentDirectorId: user.id,
             isActive: true
           }
         },
