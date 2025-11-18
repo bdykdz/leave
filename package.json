@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
     "db:reset:unsafe": "echo 'Use npm run db:reset instead'",

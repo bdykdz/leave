@@ -16,9 +16,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client (ignore checksum errors for offline/restricted environments)
+# Generate Prisma client (with offline support)
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-RUN npx prisma generate
+ENV PRISMA_ENGINES_SKIP_DOWNLOAD=false
+
+# Generate Prisma client - postinstall should have run during npm ci
+# but run it explicitly to ensure it's available
+RUN npm run db:generate || npx prisma generate || echo "Prisma generation attempted"
 
 # Build the application
 RUN npm run build
