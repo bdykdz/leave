@@ -3,6 +3,11 @@
 # Production startup script for Leave Management System
 echo "🚀 Starting Leave Management System..."
 
+# Generate Prisma client if not available
+echo "🔧 Ensuring Prisma client is available..."
+export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+npx prisma generate 2>/dev/null || echo "⚠️  Warning: Could not generate Prisma client, using existing"
+
 # Push database schema (for initial setup)
 echo "📊 Pushing database schema..."
 npx prisma db push --accept-data-loss --skip-generate
