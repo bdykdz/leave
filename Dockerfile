@@ -6,17 +6,13 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
 
+# Set alternative CDN for Prisma engines before npm install
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+ENV PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines/releases
+
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-
-# Temporarily remove postinstall to avoid Prisma issues during npm ci
-RUN sed -i 's/"postinstall": "prisma generate",//g' package.json
-
-# Install dependencies without postinstall
 RUN npm ci --legacy-peer-deps
-
-# Restore postinstall for runtime
-RUN sed -i '/"lint": "next lint",/a\    "postinstall": "prisma generate",' package.json
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -24,16 +20,22 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client with proper error handling
+# Use alternative CDN for Prisma engines (bypass Cloudflare)
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+ENV PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines/releases
+ENV PRISMA_ENGINES_DOWNLOAD_URL=https://github.com/prisma/prisma-engines/releases/download
 
-# Generate Prisma client - this is required for the build to succeed
+# Alternative: try using jsDelivr CDN as backup
+# ENV PRISMA_ENGINES_MIRROR=https://cdn.jsdelivr.net/npm/@prisma/engines
+
+# Generate Prisma client with alternative CDN
 RUN npx prisma generate || \
-    (echo "Prisma generation failed, trying with cached engines..." && \
-     PRISMA_ENGINES_SKIP_DOWNLOAD=true npx prisma generate) || \
-    (echo "Prisma generation still failed, creating minimal client..." && \
-     mkdir -p node_modules/.prisma/client && \
-     echo 'module.exports = { PrismaClient: class PrismaClient {} }' > node_modules/.prisma/client/index.js)
+    (echo "Trying with GitHub releases mirror..." && \
+     PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines/releases npx prisma generate) || \
+    (echo "Trying with jsDelivr CDN..." && \
+     PRISMA_ENGINES_MIRROR=https://cdn.jsdelivr.net/npm/@prisma/engines npx prisma generate) || \
+    (echo "All CDNs failed, using cached engines..." && \
+     PRISMA_ENGINES_SKIP_DOWNLOAD=true npx prisma generate)
 
 # Build the application
 RUN npm run build
