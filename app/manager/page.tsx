@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   CalendarDays,
   Building,
+  BarChart3,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
