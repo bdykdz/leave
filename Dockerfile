@@ -6,10 +6,6 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
 
-# Set alternative CDN for Prisma engines before npm install
-ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-ENV PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines/releases
-
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
@@ -20,22 +16,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Use alternative CDN for Prisma engines (bypass Cloudflare)
-ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-ENV PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines/releases
-ENV PRISMA_ENGINES_DOWNLOAD_URL=https://github.com/prisma/prisma-engines/releases/download
-
-# Alternative: try using jsDelivr CDN as backup
-# ENV PRISMA_ENGINES_MIRROR=https://cdn.jsdelivr.net/npm/@prisma/engines
-
-# Generate Prisma client with alternative CDN
-RUN npx prisma generate || \
-    (echo "Trying with GitHub releases mirror..." && \
-     PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines/releases npx prisma generate) || \
-    (echo "Trying with jsDelivr CDN..." && \
-     PRISMA_ENGINES_MIRROR=https://cdn.jsdelivr.net/npm/@prisma/engines npx prisma generate) || \
-    (echo "All CDNs failed, using cached engines..." && \
-     PRISMA_ENGINES_SKIP_DOWNLOAD=true npx prisma generate)
+# Generate Prisma client
+RUN npx prisma generate
 
 # Build the application
 RUN npm run build
