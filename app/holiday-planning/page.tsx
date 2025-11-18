@@ -375,9 +375,9 @@ export default function HolidayPlanningPage() {
                     niceToHave: plan?.dates?.filter(d => d.priority === 'NICE_TO_HAVE').map(d => parseISO(d.date)) || []
                   }}
                   modifiersClassNames={{
-                    essential: "border-red-500 border-2 bg-red-50 hover:bg-red-100",
-                    preferred: "border-blue-500 border-2 bg-blue-50 hover:bg-blue-100", 
-                    niceToHave: "border-green-500 border-2 bg-green-50 hover:bg-green-100"
+                    essential: "!border-red-500 !border-2 !bg-red-50 hover:!bg-red-100 !text-red-900",
+                    preferred: "!border-blue-500 !border-2 !bg-blue-50 hover:!bg-blue-100 !text-blue-900", 
+                    niceToHave: "!border-green-500 !border-2 !bg-green-50 hover:!bg-green-100 !text-green-900"
                   }}
                 />
 
