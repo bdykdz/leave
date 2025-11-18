@@ -8,6 +8,8 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
+# Copy prisma schema for postinstall hook
+COPY prisma ./prisma
 RUN npm ci --legacy-peer-deps
 
 # Rebuild the source code only when needed
