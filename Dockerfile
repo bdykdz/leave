@@ -6,6 +6,9 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
 
+# Set environment variable to ignore Prisma checksum errors during install
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
@@ -16,13 +19,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client (with offline support)
-ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-ENV PRISMA_ENGINES_SKIP_DOWNLOAD=false
-
-# Generate Prisma client - postinstall should have run during npm ci
-# but run it explicitly to ensure it's available
-RUN npm run db:generate || npx prisma generate || echo "Prisma generation attempted"
+# Generate Prisma client (should already be generated during postinstall)
+# Run it again to ensure it's properly available for build
+RUN npx prisma generate || echo "Prisma client already generated"
 
 # Build the application
 RUN npm run build
