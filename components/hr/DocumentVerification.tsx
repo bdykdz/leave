@@ -41,7 +41,7 @@ import {
   Calendar,
   User,
   ChevronDown,
-  SelectAll,
+  CheckSquare,
   Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -235,7 +235,7 @@ export function DocumentVerification() {
     setSelectedRequests(newSelected)
   }
 
-  const handleSelectAll = (checked: boolean) => {
+  const handleCheckSquare = (checked: boolean) => {
     if (checked) {
       const eligibleRequests = requests.filter(r => !r.hrDocumentVerified && r.status === 'PENDING')
       setSelectedRequests(new Set(eligibleRequests.map(r => r.id)))
@@ -311,7 +311,7 @@ export function DocumentVerification() {
               </Badge>
               {selectedRequests.size > 0 && (
                 <Badge variant="outline" className="flex items-center gap-1">
-                  <SelectAll className="h-3 w-3" />
+                  <CheckSquare className="h-3 w-3" />
                   {selectedRequests.size} Selected
                 </Badge>
               )}
@@ -342,7 +342,7 @@ export function DocumentVerification() {
               <div className="flex items-center gap-3">
                 <Checkbox
                   checked={isAllSelected}
-                  onCheckedChange={handleSelectAll}
+                  onCheckedChange={handleCheckSquare}
                   className="data-[state=checked]:bg-blue-600"
                 />
                 <span className="text-sm font-medium">
@@ -361,7 +361,7 @@ export function DocumentVerification() {
                         {bulkVerifying ? (
                           <Loader2 className="h-4 w-4 animate-spin mr-1" />
                         ) : (
-                          <SelectAll className="h-4 w-4 mr-1" />
+                          <CheckSquare className="h-4 w-4 mr-1" />
                         )}
                         Bulk Actions
                         <ChevronDown className="h-4 w-4 ml-1" />

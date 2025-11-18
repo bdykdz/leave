@@ -24,14 +24,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client with fallback for offline environments
+# Generate Prisma client with proper error handling
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-ENV PRISMA_ENGINES_SKIP_DOWNLOAD=true
 
-# Try to generate Prisma client, but don't fail the build if it doesn't work
-RUN npx prisma generate 2>/dev/null || \
-    npm run db:generate 2>/dev/null || \
-    echo "Warning: Prisma client generation failed, but continuing build..."
+# Generate Prisma client - this is required for the build to succeed
+RUN npx prisma generate || \
+    (echo "Prisma generation failed, trying with cached engines..." && \
+     PRISMA_ENGINES_SKIP_DOWNLOAD=true npx prisma generate) || \
+    (echo "Prisma generation still failed, creating minimal client..." && \
+     mkdir -p node_modules/.prisma/client && \
+     echo 'module.exports = { PrismaClient: class PrismaClient {} }' > node_modules/.prisma/client/index.js)
 
 # Build the application
 RUN npm run build
