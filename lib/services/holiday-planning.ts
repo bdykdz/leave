@@ -325,12 +325,16 @@ export class HolidayPlanningService {
     if (plan.status === PlanStatus.LOCKED) {
       throw new Error('Plan is already locked')
     }
+    
+    if (plan.status === PlanStatus.SUBMITTED) {
+      throw new Error('Plan is already submitted')
+    }
 
     // Use atomic update with where condition to prevent race conditions
     const updatedPlan = await prisma.holidayPlan.update({
       where: { 
         id: plan.id,
-        status: { notIn: [PlanStatus.LOCKED, PlanStatus.SUBMITTED] } // Only update if not already submitted/locked
+        status: PlanStatus.DRAFT // Only update if status is DRAFT
       },
       data: {
         status: PlanStatus.SUBMITTED,

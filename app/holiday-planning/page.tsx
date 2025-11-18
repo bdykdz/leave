@@ -206,9 +206,9 @@ export default function HolidayPlanningPage() {
         body: JSON.stringify({
           year: planningYear,
           dates: plan.dates.map(d => ({
-            date: d.date,
+            date: d.date.includes('T') ? d.date.split('T')[0] : d.date, // Normalize to YYYY-MM-DD
             priority: d.priority,
-            reason: d.reason
+            ...(d.reason && { reason: d.reason })
           }))
         })
       })

@@ -8,7 +8,7 @@ export const createPlanSchema = z.object({
       message: "Invalid date format"
     }),
     priority: z.nativeEnum(PlanPriority),
-    reason: z.string().max(500).optional().transform(val => {
+    reason: z.string().max(500).optional().nullable().transform(val => {
       // Basic sanitization: trim whitespace and remove potentially harmful characters
       return val ? val.trim().replace(/[<>]/g, '') : undefined
     })
