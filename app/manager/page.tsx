@@ -570,7 +570,7 @@ export default function ManagerDashboard() {
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
                 <p className="text-sm md:text-base text-gray-600">
-                  {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
+                  {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : session?.user?.email || 'User'} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
                 </p>
               </div>
             </div>
@@ -665,7 +665,7 @@ export default function ManagerDashboard() {
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={session?.user?.image || undefined} />
                       <AvatarFallback>
-                        {session?.user?.firstName?.[0]}{session?.user?.lastName?.[0]}
+                        {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName[0]}${session.user.lastName[0]}` : session?.user?.email?.[0]?.toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -673,7 +673,7 @@ export default function ManagerDashboard() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{session?.user?.firstName} {session?.user?.lastName}</p>
+                      <p className="font-medium">{(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : session?.user?.email || 'User'}</p>
                       <p className="w-[200px] truncate text-sm text-muted-foreground">{session?.user?.email}</p>
                     </div>
                   </div>
@@ -1072,7 +1072,7 @@ export default function ManagerDashboard() {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback>
-                        {superior ? superior.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'NA'}
+                        {superior?.name ? superior.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'NA'}
                       </AvatarFallback>
                     </Avatar>
                     <div>

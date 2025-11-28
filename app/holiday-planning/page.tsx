@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Save, Send, AlertCircle, CheckCircle, Clock } from "lucide-react"
-import { format, parseISO } from "date-fns"
+import { format } from "date-fns"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -83,7 +83,7 @@ export default function HolidayPlanningPage() {
         setPlan(data)
         
         if (data && data.dates) {
-          const dates = data.dates.map((d: HolidayPlanDate) => parseISO(d.date))
+          const dates = data.dates.map((d: HolidayPlanDate) => parseDateLocal(d.date))
           setSelectedDates(dates)
         }
       }
@@ -93,6 +93,20 @@ export default function HolidayPlanningPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Helper function to format date in local timezone to avoid UTC shift
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper function to parse date string as local date (not UTC)
+  const parseDateLocal = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number)
+    return new Date(year, month - 1, day)
   }
 
   const isWeekend = (date: Date) => {
@@ -135,7 +149,7 @@ export default function HolidayPlanningPage() {
     const currentDayCount = plan?.dates?.length || 0
     const trulyNewDates = selectedDates.filter(selectedDate => 
       !plan?.dates?.some(existingDate => 
-        parseISO(existingDate.date).toDateString() === selectedDate.toDateString()
+        parseDateLocal(existingDate.date).toDateString() === selectedDate.toDateString()
       )
     )
     const newDayCount = currentDayCount + trulyNewDates.length
@@ -149,13 +163,13 @@ export default function HolidayPlanningPage() {
     const existingDates = plan?.dates || []
     const newDates = selectedDates.filter(selectedDate => 
       !existingDates.some(existingDate => 
-        parseISO(existingDate.date).toDateString() === selectedDate.toDateString()
+        parseDateLocal(existingDate.date).toDateString() === selectedDate.toDateString()
       )
     )
 
     // Create new plan dates only for truly new dates
     const newPlanDates: Partial<HolidayPlanDate>[] = newDates.map(date => ({
-      date: date.toISOString().split('T')[0], // Just date part: YYYY-MM-DD
+      date: formatDateLocal(date), // Use local timezone formatting
       priority: currentPriority,
       reason: currentReason || undefined
     }))
@@ -370,9 +384,9 @@ export default function HolidayPlanningPage() {
                   disabled={isDateDisabled}
                   className="rounded-md border"
                   modifiers={{
-                    essential: plan?.dates?.filter(d => d.priority === 'ESSENTIAL').map(d => parseISO(d.date)) || [],
-                    preferred: plan?.dates?.filter(d => d.priority === 'PREFERRED').map(d => parseISO(d.date)) || [],
-                    niceToHave: plan?.dates?.filter(d => d.priority === 'NICE_TO_HAVE').map(d => parseISO(d.date)) || []
+                    essential: plan?.dates?.filter(d => d.priority === 'ESSENTIAL').map(d => parseDateLocal(d.date)) || [],
+                    preferred: plan?.dates?.filter(d => d.priority === 'PREFERRED').map(d => parseDateLocal(d.date)) || [],
+                    niceToHave: plan?.dates?.filter(d => d.priority === 'NICE_TO_HAVE').map(d => parseDateLocal(d.date)) || []
                   }}
                   modifiersClassNames={{
                     essential: "!border-red-500 !border-2 !bg-red-50 hover:!bg-red-100 !text-red-900",
@@ -451,7 +465,7 @@ export default function HolidayPlanningPage() {
                               <div className={`w-3 h-3 rounded-full ${priority?.color}`}></div>
                               <div>
                                 <p className="font-medium">
-                                  {format(parseISO(date.date), 'EEEE, MMMM d, yyyy')}
+                                  {format(parseDateLocal(date.date), 'EEEE, MMMM d, yyyy')}
                                 </p>
                                 {date.reason && (
                                   <p className="text-sm text-gray-600">{date.reason}</p>

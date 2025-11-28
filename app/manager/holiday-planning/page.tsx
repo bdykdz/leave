@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Eye, Check, X, MessageCircle, ArrowLeft, AlertTriangle, Users, TrendingDown } from "lucide-react"
-import { format, parseISO } from "date-fns"
+import { format } from "date-fns"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -73,6 +73,12 @@ const STATUS_COLORS = {
   'SUBMITTED': 'bg-yellow-500',
   'REVIEWED': 'bg-green-500',
   'FINALIZED': 'bg-blue-500'
+}
+
+// Helper function to parse date string as local date (not UTC)
+const parseDateLocal = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day)
 }
 
 export default function ManagerHolidayPlanningPage() {
@@ -298,7 +304,7 @@ export default function ManagerHolidayPlanningPage() {
                       <p className="text-sm text-gray-600">First Holiday</p>
                       <p className="text-lg font-semibold">
                         {plan.dates.length > 0 
-                          ? format(parseISO(plan.dates[0].date), 'MMM d')
+                          ? format(parseDateLocal(plan.dates[0].date), 'MMM d')
                           : 'N/A'
                         }
                       </p>
@@ -346,7 +352,7 @@ export default function ManagerHolidayPlanningPage() {
                                         <div className={`w-3 h-3 rounded-full ${priority?.color}`}></div>
                                         <div>
                                           <p className="font-medium">
-                                            {format(parseISO(date.date), 'EEEE, MMMM d, yyyy')}
+                                            {format(parseDateLocal(date.date), 'EEEE, MMMM d, yyyy')}
                                           </p>
                                           {date.reason && (
                                             <p className="text-sm text-gray-600">{date.reason}</p>

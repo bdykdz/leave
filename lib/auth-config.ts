@@ -213,9 +213,9 @@ export const authOptions: NextAuthOptions = {
         if (dbUser) {
           token.id = dbUser.id
           token.role = dbUser.role
-          token.department = dbUser.department
-          token.firstName = dbUser.firstName
-          token.lastName = dbUser.lastName
+          token.department = dbUser.department || ""
+          token.firstName = dbUser.firstName || ""
+          token.lastName = dbUser.lastName || ""
         }
       }
       return token
@@ -224,9 +224,9 @@ export const authOptions: NextAuthOptions = {
       if (session?.user) {
         session.user.id = token.id as string
         session.user.role = token.role as Role
-        session.user.department = token.department as string
-        session.user.firstName = token.firstName as string
-        session.user.lastName = token.lastName as string
+        session.user.department = token.department as string || ""
+        session.user.firstName = token.firstName as string || ""
+        session.user.lastName = token.lastName as string || ""
         if (token.image) {
           session.user.image = token.image as string
         }

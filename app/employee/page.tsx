@@ -199,7 +199,7 @@ export default function EmployeeDashboard() {
     }
   }
 
-  const handleCancelRequest = async (requestId: string) => {
+  const handleCancelRequest = async (requestId: string, requestType: string = 'leave') => {
     if (!confirm('Are you sure you want to cancel this request?')) {
       return;
     }
@@ -211,7 +211,12 @@ export default function EmployeeDashboard() {
 
     setCancellingRequestId(requestId);
     try {
-      const response = await fetch(`/api/leave-requests/${requestId}/self-cancel`, {
+      // Use different endpoint for WFH requests
+      const endpoint = requestType === 'wfh' 
+        ? `/api/wfh-requests/${requestId}/self-cancel`
+        : `/api/leave-requests/${requestId}/self-cancel`;
+        
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -743,7 +748,7 @@ export default function EmployeeDashboard() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleCancelRequest(request.id)}
+                                    onClick={() => handleCancelRequest(request.id, request.requestType)}
                                     disabled={cancellingRequestId === request.id}
                                     className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 disabled:opacity-50"
                                   >
