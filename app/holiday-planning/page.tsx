@@ -83,8 +83,15 @@ export default function HolidayPlanningPage() {
         setPlan(data)
         
         if (data && data.dates) {
-          const dates = data.dates.map((d: HolidayPlanDate) => parseDateLocal(d.date))
-          setSelectedDates(dates)
+          const dates = data.dates
+            .filter((d: HolidayPlanDate) => d && d.date) // Filter out null/undefined dates
+            .map((d: HolidayPlanDate) => {
+              const parsed = parseDateLocal(d.date)
+              // Only include valid dates
+              return isNaN(parsed.getTime()) ? null : parsed
+            })
+            .filter(d => d !== null) // Remove any null dates
+          setSelectedDates(dates as Date[])
         }
       }
     } catch (error) {
@@ -105,8 +112,40 @@ export default function HolidayPlanningPage() {
 
   // Helper function to parse date string as local date (not UTC)
   const parseDateLocal = (dateString: string): Date => {
-    const [year, month, day] = dateString.split('-').map(Number)
-    return new Date(year, month - 1, day)
+    // Handle null/undefined/empty strings
+    if (!dateString) {
+      console.warn('parseDateLocal received empty date string')
+      return new Date() // Return current date as fallback
+    }
+    
+    // Handle ISO date strings (with time component)
+    if (dateString.includes('T')) {
+      dateString = dateString.split('T')[0]
+    }
+    
+    const parts = dateString.split('-')
+    if (parts.length !== 3) {
+      console.error('Invalid date format:', dateString)
+      return new Date() // Return current date as fallback
+    }
+    
+    const [year, month, day] = parts.map(Number)
+    
+    // Validate the parsed values
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      console.error('Invalid date components:', { year, month, day, original: dateString })
+      return new Date() // Return current date as fallback
+    }
+    
+    const date = new Date(year, month - 1, day)
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date created from:', dateString)
+      return new Date() // Return current date as fallback
+    }
+    
+    return date
   }
 
   const isWeekend = (date: Date) => {
@@ -263,7 +302,7 @@ export default function HolidayPlanningPage() {
       if (response.ok) {
         const updatedPlan = await response.json()
         setPlan(updatedPlan)
-        toast.success('Holiday plan submitted for review')
+        toast.success('Holiday plan submitted for review! You can continue to make changes if needed.')
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to submit plan')
@@ -302,9 +341,12 @@ export default function HolidayPlanningPage() {
   // Simplified logic: Allow editing and submission anytime during Oct-Dec (when window is active)
   const windowIsOpen = plan?.window?.stage === 'DRAFT' || plan?.window?.stage === 'SUBMISSION' || plan?.window?.stage === 'COORDINATION' || plan?.window?.stage === 'FINALIZATION'
   const planNotLocked = plan?.status !== 'LOCKED'
+  const planIsSubmitted = plan?.status === 'SUBMITTED'
+  const planIsDraft = plan?.status === 'DRAFT' || !plan?.status
   
   const canEdit = windowIsOpen && planNotLocked
-  const canSubmit = windowIsOpen && planNotLocked
+  const canSubmit = windowIsOpen && planNotLocked && planIsDraft // Only submit if in draft
+  const canResubmit = windowIsOpen && planNotLocked && planIsSubmitted // Allow resubmit if already submitted
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -438,13 +480,35 @@ export default function HolidayPlanningPage() {
           <div className={canEdit ? 'lg:col-span-2' : 'lg:col-span-3'}>
             <Card>
               <CardHeader>
-                <CardTitle>Your Holiday Plan {planningYear}</CardTitle>
-                <CardDescription>
-                  {plan?.dates?.length ? 
-                    `${plan.dates.length} dates selected` : 
-                    'No dates selected yet'
-                  }
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Your Holiday Plan {planningYear}</CardTitle>
+                    <CardDescription>
+                      {plan?.dates?.length ? 
+                        `${plan.dates.length} dates selected` : 
+                        'No dates selected yet'
+                      }
+                    </CardDescription>
+                  </div>
+                  {plan?.status && (
+                    <Badge 
+                      variant={
+                        plan.status === 'SUBMITTED' ? 'default' :
+                        plan.status === 'REVIEWED' ? 'secondary' :
+                        plan.status === 'FINALIZED' ? 'success' :
+                        plan.status === 'LOCKED' ? 'destructive' :
+                        'outline'
+                      }
+                      className="text-sm"
+                    >
+                      {plan.status === 'SUBMITTED' ? 'Submitted - Awaiting Review' :
+                       plan.status === 'REVIEWED' ? 'Reviewed' :
+                       plan.status === 'FINALIZED' ? 'Finalized' :
+                       plan.status === 'LOCKED' ? 'Locked' :
+                       'Draft'}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {!plan?.dates?.length ? (
@@ -465,7 +529,18 @@ export default function HolidayPlanningPage() {
                               <div className={`w-3 h-3 rounded-full ${priority?.color}`}></div>
                               <div>
                                 <p className="font-medium">
-                                  {format(parseDateLocal(date.date), 'EEEE, MMMM d, yyyy')}
+                                  {(() => {
+                                    try {
+                                      const parsedDate = parseDateLocal(date.date)
+                                      if (isNaN(parsedDate.getTime())) {
+                                        return 'Invalid date'
+                                      }
+                                      return format(parsedDate, 'EEEE, MMMM d, yyyy')
+                                    } catch (e) {
+                                      console.error('Error formatting date:', date.date, e)
+                                      return 'Invalid date'
+                                    }
+                                  })()}
                                 </p>
                                 {date.reason && (
                                   <p className="text-sm text-gray-600">{date.reason}</p>
@@ -493,19 +568,51 @@ export default function HolidayPlanningPage() {
             </Card>
 
             {/* Action Buttons */}
-            {plan && (canEdit || canSubmit) && (
-              <div className="flex gap-3 mt-4">
-                {canEdit && (
-                  <Button onClick={savePlan} disabled={saving} className="flex items-center gap-2">
+            {plan && canEdit && (
+              <div className="space-y-3 mt-4">
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={savePlan} 
+                    disabled={saving} 
+                    variant={planIsSubmitted ? "default" : "outline"}
+                    className="flex items-center gap-2"
+                  >
                     <Save className="h-4 w-4" />
-                    {saving ? 'Saving...' : 'Save Draft'}
+                    {saving ? 'Saving...' : planIsSubmitted ? 'Save Changes' : 'Save Draft'}
                   </Button>
-                )}
-                {canSubmit && plan.dates.length > 0 && (
-                  <Button onClick={submitPlan} disabled={submitting} className="flex items-center gap-2">
-                    <Send className="h-4 w-4" />
-                    {submitting ? 'Submitting...' : 'Submit Plan'}
-                  </Button>
+                  
+                  {canSubmit && plan.dates.length > 0 && (
+                    <Button 
+                      onClick={submitPlan} 
+                      disabled={submitting} 
+                      variant="default"
+                      className="flex items-center gap-2"
+                    >
+                      <Send className="h-4 w-4" />
+                      {submitting ? 'Submitting...' : 'Submit for Review'}
+                    </Button>
+                  )}
+                  
+                  {canResubmit && plan.dates.length > 0 && (
+                    <Button 
+                      onClick={submitPlan} 
+                      disabled={submitting} 
+                      variant="default"
+                      className="flex items-center gap-2"
+                    >
+                      <Send className="h-4 w-4" />
+                      {submitting ? 'Resubmitting...' : 'Resubmit for Review'}
+                    </Button>
+                  )}
+                </div>
+                
+                {planIsSubmitted && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Your plan has been submitted.</strong> You can still make changes and save them. 
+                      Your manager will see the latest version when reviewing.
+                    </p>
+                  </div>
                 )}
               </div>
             )}

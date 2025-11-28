@@ -77,8 +77,40 @@ const STATUS_COLORS = {
 
 // Helper function to parse date string as local date (not UTC)
 const parseDateLocal = (dateString: string): Date => {
-  const [year, month, day] = dateString.split('-').map(Number)
-  return new Date(year, month - 1, day)
+  // Handle null/undefined/empty strings
+  if (!dateString) {
+    console.warn('parseDateLocal received empty date string')
+    return new Date() // Return current date as fallback
+  }
+  
+  // Handle ISO date strings (with time component)
+  if (dateString.includes('T')) {
+    dateString = dateString.split('T')[0]
+  }
+  
+  const parts = dateString.split('-')
+  if (parts.length !== 3) {
+    console.error('Invalid date format:', dateString)
+    return new Date() // Return current date as fallback
+  }
+  
+  const [year, month, day] = parts.map(Number)
+  
+  // Validate the parsed values
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    console.error('Invalid date components:', { year, month, day, original: dateString })
+    return new Date() // Return current date as fallback
+  }
+  
+  const date = new Date(year, month - 1, day)
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    console.error('Invalid date created from:', dateString)
+    return new Date() // Return current date as fallback
+  }
+  
+  return date
 }
 
 export default function ManagerHolidayPlanningPage() {

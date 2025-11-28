@@ -195,10 +195,14 @@ export class HolidayPlanningService {
       })
     }
 
-    // Check if plan can be edited (only block if LOCKED)
+    // Check if plan can be edited (only block if LOCKED or FINALIZED)
     if (plan.status === PlanStatus.LOCKED) {
       throw new Error('Plan is locked and cannot be edited')
     }
+    if (plan.status === PlanStatus.FINALIZED) {
+      throw new Error('Plan has been finalized and cannot be edited')
+    }
+    // Allow editing DRAFT, SUBMITTED, and REVIEWED plans
 
     // Validate 30-day limit
     if (dates.length > 30) {
@@ -326,15 +330,15 @@ export class HolidayPlanningService {
       throw new Error('Plan is already locked')
     }
     
-    if (plan.status === PlanStatus.SUBMITTED) {
-      throw new Error('Plan is already submitted')
-    }
+    // Allow resubmission if already submitted (updates the submittedAt timestamp)
 
     // Use atomic update with where condition to prevent race conditions
     const updatedPlan = await prisma.holidayPlan.update({
       where: { 
         id: plan.id,
-        status: PlanStatus.DRAFT // Only update if status is DRAFT
+        status: {
+          in: [PlanStatus.DRAFT, PlanStatus.SUBMITTED] // Allow updating DRAFT or SUBMITTED plans
+        }
       },
       data: {
         status: PlanStatus.SUBMITTED,
@@ -367,7 +371,12 @@ export class HolidayPlanningService {
     })
 
     // Send email notifications to manager and department director
-    await this.sendSubmissionNotifications(updatedPlan)
+    const emailResult = await this.sendSubmissionNotifications(updatedPlan)
+    
+    // Add email status to the response (optional - for debugging)
+    if (!emailResult.success) {
+      console.warn('Holiday plan submitted but email notifications failed:', emailResult.error)
+    }
 
     return updatedPlan
   }
@@ -375,7 +384,7 @@ export class HolidayPlanningService {
   /**
    * Send email notifications when a holiday plan is submitted
    */
-  static async sendSubmissionNotifications(plan: any) {
+  static async sendSubmissionNotifications(plan: any): Promise<{ success: boolean; error?: string }> {
     try {
       const employeeName = `${plan.user.firstName} ${plan.user.lastName}`
       const totalDays = plan.dates.length
@@ -418,11 +427,16 @@ export class HolidayPlanningService {
         const results = await Promise.all(promises)
         const successCount = results.filter(Boolean).length
         console.log(`Holiday plan submission notifications: ${successCount}/${promises.length} sent successfully`)
+        return { success: successCount > 0 }
+      } else {
+        console.log('No managers found to notify for holiday plan submission')
+        return { success: false, error: 'No managers configured' }
       }
 
     } catch (error) {
       console.error('Error sending holiday plan submission notifications:', error)
       // Don't throw error to prevent blocking the submission process
+      return { success: false, error: error instanceof Error ? error.message : 'Email sending failed' }
     }
   }
 
