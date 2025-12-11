@@ -9,7 +9,8 @@
       "Bash(npm run lint)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm dev:*)",
-      "Bash(NEXT_PRIVATE_SKIP_LOCKFILE_CHECK=1 SKIP_LOCKFILE_CHECK=1 npm run build)"
+      "Bash(NEXT_PRIVATE_SKIP_LOCKFILE_CHECK=1 SKIP_LOCKFILE_CHECK=1 npm run build)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

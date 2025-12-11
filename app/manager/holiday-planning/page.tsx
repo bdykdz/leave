@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Eye, Check, X, MessageCircle, ArrowLeft, AlertTriangle, Users, TrendingDown } from "lucide-react"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -302,10 +302,10 @@ export default function ManagerHolidayPlanningPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">
-                        {plan.user.firstName} {plan.user.lastName}
+                        {plan.user?.firstName || ''} {plan.user?.lastName || 'Unknown User'}
                       </CardTitle>
                       <CardDescription>
-                        {plan.user.position} • {plan.user.department} • {plan.user.employeeId}
+                        {plan.user?.position || 'N/A'} • {plan.user?.department || 'N/A'} • {plan.user?.employeeId || 'N/A'}
                       </CardDescription>
                     </div>
                     <div className="text-right">
@@ -611,7 +611,7 @@ export default function ManagerHolidayPlanningPage() {
                                 <div key={userIndex} className="flex items-center justify-between bg-white bg-opacity-50 rounded p-2">
                                   <div>
                                     <span className="font-medium">
-                                      {userEntry.user.firstName} {userEntry.user.lastName}
+                                      {userEntry.user?.firstName || ''} {userEntry.user?.lastName || 'Unknown User'}
                                     </span>
                                     <span className="text-sm text-gray-600 ml-2">
                                       ({userEntry.user.position})

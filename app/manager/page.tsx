@@ -426,12 +426,12 @@ export default function ManagerDashboard() {
     setApprovalDetails({
       action: "approve",
       request: {
-        id: request.id,
-        employeeName: request.employee.name,
-        type: request.type,
-        dates: request.dates,
-        days: request.days,
-        requestType: request.requestType || 'leave',
+        id: request?.id || '',
+        employeeName: request.employee?.name || 'Unknown',
+        type: request?.type || 'Unknown',
+        dates: request?.dates || 'N/A',
+        days: request?.days || 0,
+        requestType: request?.requestType || 'leave',
       },
     })
     setShowApprovalDialog(true)
@@ -441,12 +441,12 @@ export default function ManagerDashboard() {
     setApprovalDetails({
       action: "deny",
       request: {
-        id: request.id,
-        employeeName: request.employee.name,
-        type: request.type,
-        dates: request.dates,
-        days: request.days,
-        requestType: request.requestType || 'leave',
+        id: request?.id || '',
+        employeeName: request.employee?.name || 'Unknown',
+        type: request?.type || 'Unknown',
+        dates: request?.dates || 'N/A',
+        days: request?.days || 0,
+        requestType: request?.requestType || 'leave',
       },
     })
     setShowApprovalDialog(true)
@@ -570,7 +570,7 @@ export default function ManagerDashboard() {
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
                 <p className="text-sm md:text-base text-gray-600">
-                  {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : session?.user?.email || 'User'} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
+                  {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : (session?.user?.name || session?.user?.email || 'User')} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
                 </p>
               </div>
             </div>
@@ -665,7 +665,7 @@ export default function ManagerDashboard() {
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={session?.user?.image || undefined} />
                       <AvatarFallback>
-                        {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName[0]}${session.user.lastName[0]}` : session?.user?.email?.[0]?.toUpperCase() || 'U'}
+                        {(session?.user?.firstName && session?.user?.lastName) ? `${session?.user?.firstName?.[0] || ''}${session?.user?.lastName?.[0] || ''}` : (session?.user?.name ? session?.user?.name.split(' ').map(n => n?.[0] || '').join('').toUpperCase() : session?.user?.email?.[0]?.toUpperCase() || 'U')}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -673,7 +673,7 @@ export default function ManagerDashboard() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : session?.user?.email || 'User'}</p>
+                      <p className="font-medium">{(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : (session?.user?.name || session?.user?.email || 'User')}</p>
                       <p className="w-[200px] truncate text-sm text-muted-foreground">{session?.user?.email}</p>
                     </div>
                   </div>
@@ -915,38 +915,38 @@ export default function ManagerDashboard() {
                         const end = new Date(endDate);
                         const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
                         if (start.getTime() === end.getTime()) {
-                          return start.toLocaleDateString('en-US', options);
+                          return start?.toLocaleDateString('en-US', options) || 'N/A';
                         }
-                        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', options)}`;
+                        return start && end ? `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', options)}` : 'N/A';
                       };
 
                       return (
-                        <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={request?.id || Math.random()} className="flex items-center justify-between p-4 border rounded-lg">
                           <div className="flex items-center gap-3">
-                            {getStatusIcon(request.status)}
+                            {getStatusIcon(request?.status || 'pending')}
                             <div className="flex items-center gap-2">
-                              {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                              {request?.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
                               <div>
-                                <p className="font-medium">{request.type}</p>
+                                <p className="font-medium">{request?.type || 'Unknown'}</p>
                                 <p className="text-sm text-gray-600">
-                                  {formatDateRange(request.startDate, request.endDate)}
+                                  {formatDateRange(request?.startDate, request?.endDate)}
                                 </p>
-                                <p className="text-xs text-gray-500">To: {request.approver?.name || 'Pending assignment'}</p>
+                                <p className="text-xs text-gray-500">To: {request?.approver?.name || 'Pending assignment'}</p>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600">
-                              {request.totalDays || request.days} day{(request.totalDays || request.days) > 1 ? "s" : ""}
+                              {request?.totalDays || request?.days || 0} day{(request?.totalDays || request?.days || 0) > 1 ? "s" : ""}
                             </span>
-                            <Badge className={getStatusColor(request.status)}>
-                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            <Badge className={getStatusColor(request?.status || 'pending')}>
+                              {(request?.status || 'pending').charAt(0).toUpperCase() + (request?.status || 'pending').slice(1)}
                             </Badge>
-                            {(request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
+                            {(request?.status?.toUpperCase() === 'PENDING' || (request?.status?.toUpperCase() === 'APPROVED' && request?.startDate && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleCancelRequest(request.id)}
+                                onClick={() => handleCancelRequest(request?.id || '')}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                               >
                                 Cancel
@@ -976,25 +976,25 @@ export default function ManagerDashboard() {
                   ) : (
                     <div className="space-y-3">
                       {pendingRequests.slice(0, 3).map((request) => (
-                        <div key={request.id} className="border rounded-lg p-3">
+                        <div key={request?.id || Math.random()} className="border rounded-lg p-3">
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={request.employee.avatar} />
+                                <AvatarImage src={request.employee?.avatar} />
                                 <AvatarFallback>
-                                  {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                  {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <p className="text-sm font-medium">{request.employee.name}</p>
+                                <p className="text-sm font-medium">{request.employee?.name || 'Unknown'}</p>
                                 <div className="flex items-center gap-1">
-                                  <p className="text-xs text-gray-500">{request.type}</p>
-                                  {request.requestType === 'wfh' && (
+                                  <p className="text-xs text-gray-500">{request?.type || 'Unknown'}</p>
+                                  {request?.requestType === 'wfh' && (
                                     <Badge variant="outline" className="text-xs h-4 px-1 bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
                                   )}
-                                  <span className="text-xs text-gray-500">• {request.days} day{request.days > 1 ? 's' : ''}</span>
+                                  <span className="text-xs text-gray-500">• {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}</span>
                                 </div>
-                                <p className="text-xs text-gray-400">{request.dates}</p>
+                                <p className="text-xs text-gray-400">{request?.dates || 'N/A'}</p>
                               </div>
                             </div>
                             <div className="flex gap-1">
@@ -1072,7 +1072,7 @@ export default function ManagerDashboard() {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback>
-                        {superior?.name ? superior.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'NA'}
+                        {superior?.name ? superior?.name.split(' ').map((n: string) => n?.[0] || '').join('').toUpperCase() : 'NA'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
@@ -1301,20 +1301,20 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">No pending requests</p>
                         ) : (
                           pendingRequests.map((request) => (
-                      <div key={request.id} className="p-4 border rounded-lg">
+                      <div key={request?.id || Math.random()} className="p-4 border rounded-lg">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3">
                             <Avatar className="h-10 w-10">
-                              <AvatarImage src={undefined} />
-                              <AvatarFallback>{request.employee.avatar}</AvatarFallback>
+                              <AvatarImage src={request.employee?.avatar} />
+                              <AvatarFallback>{request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold">{request.employee.name}</h4>
+                                <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
                                 <Badge variant="outline" className="text-xs">
-                                  {request.employee.department}
+                                  {request.employee?.department || 'N/A'}
                                 </Badge>
-                                {(request.requestType === 'wfh' || request.type === "Work From Home") && (
+                                {(request?.requestType === 'wfh' || request?.type === "Work From Home") && (
                                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                                     <Home className="h-3 w-3 mr-1" />
                                     WFH
@@ -1322,11 +1322,11 @@ export default function ManagerDashboard() {
                                 )}
                               </div>
                               <p className="text-sm text-gray-600 mb-1">
-                                <span className="font-medium">{request.type}</span> • {request.dates} ({request.days}{" "}
-                                day{request.days > 1 ? "s" : ""})
+                                <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.dates || 'N/A'} ({request?.days || 0}{" "}
+                                day{(request?.days || 0) > 1 ? "s" : ""})
                               </p>
-                              {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
-                              <p className="text-xs text-gray-400 mt-1">Submitted: {request.submittedDate}</p>
+                              {request?.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
+                              <p className="text-xs text-gray-400 mt-1">Submitted: {request?.submittedDate || 'Unknown'}</p>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -1416,33 +1416,33 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">No approved requests</p>
                         ) : (
                           approvedRequests.map((request) => (
-                            <div key={request.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-green-50 border-green-200">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={request.employee.avatar} />
+                                    <AvatarImage src={request.employee?.avatar} />
                                     <AvatarFallback>
-                                      {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1">
-                                    <h4 className="font-semibold">{request.employee.name}</h4>
-                                    <p className="text-sm text-gray-600">{request.employee.department}</p>
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
                                     <div className="mt-2 space-y-1">
                                       <p className="text-sm">
-                                        <span className="font-medium">{request.type}</span> • {request.days} day{request.days > 1 ? 's' : ''}
+                                        <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
                                       </p>
-                                      <p className="text-sm text-gray-600">{request.dates}</p>
-                                      {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
                                       <p className="text-xs text-green-600 mt-1">
-                                        Approved on: {new Date(request.approvedDate).toLocaleDateString()}
+                                        Approved on: {request?.approvedDate ? new Date(request.approvedDate).toLocaleDateString() : 'Unknown'}
                                       </p>
                                     </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
                                   <Badge className="bg-green-100 text-green-800">Approved by You</Badge>
-                                  {request.overallRequestStatus === 'PENDING' && (
+                                  {request?.overallRequestStatus === 'PENDING' && (
                                     <p className="text-xs text-orange-600 mt-1">Pending Executive</p>
                                   )}
                                 </div>
@@ -1489,31 +1489,31 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">No denied requests</p>
                         ) : (
                           deniedRequests.map((request) => (
-                            <div key={request.id} className="p-4 border rounded-lg bg-red-50 border-red-200">
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-red-50 border-red-200">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={request.employee.avatar} />
+                                    <AvatarImage src={request.employee?.avatar} />
                                     <AvatarFallback>
-                                      {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1">
-                                    <h4 className="font-semibold">{request.employee.name}</h4>
-                                    <p className="text-sm text-gray-600">{request.employee.department}</p>
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
                                     <div className="mt-2 space-y-1">
                                       <p className="text-sm">
-                                        <span className="font-medium">{request.type}</span> • {request.days} day{request.days > 1 ? 's' : ''}
+                                        <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
                                       </p>
-                                      <p className="text-sm text-gray-600">{request.dates}</p>
-                                      {request.reason && <p className="text-sm text-gray-500">Request: "{request.reason}"</p>}
-                                      {request.denialReason && (
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.reason && <p className="text-sm text-gray-500">Request: "{request.reason}"</p>}
+                                      {request?.denialReason && (
                                         <p className="text-sm text-red-600 mt-1">
                                           Denial reason: "{request.denialReason}"
                                         </p>
                                       )}
                                       <p className="text-xs text-red-600 mt-1">
-                                        Denied on: {new Date(request.deniedDate).toLocaleDateString()}
+                                        Denied on: {request?.deniedDate ? new Date(request.deniedDate).toLocaleDateString() : 'Unknown'}
                                       </p>
                                     </div>
                                   </div>
@@ -1568,9 +1568,9 @@ export default function ManagerDashboard() {
           request={approvalDetails.request}
           onConfirm={(comment) => {
             if (approvalDetails.action === 'approve') {
-              handleApprove(approvalDetails.request.id, comment)
+              handleApprove(approvalDetails?.request?.id || '', comment)
             } else {
-              handleDeny(approvalDetails.request.id, comment)
+              handleDeny(approvalDetails?.request?.id || '', comment)
             }
           }}
         />
