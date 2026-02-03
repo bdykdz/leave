@@ -12,30 +12,48 @@ import { STORAGE_STATE } from '../playwright.config';
  * 2. Test authentication bypass (when TEST_AUTH_SECRET is configured)
  *
  * Environment Variables:
- * - PLAYWRIGHT_TEST_EMAIL: Email of the test user (default: admin@example.com)
+ * - PLAYWRIGHT_TEST_EMAIL: Email of the test user (default: admin@staging.local)
  * - PLAYWRIGHT_TEST_PASSWORD: Password for dev login
  * - TEST_AUTH_SECRET: Secret for test authentication bypass
  */
 
-const testEmail = process.env.PLAYWRIGHT_TEST_EMAIL || 'admin@example.com';
-const testPassword = process.env.PLAYWRIGHT_TEST_PASSWORD || 'admin123';
+const testEmail = process.env.PLAYWRIGHT_TEST_EMAIL || 'admin@staging.local';
 
 setup('authenticate', async ({ page }) => {
   // Navigate to login page
-  await page.goto('/auth/signin');
+  await page.goto('/login');
 
-  // Wait for the page to load
+  // Wait for the page to load and hydrate
   await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
 
-  // Check if we have a dev login form (SHOW_DEV_LOGIN=true)
-  const devLoginForm = page.locator('form[action*="credentials"]');
-  const hasDevLogin = await devLoginForm.count() > 0;
+  // Check if we have a dev login section (SHOW_DEV_LOGIN=true)
+  const devSection = page.locator('text=Development Mode');
+  const hasDevLogin = await devSection.isVisible().catch(() => false);
 
   if (hasDevLogin) {
-    // Use development login credentials
-    await page.getByLabel(/email/i).fill(testEmail);
-    await page.getByLabel(/password/i).fill(testPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
+    // Use the "Existing User" dropdown (default tab)
+    await page.waitForTimeout(500);
+
+    // Open the user selector dropdown
+    const userSelector = page.locator('[data-slot="select-trigger"]').first();
+    if (await userSelector.isVisible()) {
+      await userSelector.click();
+      await page.waitForTimeout(300);
+
+      // Select admin user
+      const adminOption = page.getByRole('option').filter({ hasText: /admin/i }).first();
+      if (await adminOption.isVisible().catch(() => false)) {
+        await adminOption.click();
+        await page.waitForTimeout(200);
+      }
+    }
+
+    // Click "Sign in as Selected User" button
+    const signInButton = page.getByRole('button', { name: /sign in as selected user/i });
+    if (await signInButton.isVisible()) {
+      await signInButton.click();
+    }
   } else {
     // If no dev login, try test authentication bypass
     const testAuthSecret = process.env.TEST_AUTH_SECRET;
