@@ -511,10 +511,11 @@ test.describe('API Contract Tests - ID Parameter Validation', () => {
     ];
 
     for (const path of traversalAttempts) {
-      const response = await request.get(path, { failOnStatusCode: false });
+      const response = await request.get(path, { failOnStatusCode: false, maxRedirects: 0 });
 
       // Should not be 200 or expose file contents
-      expect(response.status()).not.toBe(200);
+      // 307/308 redirects are valid (path resolved outside API, redirected to login)
+      expect([307, 308, 400, 401, 403, 404]).toContain(response.status());
 
       const body = await response.text();
       expect(body).not.toContain('root:');
