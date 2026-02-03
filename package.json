@@ -39,7 +39,12 @@
     "test:visual:update": "UPDATE_SNAPSHOTS=true playwright test --config=playwright.visual.config.ts",
     "test:visual:report": "playwright show-report playwright-report-visual",
     "test:contract": "playwright test --config=playwright.contract.config.ts",
-    "test:contract:report": "playwright show-report playwright-report-contract"
+    "test:contract:report": "playwright show-report playwright-report-contract",
+    "test:rp": "playwright test --config=playwright.reportportal.config.ts",
+    "test:rp:security": "playwright test tests/security --config=playwright.reportportal.config.ts",
+    "test:rp:smoke": "playwright test tests/smoke --config=playwright.reportportal.config.ts",
+    "reportportal:up": "docker-compose -f docker-compose.reportportal.yml up -d",
+    "reportportal:down": "docker-compose -f docker-compose.reportportal.yml down"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
@@ -121,6 +126,7 @@
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.2",
     "@playwright/test": "^1.58.1",
+    "@reportportal/agent-js-playwright": "^5.3.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22",
     "@types/react": "^19",

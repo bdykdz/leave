@@ -1,0 +1,31 @@
+http:
+  routers:
+    api:
+      rule: "PathPrefix(`/api`) || PathPrefix(`/composite`)"
+      service: api
+      entryPoints:
+        - web
+    uat:
+      rule: "PathPrefix(`/uat`)"
+      service: uat
+      entryPoints:
+        - web
+    ui:
+      rule: "PathPrefix(`/`)"
+      service: ui
+      entryPoints:
+        - web
+
+  services:
+    api:
+      loadBalancer:
+        servers:
+          - url: "http://api:8585"
+    uat:
+      loadBalancer:
+        servers:
+          - url: "http://uat:9999"
+    ui:
+      loadBalancer:
+        servers:
+          - url: "http://ui:8080"

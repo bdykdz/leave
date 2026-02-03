@@ -1,0 +1,19 @@
+{
+  "apiKey": "leave-management_XXXXXXXX",
+  "endpoint": "http://localhost:9090/api/v1",
+  "project": "leave-management",
+  "launch": "Leave Management Tests",
+  "description": "Automated test run",
+  "attributes": [
+    {
+      "key": "environment",
+      "value": "staging"
+    }
+  ],
+  "mode": "DEFAULT",
+  "debug": false,
+  "skippedIssue": true,
+  "restClientConfig": {
+    "timeout": 60000
+  }
+}
