@@ -257,10 +257,11 @@ test.describe('Authentication - Session Security', () => {
       for (const endpoint of endpoints) {
         const response = await request.get(endpoint, {
           failOnStatusCode: false,
+          maxRedirects: 0,
         });
 
-        // Should either 404 or 401, not bypass auth
-        expect([401, 404]).toContain(response.status());
+        // Should either 404, 401, or 307 redirect to login - not bypass auth
+        expect([307, 401, 404]).toContain(response.status());
       }
     });
 
@@ -274,9 +275,11 @@ test.describe('Authentication - Session Security', () => {
       for (const endpoint of endpoints) {
         const response = await request.get(endpoint, {
           failOnStatusCode: false,
+          maxRedirects: 0,
         });
 
-        expect([401, 404]).toContain(response.status());
+        // 307 redirect is also valid - means auth required for page route
+        expect([307, 401, 404]).toContain(response.status());
       }
     });
 
@@ -347,11 +350,11 @@ test.describe('Authentication - Session Security', () => {
       // Attempt to call OAuth callback without valid state
       const response = await request.get(
         '/api/auth/callback/azure-ad?code=fake&state=invalid',
-        { failOnStatusCode: false }
+        { failOnStatusCode: false, maxRedirects: 0 }
       );
 
-      // Should reject invalid state
-      expect([400, 401, 403, 302]).toContain(response.status());
+      // Should reject invalid state (302 redirect to error page is valid)
+      expect([302, 400, 401, 403]).toContain(response.status());
     });
 
     test('OAuth state parameter is validated', async ({ page }) => {

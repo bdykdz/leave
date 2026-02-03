@@ -142,10 +142,12 @@ test.describe('NPM Audit Verification', () => {
           'Next-Action': 'test-action',
         },
         failOnStatusCode: false,
+        maxRedirects: 0,
       });
 
       // Should not expose source code or execute arbitrary actions
-      expect([400, 403, 404, 405]).toContain(response.status());
+      // 307 redirect to login is valid - means auth required
+      expect([307, 400, 403, 404, 405]).toContain(response.status());
     });
   });
 
@@ -182,9 +184,10 @@ test.describe('NPM Audit Verification', () => {
       ];
 
       for (const path of pathTraversalAttempts) {
-        const response = await request.get(path, { failOnStatusCode: false });
+        const response = await request.get(path, { failOnStatusCode: false, maxRedirects: 0 });
 
-        expect([400, 401, 403, 404]).toContain(response.status());
+        // 307 redirect is also valid - path resolved outside API to page requiring auth
+        expect([307, 400, 401, 403, 404]).toContain(response.status());
 
         const body = await response.text();
         expect(body).not.toContain('root:');

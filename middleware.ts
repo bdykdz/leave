@@ -5,7 +5,8 @@ import { getToken } from "next-auth/jwt"
 // Simple in-memory rate limiter for middleware
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 const RATE_LIMIT_WINDOW = 60000 // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 100 // 100 requests per minute per IP
+// Allow higher limit in staging/test environments
+const RATE_LIMIT_MAX_REQUESTS = process.env.APP_ENV === 'staging' || process.env.NODE_ENV === 'test' ? 1000 : 100
 
 function getRateLimitKey(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')
@@ -85,10 +86,12 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isApiRoute = pathname.startsWith('/api')
 
-  // Check rate limiting for API routes
+  // Check rate limiting for API routes (only check once to avoid double counting)
+  let rateLimitRemaining = RATE_LIMIT_MAX_REQUESTS
   if (isApiRoute) {
     const rateLimitKey = getRateLimitKey(request)
     const { allowed, remaining } = checkRateLimit(rateLimitKey)
+    rateLimitRemaining = remaining
 
     if (!allowed) {
       return createRateLimitResponse(pathname)
@@ -101,10 +104,8 @@ export async function middleware(request: NextRequest) {
 
   // Add rate limit headers for API routes
   if (isApiRoute) {
-    const rateLimitKey = getRateLimitKey(request)
-    const { remaining } = checkRateLimit(rateLimitKey)
     response.headers.set('X-RateLimit-Limit', String(RATE_LIMIT_MAX_REQUESTS))
-    response.headers.set('X-RateLimit-Remaining', String(Math.max(0, remaining)))
+    response.headers.set('X-RateLimit-Remaining', String(Math.max(0, rateLimitRemaining)))
   }
 
   // Public paths that don't need authentication

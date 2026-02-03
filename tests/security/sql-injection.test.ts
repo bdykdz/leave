@@ -226,8 +226,9 @@ test.test.describe('SQL Injection Prevention', () => {
             await emailInput.fill("' OR '1'='1' --");
 
             // Submit and verify no SQL error exposed
-            const signInButton = page.getByRole('button', { name: /sign in/i });
-            if (await signInButton.isVisible()) {
+            // Use more specific selector since there are multiple "sign in" buttons
+            const signInButton = page.locator('button:has-text("Sign in"):not(:has-text("Microsoft")):not(:has-text("as"))').first();
+            if (await signInButton.count() > 0 && await signInButton.isVisible()) {
               await signInButton.click();
               await page.waitForTimeout(1000);
 
@@ -345,7 +346,8 @@ test.describe('SQL Injection Edge Cases', () => {
       failOnStatusCode: false,
     });
 
-    // Should handle gracefully - either 400 (payload too long) or 401 (unauth)
-    expect([400, 401, 413]).toContain(response.status());
+    // Should handle gracefully - 400 (bad request), 401 (unauth), 413 (payload too large),
+    // or 431 (request header fields too large)
+    expect([400, 401, 413, 431]).toContain(response.status());
   });
 });

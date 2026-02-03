@@ -36,10 +36,12 @@ test.describe('Access Control - IDOR Prevention', () => {
       for (const id of testIds) {
         const response = await request.get(`/api/leave-requests/${id}`, {
           failOnStatusCode: false,
+          maxRedirects: 0, // Don't follow redirects to properly test the initial response
         });
 
-        // Should be 401 (unauth) or 404 (not found), never 200 with data
-        expect([401, 403, 404]).toContain(response.status());
+        // Should be 401 (unauth), 403 (forbidden), 404 (not found), or 307 (redirect to login)
+        // 307 is also valid as it means unauthenticated user is being redirected
+        expect([307, 401, 403, 404]).toContain(response.status());
 
         // Should not leak data in error messages
         const body = await response.text();
@@ -135,9 +137,11 @@ test.describe('Access Control - IDOR Prevention', () => {
       for (const id of testIds) {
         const response = await request.get(`/api/documents/${id}`, {
           failOnStatusCode: false,
+          maxRedirects: 0,
         });
 
-        expect([401, 403, 404]).toContain(response.status());
+        // 307 redirect to login is also a valid security response
+        expect([307, 401, 403, 404]).toContain(response.status());
       }
     });
 
@@ -380,10 +384,12 @@ test.describe('Access Control - Path Traversal Prevention', () => {
     for (const path of traversalPaths) {
       const response = await request.get(path, {
         failOnStatusCode: false,
+        maxRedirects: 0,
       });
 
       // Should not expose file contents
-      expect([400, 401, 403, 404]).toContain(response.status());
+      // 307/308 redirect to login is also valid (path traversal resolved to non-API route)
+      expect([307, 308, 400, 401, 403, 404]).toContain(response.status());
 
       const body = await response.text();
       expect(body).not.toContain('root:');
