@@ -12,11 +12,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all leave requests with generated documents
+    // Get all APPROVED/PENDING leave requests that need documents
     const leaveRequests = await prisma.leaveRequest.findMany({
       where: {
-        generatedDocument: {
-          isNot: null
+        status: {
+          in: ['APPROVED', 'PENDING']
         }
       },
       include: {
@@ -24,11 +24,16 @@ export async function POST(request: Request) {
           include: {
             template: true
           }
+        },
+        leaveType: {
+          include: {
+            documentTemplates: true
+          }
         }
       }
     })
 
-    console.log(`Found ${leaveRequests.length} leave requests with documents to regenerate`)
+    console.log(`Found ${leaveRequests.length} APPROVED/PENDING leave requests to process for documents`)
 
     const generator = new SmartDocumentGenerator()
     let successCount = 0
@@ -37,9 +42,26 @@ export async function POST(request: Request) {
 
     for (const leaveRequest of leaveRequests) {
       try {
-        console.log(`Regenerating document for leave request ${leaveRequest.requestNumber}`)
+        console.log(`Processing document for leave request ${leaveRequest.requestNumber}`)
         
-        if (!leaveRequest.generatedDocument?.template) {
+        let templateId: string | null = null
+        
+        // If there's already a generated document, use its template
+        if (leaveRequest.generatedDocument?.template) {
+          templateId = leaveRequest.generatedDocument.template.id
+          console.log(`Found existing template ${templateId} for ${leaveRequest.requestNumber}`)
+        }
+        // Otherwise, try to find an appropriate template for the leave type
+        else if (leaveRequest.leaveType.documentTemplates && leaveRequest.leaveType.documentTemplates.length > 0) {
+          // Use the first active template for this leave type
+          const activeTemplate = leaveRequest.leaveType.documentTemplates.find(t => t.isActive)
+          if (activeTemplate) {
+            templateId = activeTemplate.id
+            console.log(`Found leave type template ${templateId} for ${leaveRequest.requestNumber}`)
+          }
+        }
+        
+        if (!templateId) {
           console.warn(`No template found for leave request ${leaveRequest.requestNumber}`)
           errorCount++
           errors.push({
@@ -49,16 +71,16 @@ export async function POST(request: Request) {
           continue
         }
 
-        // Regenerate the document
+        // Generate/regenerate the document
         await generator.generateDocument(
           leaveRequest.id,
-          leaveRequest.generatedDocument.template.id
+          templateId
         )
         
         successCount++
-        console.log(`Successfully regenerated document for ${leaveRequest.requestNumber}`)
+        console.log(`Successfully processed document for ${leaveRequest.requestNumber}`)
       } catch (error) {
-        console.error(`Error regenerating document for ${leaveRequest.requestNumber}:`, error)
+        console.error(`Error processing document for ${leaveRequest.requestNumber}:`, error)
         errorCount++
         errors.push({
           requestNumber: leaveRequest.requestNumber,
@@ -69,7 +91,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Document regeneration complete`,
+      message: `Document processing complete`,
       stats: {
         total: leaveRequests.length,
         successful: successCount,

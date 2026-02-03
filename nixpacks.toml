@@ -1,0 +1,12 @@
+[build]
+# Force Nixpacks to use npm instead of pnpm for better Prisma compatibility
+cmd = "npm ci --legacy-peer-deps && npx prisma generate && npm run build"
+
+[start]
+# Use our custom startup script for database initialization
+cmd = "./start.sh"
+
+[variables]
+# Ensure environment variables are available
+NODE_ENV = "production"
+NIXPACKS_NO_CACHE = "1"

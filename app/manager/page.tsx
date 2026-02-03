@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MobileNav } from "@/components/mobile/mobile-nav"
+import { MobileManagerDashboard } from "@/components/mobile/mobile-manager-dashboard"
 import {
   Calendar,
   Users,
@@ -20,11 +22,16 @@ import {
   Plus,
   Heart,
   AlertTriangle,
+  CalendarDays,
+  Building,
+  BarChart3,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
+import { DashboardSummary } from "@/components/dashboard-summary"
+import { DelegationManager } from "@/components/manager/DelegationManager"
 import { format, addMonths, subMonths } from "date-fns"
 import {
   DropdownMenu,
@@ -34,14 +41,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings, User } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { toast } from "sonner"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "@/components/language-provider"
+import { LanguageToggle } from "@/components/language-toggle"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
 
 export default function ManagerDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [activeTab, setActiveTab] = useState("dashboard")
   const [pendingRequestsPage, setPendingRequestsPage] = useState(1)
   const [teamStatsMonth, setTeamStatsMonth] = useState(new Date())
@@ -58,6 +68,7 @@ export default function ManagerDashboard() {
       type: string
       dates: string
       days: number
+      requestType?: string
     }
   } | null>(null)
 
@@ -84,35 +95,96 @@ export default function ManagerDashboard() {
   const [teamRequestsTab, setTeamRequestsTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [approvedRequestsPage, setApprovedRequestsPage] = useState(1)
   const [deniedRequestsPage, setDeniedRequestsPage] = useState(1)
+  const [superior, setSuperior] = useState<any>(null)
+  const [loadingSuperior, setLoadingSuperior] = useState(true)
 
+  // Manager's WFH stats
+  const [managerWfhStats, setManagerWfhStats] = useState({ 
+    daysUsed: 0, 
+    workingDaysInMonth: 22, 
+    percentage: 0 
+  })
+
+  // Manager's own requests
+  const [managerRequests, setManagerRequests] = useState<any[]>([])
+  const [myRequestsTotalPages, setMyRequestsTotalPages] = useState(1)
+  const myRequestsPerPage = 3
+
+  // Team WFH stats
+  const [teamWfhStats, setTeamWfhStats] = useState({ 
+    averageWfhPercentage: 0, 
+    totalWfhDays: 0, 
+    totalWorkingDays: 0 
+  })
+
+  // All hooks must be called before any conditional returns
   // Fetch manager's leave balance
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchManagerLeaveBalance()
-  }, [])
+    fetchSuperior()
+  }, [session, status])
 
   // Fetch team stats
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchTeamStats()
-  }, [])
+  }, [session, status])
 
   // Fetch pending requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     fetchPendingRequests()
-  }, [pendingRequestsPage])
+  }, [pendingRequestsPage, session, status])
 
   // Fetch approved requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     if (teamRequestsTab === 'approved') {
       fetchApprovedRequests()
     }
-  }, [approvedRequestsPage, teamRequestsTab])
+  }, [approvedRequestsPage, teamRequestsTab, session, status])
 
   // Fetch denied requests
   useEffect(() => {
+    if (status === "loading" || !session) return
     if (teamRequestsTab === 'denied') {
       fetchDeniedRequests()
     }
-  }, [deniedRequestsPage, teamRequestsTab])
+  }, [deniedRequestsPage, teamRequestsTab, session, status])
+
+  // Fetch manager's WFH stats
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    fetchManagerWfhStats()
+  }, [session, status])
+
+  // Fetch manager's own requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    fetchManagerOwnRequests()
+  }, [myRequestsPage, session, status])
+
+  // Fetch team WFH stats
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    fetchTeamWfhStats()
+  }, [session, status])
+
+  const fetchSuperior = async () => {
+    try {
+      setLoadingSuperior(true)
+      const response = await fetch('/api/manager/superior')
+      if (response.ok) {
+        const data = await response.json()
+        setSuperior(data.superior)
+      }
+    } catch (error) {
+      console.error('Error fetching superior:', error)
+    } finally {
+      setLoadingSuperior(false)
+    }
+  }
 
   const fetchManagerLeaveBalance = async () => {
     try {
@@ -143,7 +215,8 @@ export default function ManagerDashboard() {
   const fetchPendingRequests = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=4`)
+      // Fetch more requests per page to ensure nothing is missed
+      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=10`)
       if (response.ok) {
         const data = await response.json()
         setPendingRequests(data.requests)
@@ -160,7 +233,7 @@ export default function ManagerDashboard() {
   const fetchApprovedRequests = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/manager/team/approved-requests?page=${approvedRequestsPage}&limit=4`)
+      const response = await fetch(`/api/manager/team/approved-requests?page=${approvedRequestsPage}&limit=10`)
       if (response.ok) {
         const data = await response.json()
         setApprovedRequests(data.requests)
@@ -174,10 +247,78 @@ export default function ManagerDashboard() {
     }
   }
 
+  const fetchManagerWfhStats = async () => {
+    try {
+      const response = await fetch('/api/manager/wfh-stats')
+      if (response.ok) {
+        const data = await response.json()
+        setManagerWfhStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching manager WFH stats:', error)
+    }
+  }
+
+  const fetchManagerOwnRequests = async () => {
+    try {
+      const response = await fetch(`/api/manager/own-requests?page=${myRequestsPage}&limit=${myRequestsPerPage}`)
+      if (response.ok) {
+        const data = await response.json()
+        setManagerRequests(data.requests)
+        setMyRequestsTotalPages(data.pagination.totalPages)
+      }
+    } catch (error) {
+      console.error('Error fetching manager requests:', error)
+    }
+  }
+
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to cancel this request?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/leave-requests/${requestId}/self-cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: 'Cancelled by manager'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel request');
+      }
+
+      // Refresh the requests list
+      await fetchManagerOwnRequests();
+      
+      toast.success('Request cancelled successfully');
+    } catch (error) {
+      console.error('Error cancelling request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
+    }
+  }
+
+  const fetchTeamWfhStats = async () => {
+    try {
+      const response = await fetch('/api/manager/team/wfh-stats')
+      if (response.ok) {
+        const data = await response.json()
+        setTeamWfhStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching team WFH stats:', error)
+    }
+  }
+
   const fetchDeniedRequests = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/manager/team/denied-requests?page=${deniedRequestsPage}&limit=4`)
+      const response = await fetch(`/api/manager/team/denied-requests?page=${deniedRequestsPage}&limit=10`)
       if (response.ok) {
         const data = await response.json()
         setDeniedRequests(data.requests)
@@ -193,10 +334,11 @@ export default function ManagerDashboard() {
 
   const handleApprove = async (requestId: string, comment?: string) => {
     try {
+      const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/approve-request/${requestId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment })
+        body: JSON.stringify({ comment, requestType })
       })
       
       if (response.ok) {
@@ -221,10 +363,11 @@ export default function ManagerDashboard() {
 
   const handleDeny = async (requestId: string, comment?: string) => {
     try {
+      const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/deny-request/${requestId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment })
+        body: JSON.stringify({ comment, requestType })
       })
       
       if (response.ok) {
@@ -245,26 +388,13 @@ export default function ManagerDashboard() {
     }
   }
 
-  // TODO: Add manager's WFH stats API endpoint
-  const managerWfhStats = { daysUsed: 0, workingDaysInMonth: 22, percentage: 0 }
-
-  // TODO: Add manager's own requests API endpoint
-  const managerRequests = []
-  const myRequestsPerPage = 3
-  const myRequestsTotalPages = Math.ceil(managerRequests.length / myRequestsPerPage) || 1
-
-  // Mock team WFH data - TODO: Create API endpoint
-  const teamWfhStats = { averageWfhPercentage: 0, totalWfhDays: 0, totalWorkingDays: 160 }
-
   // Pagination for pending requests
   const pendingRequestsPerPage = 4
   const startIndex = (pendingRequestsPage - 1) * pendingRequestsPerPage
   const paginatedPendingRequests = pendingRequests.slice(startIndex, startIndex + pendingRequestsPerPage)
 
-  // Pagination for manager's own requests
-  const myRequestsStartIndex = (myRequestsPage - 1) * myRequestsPerPage
-  const myRequestsEndIndex = myRequestsStartIndex + myRequestsPerPage
-  const currentMyRequests = managerRequests.slice(myRequestsStartIndex, myRequestsEndIndex)
+  // Manager's own requests are already paginated from the API
+  const currentMyRequests = managerRequests
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -296,11 +426,12 @@ export default function ManagerDashboard() {
     setApprovalDetails({
       action: "approve",
       request: {
-        id: request.id,
-        employeeName: request.employee.name,
-        type: request.type,
-        dates: request.dates,
-        days: request.days,
+        id: request?.id || '',
+        employeeName: request.employee?.name || 'Unknown',
+        type: request?.type || 'Unknown',
+        dates: request?.dates || 'N/A',
+        days: request?.days || 0,
+        requestType: request?.requestType || 'leave',
       },
     })
     setShowApprovalDialog(true)
@@ -310,14 +441,29 @@ export default function ManagerDashboard() {
     setApprovalDetails({
       action: "deny",
       request: {
-        id: request.id,
-        employeeName: request.employee.name,
-        type: request.type,
-        dates: request.dates,
-        days: request.days,
+        id: request?.id || '',
+        employeeName: request.employee?.name || 'Unknown',
+        type: request?.type || 'Unknown',
+        dates: request?.dates || 'N/A',
+        days: request?.days || 0,
+        requestType: request?.requestType || 'leave',
       },
     })
     setShowApprovalDialog(true)
+  }
+
+  const handleApprovalResponse = async (requestId: string, action: 'approve' | 'reject' | 'request_revision', comments?: string) => {
+    try {
+      if (action === 'approve') {
+        await handleApprove(requestId, comments)
+      } else if (action === 'reject') {
+        await handleDeny(requestId, comments)
+      }
+      // Note: 'request_revision' is not implemented yet, but included for mobile component compatibility
+    } catch (error) {
+      console.error('Error processing approval:', error)
+      toast.error('Failed to process request')
+    }
   }
 
   // Navigation functions
@@ -365,9 +511,33 @@ export default function ManagerDashboard() {
     )
   }
 
+  // Check if user should access manager dashboard
+  const isHREmployee = session?.user.role === "EMPLOYEE" && session?.user.department?.toLowerCase().includes("hr")
+  
   if (!session || !["MANAGER", "DEPARTMENT_DIRECTOR", "HR", "EXECUTIVE"].includes(session.user.role)) {
-    router.push('/')
+    // HR employees should go to HR dashboard
+    if (isHREmployee) {
+      router.push('/hr')
+    } else {
+      router.push('/')
+    }
     return null
+  }
+
+  // Helper function to get the correct dashboard route based on user role
+  const getDashboardRoute = () => {
+    switch (session?.user.role) {
+      case "EXECUTIVE":
+        return "/executive"
+      case "MANAGER":
+      case "DEPARTMENT_DIRECTOR":
+        return "/manager"
+      case "HR":
+        return "/hr"
+      case "EMPLOYEE":
+      default:
+        return "/employee"
+    }
   }
 
   if (showRequestForm) {
@@ -384,30 +554,109 @@ export default function ManagerDashboard() {
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Manager Dashboard</h1>
-              <p className="text-gray-600">
-                {session?.user?.firstName} {session?.user?.lastName} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-3">
+                <MobileNav pendingCount={pendingRequests.length} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => router.push(getDashboardRoute())}
+                  title="Back to Personal Dashboard"
+                  className="hidden md:flex"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
+                <p className="text-sm md:text-base text-gray-600">
+                  {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : (session?.user?.name || session?.user?.email || 'User')} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge
-                variant="outline"
-                className="text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Hide text on mobile for these buttons */}
+              <Button 
+                onClick={() => router.push(getDashboardRoute())} 
+                variant="outline" 
+                className="hidden md:flex items-center gap-2"
               >
-                <AlertTriangle className="h-3 w-3" />
-                {teamStats.pendingRequests} team approvals pending
-              </Badge>
-              <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Request Remote Work
+                <CalendarDays className="h-4 w-4" />
+                My Dashboard
               </Button>
-              <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Request Leave
+              
+              {/* Mobile-only button - icon only */}
+              <Button 
+                onClick={() => router.push(getDashboardRoute())} 
+                variant="outline" 
+                size="icon"
+                className="md:hidden"
+                title="My Dashboard"
+              >
+                <CalendarDays className="h-4 w-4" />
               </Button>
 
-              <ThemeToggle />
+              {(session.user.role === "HR" || (session.user.role === "MANAGER" && session.user.department?.includes("HR"))) && (
+                <>
+                  <Button onClick={() => router.push("/hr")} variant="outline" className="hidden md:flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    HR Dashboard
+                  </Button>
+                  <Button 
+                    onClick={() => router.push("/hr")} 
+                    variant="outline" 
+                    size="icon"
+                    className="md:hidden"
+                    title="HR Dashboard"
+                  >
+                    <Building className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              
+              {/* Responsive badge */}
+              <Badge
+                variant="outline"
+                className="text-xs md:text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"
+              >
+                <AlertTriangle className="h-3 w-3" />
+                <span className="hidden sm:inline">{teamStats.pendingRequests} team approvals pending</span>
+                <span className="sm:hidden">{teamStats.pendingRequests}</span>
+              </Badge>
+
+              {/* Mobile-only action buttons */}
+              <div className="flex md:hidden gap-1">
+                <Button 
+                  onClick={() => setShowWFHForm(true)} 
+                  variant="outline" 
+                  size="icon"
+                  title="Work From Home Request"
+                >
+                  <Home className="h-4 w-4" />
+                </Button>
+                <Button 
+                  onClick={() => setShowRequestForm(true)} 
+                  size="icon"
+                  title="New Leave Request"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Desktop action buttons */}
+              <div className="hidden md:flex gap-2">
+                <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
+                  <Home className="h-4 w-4" />
+                  {t.dashboard.newRemoteRequest}
+                </Button>
+                <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  {t.dashboard.newLeaveRequest}
+                </Button>
+              </div>
+
+              <LanguageToggle />
+              <NotificationBell />
 
               {/* Profile Dropdown */}
               <DropdownMenu>
@@ -416,7 +665,7 @@ export default function ManagerDashboard() {
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={session?.user?.image || undefined} />
                       <AvatarFallback>
-                        {session?.user?.firstName?.[0]}{session?.user?.lastName?.[0]}
+                        {(session?.user?.firstName && session?.user?.lastName) ? `${session?.user?.firstName?.[0] || ''}${session?.user?.lastName?.[0] || ''}` : (session?.user?.name ? session?.user?.name.split(' ').map(n => n?.[0] || '').join('').toUpperCase() : session?.user?.email?.[0]?.toUpperCase() || 'U')}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -424,23 +673,14 @@ export default function ManagerDashboard() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{session?.user?.firstName} {session?.user?.lastName}</p>
+                      <p className="font-medium">{(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : (session?.user?.name || session?.user?.email || 'User')}</p>
                       <p className="w-[200px] truncate text-sm text-muted-foreground">{session?.user?.email}</p>
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut({ callbackUrl: '/login' })}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>{t.nav.logout}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -451,20 +691,93 @@ export default function ManagerDashboard() {
 
       {/* Navigation */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex gap-4 mb-6">
-          <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
-            My Dashboard
+        <div className="flex gap-2 md:gap-4 mb-6 overflow-x-auto pb-2">
+          <Button 
+            variant={activeTab === "dashboard" ? "default" : "outline"} 
+            onClick={() => setActiveTab("dashboard")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
+            {t.nav.dashboard}
           </Button>
-          <Button variant={activeTab === "team" ? "default" : "outline"} onClick={() => setActiveTab("team")}>
-            Team Management
+          <Button 
+            variant={activeTab === "team" ? "default" : "outline"} 
+            onClick={() => setActiveTab("team")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
+            {t.dashboard.teamOverview}
           </Button>
-          <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
-            Team Calendar
+          <Button 
+            variant={activeTab === "calendar" ? "default" : "outline"} 
+            onClick={() => setActiveTab("calendar")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
+            {t.dashboard.teamCalendar}
+          </Button>
+          <Button 
+            variant={activeTab === "delegation" ? "default" : "outline"} 
+            onClick={() => setActiveTab("delegation")}
+            size="sm"
+            className="whitespace-nowrap"
+          >
+            Delegation
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/holiday-planning')}
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">My Holiday Planning</span>
+            <span className="sm:hidden">My Plans</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/manager/holiday-planning')}
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">Team Holiday Plans</span>
+            <span className="sm:hidden">Team Plans</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/analytics')}
+            size="sm"
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Analytics</span>
+            <span className="sm:hidden">Stats</span>
           </Button>
         </div>
 
         {activeTab === "dashboard" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
+            {/* Mobile Dashboard - only show on small screens */}
+            <div className="block md:hidden">
+              <MobileManagerDashboard
+                pendingRequests={pendingRequests}
+                teamStats={{
+                  totalMembers: teamStats.totalMembers,
+                  onLeaveToday: teamStats.onLeaveToday,
+                  pendingRequests: pendingRequests.length,
+                  approvalRate: 85 // Calculate from actual data
+                }}
+                onApproval={handleApprovalResponse}
+              />
+            </div>
+
+            {/* Desktop Dashboard - hidden on small screens */}
+            <div className="hidden md:block space-y-6">
+              {/* Dashboard Summary */}
+              <DashboardSummary userRole="MANAGER" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Manager's Personal Dashboard */}
             <div className="lg:col-span-2 space-y-6">
               {/* Manager's Leave Balance Cards */}
@@ -596,29 +909,53 @@ export default function ManagerDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {currentMyRequests.map((request) => (
-                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          {getStatusIcon(request.status)}
-                          <div className="flex items-center gap-2">
-                            {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
-                            <div>
-                              <p className="font-medium">{request.type}</p>
-                              <p className="text-sm text-gray-600">{request.dates}</p>
-                              <p className="text-xs text-gray-500">To: {request.approver}</p>
+                    {currentMyRequests.map((request) => {
+                      const formatDateRange = (startDate: any, endDate: any) => {
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+                        if (start.getTime() === end.getTime()) {
+                          return start?.toLocaleDateString('en-US', options) || 'N/A';
+                        }
+                        return start && end ? `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', options)}` : 'N/A';
+                      };
+
+                      return (
+                        <div key={request?.id || Math.random()} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            {getStatusIcon(request?.status || 'pending')}
+                            <div className="flex items-center gap-2">
+                              {request?.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                              <div>
+                                <p className="font-medium">{request?.type || 'Unknown'}</p>
+                                <p className="text-sm text-gray-600">
+                                  {formatDateRange(request?.startDate, request?.endDate)}
+                                </p>
+                                <p className="text-xs text-gray-500">To: {request?.approver?.name || 'Pending assignment'}</p>
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-gray-600">
+                              {request?.totalDays || request?.days || 0} day{(request?.totalDays || request?.days || 0) > 1 ? "s" : ""}
+                            </span>
+                            <Badge className={getStatusColor(request?.status || 'pending')}>
+                              {(request?.status || 'pending').charAt(0).toUpperCase() + (request?.status || 'pending').slice(1)}
+                            </Badge>
+                            {(request?.status?.toUpperCase() === 'PENDING' || (request?.status?.toUpperCase() === 'APPROVED' && request?.startDate && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCancelRequest(request?.id || '')}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-gray-600">
-                            {request.days} day{request.days > 1 ? "s" : ""}
-                          </span>
-                          <Badge className={getStatusColor(request.status)}>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -639,19 +976,25 @@ export default function ManagerDashboard() {
                   ) : (
                     <div className="space-y-3">
                       {pendingRequests.slice(0, 3).map((request) => (
-                        <div key={request.id} className="border rounded-lg p-3">
+                        <div key={request?.id || Math.random()} className="border rounded-lg p-3">
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={request.employee.avatar} />
+                                <AvatarImage src={request.employee?.avatar} />
                                 <AvatarFallback>
-                                  {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                  {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <p className="text-sm font-medium">{request.employee.name}</p>
-                                <p className="text-xs text-gray-500">{request.type} • {request.days} day{request.days > 1 ? 's' : ''}</p>
-                                <p className="text-xs text-gray-400">{request.dates}</p>
+                                <p className="text-sm font-medium">{request.employee?.name || 'Unknown'}</p>
+                                <div className="flex items-center gap-1">
+                                  <p className="text-xs text-gray-500">{request?.type || 'Unknown'}</p>
+                                  {request?.requestType === 'wfh' && (
+                                    <Badge variant="outline" className="text-xs h-4 px-1 bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
+                                  )}
+                                  <span className="text-xs text-gray-500">• {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}</span>
+                                </div>
+                                <p className="text-xs text-gray-400">{request?.dates || 'N/A'}</p>
                               </div>
                             </div>
                             <div className="flex gap-1">
@@ -729,29 +1072,42 @@ export default function ManagerDashboard() {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback>
-                        {session?.user?.role === 'MANAGER' ? 'DD' : 'HR'}
+                        {superior?.name ? superior?.name.split(' ').map((n: string) => n?.[0] || '').join('').toUpperCase() : 'NA'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h4 className="font-semibold">
-                        {session?.user?.role === 'MANAGER' 
-                          ? 'Department Director' 
-                          : session?.user?.role === 'DEPARTMENT_DIRECTOR'
-                          ? 'HR Director'
-                          : 'Executive Team'}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {session?.user?.role === 'MANAGER' 
-                          ? 'Submit requests to your department director' 
-                          : session?.user?.role === 'DEPARTMENT_DIRECTOR'
-                          ? 'Submit requests to HR leadership'
-                          : 'Submit requests to executive team'}
-                      </p>
-                      <p className="text-xs text-gray-500">For leave approvals</p>
+                      {loadingSuperior ? (
+                        <div className="space-y-2">
+                          <div className="h-5 bg-gray-200 rounded animate-pulse w-32"></div>
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
+                        </div>
+                      ) : superior ? (
+                        <>
+                          <h4 className="font-semibold">
+                            {superior.name}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {superior.displayTitle || superior.position || superior.role}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {superior.description || 'For leave approvals'}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="font-semibold">No Superior Assigned</h4>
+                          <p className="text-sm text-gray-600">
+                            Please contact HR to assign your reporting manager
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
+            </div>
+            </div>
             </div>
           </div>
         )}
@@ -888,11 +1244,11 @@ export default function ManagerDashboard() {
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-sm text-gray-500">
                           {totalPendingPages > 0 
-                            ? `Page ${pendingRequestsPage} of ${totalPendingPages}`
+                            ? `Showing ${pendingRequests.length} request${pendingRequests.length !== 1 ? 's' : ''} - Page ${pendingRequestsPage} of ${totalPendingPages}`
                             : 'No pending requests'}
                         </span>
-                        {totalPendingPages > 0 && (
-                          <div className="flex gap-1">
+                        {totalPendingPages > 1 && (
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -901,11 +1257,39 @@ export default function ManagerDashboard() {
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </Button>
+                            
+                            {/* Page numbers */}
+                            <div className="flex gap-1">
+                              {Array.from({ length: Math.min(5, totalPendingPages) }, (_, i) => {
+                                let pageNum;
+                                if (totalPendingPages <= 5) {
+                                  pageNum = i + 1;
+                                } else if (pendingRequestsPage <= 3) {
+                                  pageNum = i + 1;
+                                } else if (pendingRequestsPage >= totalPendingPages - 2) {
+                                  pageNum = totalPendingPages - 4 + i;
+                                } else {
+                                  pageNum = pendingRequestsPage - 2 + i;
+                                }
+                                return (
+                                  <Button
+                                    key={i}
+                                    variant={pageNum === pendingRequestsPage ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setPendingRequestsPage(pageNum)}
+                                    className="w-8 h-8 p-0"
+                                  >
+                                    {pageNum}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                            
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={nextRequestsPage}
-                              disabled={pendingRequestsPage === totalPendingPages || totalPendingPages === 0}
+                              disabled={pendingRequestsPage === totalPendingPages}
                             >
                               <ChevronRight className="h-4 w-4" />
                             </Button>
@@ -917,29 +1301,32 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">No pending requests</p>
                         ) : (
                           pendingRequests.map((request) => (
-                      <div key={request.id} className="p-4 border rounded-lg">
+                      <div key={request?.id || Math.random()} className="p-4 border rounded-lg">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3">
                             <Avatar className="h-10 w-10">
-                              <AvatarImage
-                                src={`/placeholder.svg?height=40&width=40&text=${request.employee.avatar}`}
-                              />
-                              <AvatarFallback>{request.employee.avatar}</AvatarFallback>
+                              <AvatarImage src={request.employee?.avatar} />
+                              <AvatarFallback>{request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold">{request.employee.name}</h4>
+                                <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
                                 <Badge variant="outline" className="text-xs">
-                                  {request.employee.department}
+                                  {request.employee?.department || 'N/A'}
                                 </Badge>
-                                {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                                {(request?.requestType === 'wfh' || request?.type === "Work From Home") && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    <Home className="h-3 w-3 mr-1" />
+                                    WFH
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm text-gray-600 mb-1">
-                                <span className="font-medium">{request.type}</span> • {request.dates} ({request.days}{" "}
-                                day{request.days > 1 ? "s" : ""})
+                                <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.dates || 'N/A'} ({request?.days || 0}{" "}
+                                day{(request?.days || 0) > 1 ? "s" : ""})
                               </p>
-                              {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
-                              <p className="text-xs text-gray-400 mt-1">Submitted: {request.submittedDate}</p>
+                              {request?.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
+                              <p className="text-xs text-gray-400 mt-1">Submitted: {request?.submittedDate || 'Unknown'}</p>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -962,6 +1349,35 @@ export default function ManagerDashboard() {
                           ))
                         )}
                       </div>
+                      
+                      {/* Bottom pagination for better UX */}
+                      {totalPendingPages > 1 && pendingRequests.length > 0 && (
+                        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={previousRequestsPage}
+                            disabled={pendingRequestsPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          
+                          <span className="text-sm text-gray-500 mx-2">
+                            Page {pendingRequestsPage} of {totalPendingPages}
+                          </span>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={nextRequestsPage}
+                            disabled={pendingRequestsPage === totalPendingPages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -1000,33 +1416,33 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">No approved requests</p>
                         ) : (
                           approvedRequests.map((request) => (
-                            <div key={request.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-green-50 border-green-200">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={request.employee.avatar} />
+                                    <AvatarImage src={request.employee?.avatar} />
                                     <AvatarFallback>
-                                      {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1">
-                                    <h4 className="font-semibold">{request.employee.name}</h4>
-                                    <p className="text-sm text-gray-600">{request.employee.department}</p>
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
                                     <div className="mt-2 space-y-1">
                                       <p className="text-sm">
-                                        <span className="font-medium">{request.type}</span> • {request.days} day{request.days > 1 ? 's' : ''}
+                                        <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
                                       </p>
-                                      <p className="text-sm text-gray-600">{request.dates}</p>
-                                      {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
                                       <p className="text-xs text-green-600 mt-1">
-                                        Approved on: {new Date(request.approvedDate).toLocaleDateString()}
+                                        Approved on: {request?.approvedDate ? new Date(request.approvedDate).toLocaleDateString() : 'Unknown'}
                                       </p>
                                     </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
                                   <Badge className="bg-green-100 text-green-800">Approved by You</Badge>
-                                  {request.overallRequestStatus === 'PENDING' && (
+                                  {request?.overallRequestStatus === 'PENDING' && (
                                     <p className="text-xs text-orange-600 mt-1">Pending Executive</p>
                                   )}
                                 </div>
@@ -1073,31 +1489,31 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">No denied requests</p>
                         ) : (
                           deniedRequests.map((request) => (
-                            <div key={request.id} className="p-4 border rounded-lg bg-red-50 border-red-200">
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-red-50 border-red-200">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={request.employee.avatar} />
+                                    <AvatarImage src={request.employee?.avatar} />
                                     <AvatarFallback>
-                                      {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1">
-                                    <h4 className="font-semibold">{request.employee.name}</h4>
-                                    <p className="text-sm text-gray-600">{request.employee.department}</p>
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
                                     <div className="mt-2 space-y-1">
                                       <p className="text-sm">
-                                        <span className="font-medium">{request.type}</span> • {request.days} day{request.days > 1 ? 's' : ''}
+                                        <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
                                       </p>
-                                      <p className="text-sm text-gray-600">{request.dates}</p>
-                                      {request.reason && <p className="text-sm text-gray-500">Request: "{request.reason}"</p>}
-                                      {request.denialReason && (
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.reason && <p className="text-sm text-gray-500">Request: "{request.reason}"</p>}
+                                      {request?.denialReason && (
                                         <p className="text-sm text-red-600 mt-1">
                                           Denial reason: "{request.denialReason}"
                                         </p>
                                       )}
                                       <p className="text-xs text-red-600 mt-1">
-                                        Denied on: {new Date(request.deniedDate).toLocaleDateString()}
+                                        Denied on: {request?.deniedDate ? new Date(request.deniedDate).toLocaleDateString() : 'Unknown'}
                                       </p>
                                     </div>
                                   </div>
@@ -1136,6 +1552,8 @@ export default function ManagerDashboard() {
         )}
 
         {activeTab === "calendar" && <TeamCalendar />}
+
+        {activeTab === "delegation" && <DelegationManager />}
       </div>
 
       {/* Approval Dialog */}
@@ -1150,9 +1568,9 @@ export default function ManagerDashboard() {
           request={approvalDetails.request}
           onConfirm={(comment) => {
             if (approvalDetails.action === 'approve') {
-              handleApprove(approvalDetails.request.id, comment)
+              handleApprove(approvalDetails?.request?.id || '', comment)
             } else {
-              handleDeny(approvalDetails.request.id, comment)
+              handleDeny(approvalDetails?.request?.id || '', comment)
             }
           }}
         />

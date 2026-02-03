@@ -1,93 +1,66 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is an executive
-    if (!["EXECUTIVE", "HR"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    if (session.user.role !== 'EXECUTIVE' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const currentYear = new Date().getFullYear()
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ]
+    const patterns = [];
+    const today = new Date();
 
-    // Get all approved leave requests for the current year
-    const yearStart = new Date(currentYear, 0, 1)
-    const yearEnd = new Date(currentYear, 11, 31)
+    // Get data for the last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = subMonths(today, i);
+      const monthStart = startOfMonth(monthDate);
+      const monthEnd = endOfMonth(monthDate);
 
-    const approvedLeaves = await prisma.leaveRequest.findMany({
-      where: {
-        status: 'APPROVED',
-        startDate: { lte: yearEnd },
-        endDate: { gte: yearStart }
-      },
-      include: {
-        leaveType: true
-      }
-    })
+      // Get leave requests for this month
+      const leaveRequests = await prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          startDate: { lte: monthEnd },
+          endDate: { gte: monthStart }
+        },
+        select: { totalDays: true }
+      });
 
-    // Initialize monthly data
-    const monthlyData = months.map((month, index) => ({
-      month,
-      totalDays: 0,
-      vacationDays: 0,
-      personalDays: 0,
-      medicalDays: 0
-    }))
-
-    // Calculate leave days for each month
-    approvedLeaves.forEach(leave => {
-      const startDate = new Date(leave.startDate)
-      const endDate = new Date(leave.endDate)
-      
-      // For each month, calculate how many days of this leave fall within it
-      for (let month = 0; month < 12; month++) {
-        const monthStart = new Date(currentYear, month, 1)
-        const monthEnd = new Date(currentYear, month + 1, 0)
-        
-        // Skip if leave doesn't overlap with this month
-        if (endDate < monthStart || startDate > monthEnd) continue
-        
-        // Calculate overlap days
-        const overlapStart = startDate > monthStart ? startDate : monthStart
-        const overlapEnd = endDate < monthEnd ? endDate : monthEnd
-        const daysInMonth = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
-        
-        monthlyData[month].totalDays += daysInMonth
-        
-        // Categorize by leave type
-        const leaveTypeName = leave.leaveType.name.toLowerCase()
-        if (leaveTypeName.includes('vacation') || leaveTypeName.includes('annual')) {
-          monthlyData[month].vacationDays += daysInMonth
-        } else if (leaveTypeName.includes('personal') || leaveTypeName.includes('casual')) {
-          monthlyData[month].personalDays += daysInMonth
-        } else if (leaveTypeName.includes('medical') || leaveTypeName.includes('sick')) {
-          monthlyData[month].medicalDays += daysInMonth
-        } else {
-          // Default to personal if can't categorize
-          monthlyData[month].personalDays += daysInMonth
+      // Get WFH requests for this month
+      const wfhCount = await prisma.workFromHomeRequest.count({
+        where: {
+          status: 'APPROVED',
+          startDate: { lte: monthEnd },
+          endDate: { gte: monthStart }
         }
-      }
-    })
+      });
 
-    // Only return data up to current month for current year
-    const currentMonth = new Date().getMonth()
-    const dataToReturn = monthlyData.slice(0, currentMonth + 1)
+      const totalLeaveDays = leaveRequests.reduce(
+        (sum, req) => sum + req.totalDays, 
+        0
+      );
 
-    return NextResponse.json(dataToReturn)
+      patterns.push({
+        month: format(monthDate, 'MMM'),
+        leave: totalLeaveDays,
+        remote: wfhCount
+      });
+    }
+
+    return NextResponse.json(patterns);
   } catch (error) {
-    console.error("Error fetching monthly patterns:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error('Error fetching monthly patterns:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch monthly patterns' },
+      { status: 500 }
+    );
   }
 }

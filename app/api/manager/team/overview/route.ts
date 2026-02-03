@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
+import { CacheService } from "@/lib/services/cache-service"
 
 export async function GET() {
   try {
@@ -14,6 +15,12 @@ export async function GET() {
     // Check if user is a manager
     if (!["MANAGER", "DEPARTMENT_DIRECTOR", "EXECUTIVE", "HR"].includes(session.user.role)) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    // Try to get from cache first
+    const cachedData = await CacheService.getTeamStats(session.user.id)
+    if (cachedData) {
+      return NextResponse.json(cachedData)
     }
 
     const today = new Date()
@@ -76,13 +83,18 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
+    const teamStatsData = {
       totalMembers: teamMembers.length,
       onLeaveToday,
       workingFromHome,
       inOffice,
       pendingRequests
-    })
+    }
+
+    // Cache the result
+    await CacheService.setTeamStats(session.user.id, teamStatsData)
+
+    return NextResponse.json(teamStatsData)
   } catch (error) {
     console.error("Error fetching team overview:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -1,63 +1,66 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Production Dockerfile for Leave Management System
+FROM node:18-alpine AS base
 
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
-
-# Install dependencies
+# Install dependencies based on the preferred package manager
+COPY package.json package-lock.json* ./
+# Copy prisma schema for postinstall hook
+COPY prisma ./prisma
 RUN npm ci --legacy-peer-deps
 
-# Copy source code
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
 
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine AS runner
-
-# Install cron
-RUN apk add --no-cache supercronic
-
+# Production image, copy all the files and run next
+FROM base AS runner
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Copy built application
+RUN apk add --no-cache curl su-exec
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy the public folder
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Copy the standalone output
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy lib directory for email service and other utilities
+COPY --from=builder /app/lib ./lib
+
+# Copy Prisma files
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/config/crontab ./config/crontab
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Make scripts executable
-RUN chmod +x /app/scripts/*.sh
+# Copy startup script
+COPY --from=builder /app/start.sh ./start.sh
+RUN chmod +x ./start.sh
 
-# Create log directory
-RUN mkdir -p /var/log && touch /var/log/cron.log && chown nextjs:nodejs /var/log/cron.log
-
-# Set environment
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Expose port
 EXPOSE 3000
 
-# Create startup script
-RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'echo "Starting cron service..."' >> /app/start.sh && \
-    echo 'supercronic /app/config/crontab &' >> /app/start.sh && \
-    echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
-    echo 'node server.js' >> /app/start.sh && \
-    chmod +x /app/start.sh
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
 
-USER nextjs
 
-# Start both cron and the application
-CMD ["/app/start.sh"]
+CMD ["./start.sh"]

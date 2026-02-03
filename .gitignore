@@ -110,8 +110,16 @@ prisma/migrations/dev.db*
 
 # Testing
 test-results/
+test-results-visual/
 playwright-report/
+playwright-report-visual/
 playwright/.cache/
+.playwright/
+visual-test-results.json
+
+# Visual regression test snapshots - KEEP these in git
+# Baseline snapshots are stored in e2e/visual-regression/__snapshots__/
+# They should be committed to track visual changes over time
 
 # Deployment
 .vercel

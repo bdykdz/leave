@@ -1,10 +1,8 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { PrismaClient } from '@prisma/client';
-import fs from 'fs/promises';
-import path from 'path';
+import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from './workflow-engine';
-
-const prisma = new PrismaClient();
+import { getFromMinio, uploadToMinio, generateLeaveDocumentName } from '@/lib/minio';
+import path from 'path';
 const workflowEngine = new WorkflowEngine();
 
 interface SignatureRequirement {
@@ -238,9 +236,20 @@ export class DocumentGenerator {
     const fieldMappings = templateData.fieldMappings || template.fieldMappings;
     const signaturePlacements = templateData.signaturePlacements || template.signaturePlacements;
     
-    // Load the template PDF
-    const templatePath = path.join(process.cwd(), 'public', template.fileUrl);
-    const existingPdfBytes = await fs.readFile(templatePath);
+    // Load the template PDF from Minio or filesystem
+    let existingPdfBytes: Buffer
+    
+    if (template.fileUrl.startsWith('minio://')) {
+      // Load from Minio
+      const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
+      existingPdfBytes = await getFromMinio(objectPath, 'leave-management-uat')
+    } else {
+      // Legacy filesystem storage
+      const templatePath = path.join(process.cwd(), 'public', template.fileUrl);
+      const fs = await import('fs/promises');
+      existingPdfBytes = await fs.readFile(templatePath);
+    }
+    
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     
     // Embed font
@@ -251,7 +260,7 @@ export class DocumentGenerator {
     const pages = pdfDoc.getPages();
 
     // Prepare data for field mapping including decisions
-    const fieldData = this.prepareFieldData(leaveRequest, generatedDoc);
+    const fieldData = await this.prepareFieldData(leaveRequest, generatedDoc);
 
     // Fill in field mappings
     for (const mapping of fieldMappings) {
@@ -365,32 +374,58 @@ export class DocumentGenerator {
       }
     }
 
-    // Save the PDF
+    // Save the PDF to Minio with descriptive filename
     const pdfBytes = await pdfDoc.save();
-    const outputDir = path.join(process.cwd(), 'public', 'uploads', 'documents');
-    await fs.mkdir(outputDir, { recursive: true });
+    const fileName = generateLeaveDocumentName(
+      leaveRequest.requestNumber,
+      leaveRequest.user.email,
+      leaveRequest.leaveType.name,
+      'draft' // Start as draft, will be moved to 'generated' when fully approved
+    );
     
-    const fileName = `leave-${leaveRequest.requestNumber}-${Date.now()}.pdf`;
-    const filePath = path.join(outputDir, fileName);
-    await fs.writeFile(filePath, pdfBytes);
+    // Upload generated document to Minio
+    const fileUrl = await uploadToMinio(
+      Buffer.from(pdfBytes), 
+      fileName, 
+      'application/pdf',
+      'leave-management-uat',
+      'documents/draft'
+    );
 
-    return `/uploads/documents/${fileName}`;
+    return fileUrl;
   }
 
   /**
    * Prepare field data from leave request
    */
-  private prepareFieldData(leaveRequest: any, generatedDoc?: any): any {
+  private async prepareFieldData(leaveRequest: any, generatedDoc?: any): Promise<any> {
     const user = leaveRequest.user;
     const leave = leaveRequest;
     
+    // Get actual leave balance from database
+    const currentYear = new Date().getFullYear();
+    let leaveBalance = null;
+    try {
+      leaveBalance = await prisma.leaveBalance.findUnique({
+        where: {
+          userId_leaveTypeId_year: {
+            userId: leave.userId,
+            leaveTypeId: leave.leaveTypeId,
+            year: currentYear
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching leave balance:', error);
+    }
+    
     // Calculate leave balance after approval
     const balance = {
-      entitled: 21, // TODO: Get from actual balance
-      used: 10,
-      pending: leave.totalDays,
-      available: 11,
-      afterApproval: 11 - leave.totalDays,
+      entitled: leaveBalance?.entitled || 0,
+      used: leaveBalance?.used || 0,
+      pending: leaveBalance?.pending || leave.totalDays,
+      available: leaveBalance?.available || 0,
+      afterApproval: (leaveBalance?.available || 0) - leave.totalDays,
     };
 
     // Prepare decision data

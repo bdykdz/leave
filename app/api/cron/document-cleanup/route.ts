@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { subDays } from 'date-fns'
+import { Prisma } from '@prisma/client'
 
 // This endpoint should be called by a cron job
 export async function POST(request: NextRequest) {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       const approvedRequests = await prisma.leaveRequest.findMany({
         where: {
           status: 'APPROVED',
-          supportingDocuments: { not: null },
+          supportingDocuments: { not: Prisma.JsonNull },
           updatedAt: { lt: cutoffDate },
         },
         select: { id: true, supportingDocuments: true },
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
         await prisma.leaveRequest.update({
           where: { id: request.id },
           data: { 
-            supportingDocuments: null,
+            supportingDocuments: Prisma.JsonNull,
             hrVerificationNotes: existingNotes 
               ? `${existingNotes}\n[Documents removed per retention policy on ${new Date().toISOString().split('T')[0]}]`
               : `[Documents removed per retention policy on ${new Date().toISOString().split('T')[0]}]`,
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
       
       const oldRequests = await prisma.leaveRequest.findMany({
         where: {
-          supportingDocuments: { not: null },
+          supportingDocuments: { not: Prisma.JsonNull },
           createdAt: { lt: cutoffDate },
         },
         select: { id: true, supportingDocuments: true },
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
         await prisma.leaveRequest.update({
           where: { id: request.id },
           data: { 
-            supportingDocuments: null,
+            supportingDocuments: Prisma.JsonNull,
             hrVerificationNotes: existingNotes 
               ? `${existingNotes}\n[Documents removed per retention policy on ${new Date().toISOString().split('T')[0]}]`
               : `[Documents removed per retention policy on ${new Date().toISOString().split('T')[0]}]`,
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
           data: {
             reason: '[Anonymized]',
             hrVerificationNotes: '[Anonymized]',
-            supportingDocuments: null,
+            supportingDocuments: Prisma.JsonNull,
           },
         })
         anonymizedCount++

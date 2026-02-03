@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -17,21 +17,88 @@ import { format } from "date-fns/format"
 import { isSameDay } from "date-fns/isSameDay"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTranslations } from "@/components/language-provider"
+import { useSession } from "next-auth/react"
 
 interface WorkRemoteRequestFormProps {
   onBack: () => void
 }
 
 export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
+  const t = useTranslations()
+  const { data: session } = useSession()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
-  const [reason, setReason] = useState("")
   const [signature, setSignature] = useState("")
+  const [isValidSignature, setIsValidSignature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
-  const [location, setLocation] = useState("Home")
+  const [location, setLocation] = useState("home")
   const [otherLocation, setOtherLocation] = useState("")
+  const [managerInfo, setManagerInfo] = useState<{ name: string; id: string } | null>(null)
+  const [loadingManager, setLoadingManager] = useState(true)
+  const [existingLeaveRequests, setExistingLeaveRequests] = useState<Array<{
+    startDate: string
+    endDate: string
+    selectedDates: string[]
+    status: 'PENDING' | 'APPROVED' | 'REJECTED'
+    leaveType: string
+  }>>([])
+  const [loadingLeaveRequests, setLoadingLeaveRequests] = useState(true)
+
+  // Fetch user's manager info and existing leave requests
+  useEffect(() => {
+    const fetchManagerInfo = async () => {
+      if (!session?.user?.id) {
+        setLoadingManager(false)
+        return
+      }
+      
+      try {
+        const response = await fetch('/api/user/manager')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.manager) {
+            setManagerInfo({
+              name: `${data.manager.firstName} ${data.manager.lastName}`,
+              id: data.manager.id
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch manager info:', error)
+      } finally {
+        setLoadingManager(false)
+      }
+    }
+
+    const fetchExistingLeaveRequests = async () => {
+      if (!session?.user?.id) {
+        setLoadingLeaveRequests(false)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/user/leave-requests')
+        if (response.ok) {
+          const data = await response.json()
+          // Filter for pending and approved requests only
+          const activeRequests = (data.requests || []).filter((req: any) => 
+            req.status === 'PENDING' || req.status === 'APPROVED'
+          )
+          setExistingLeaveRequests(activeRequests)
+        }
+      } catch (error) {
+        console.error('Failed to fetch existing leave requests:', error)
+      } finally {
+        setLoadingLeaveRequests(false)
+      }
+    }
+    
+    fetchManagerInfo()
+    fetchExistingLeaveRequests()
+  }, [session])
 
   const handleDateSelect = (date: Date) => {
     setSelectedDates((prev) => {
@@ -64,32 +131,70 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
     e.preventDefault()
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for your work remote request.")
+      showError("No Dates Selected", "Please select at least one date for your work from home request.")
       return
     }
 
-    if (!reason.trim()) {
-      showError("Reason Required", "Please provide a reason for your work remote request.")
+    const finalLocation = location === "Other" ? otherLocation : location
+
+    if (!finalLocation.trim()) {
+      showError("Location Required", "Please provide a location for your work from home request.")
       return
     }
 
-    if (!signature) {
-      showError("Signature Required", "Please provide your digital signature to submit the request.")
+    if (!signature || !isValidSignature) {
+      showError("Invalid Signature", "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.")
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Sort dates to get start and end
+      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime())
+      const startDate = sortedDates[0]
+      const endDate = sortedDates[sortedDates.length - 1]
+
+      // Helper to format date as YYYY-MM-DD in local time
+      const toLocalDateString = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
+      const response = await fetch('/api/wfh-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate: toLocalDateString(startDate),
+          endDate: toLocalDateString(endDate),
+          selectedDates: selectedDates.map(d => toLocalDateString(d)),
+          location: finalLocation,
+          signature,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.errors) {
+          const errorMessages = data.errors.map((e: any) => e.message).join(', ')
+          showError('Validation Error', errorMessages)
+        } else {
+          showError('Submission Failed', data.error || 'Failed to submit work from home request')
+        }
+        return
+      }
 
       // Show success dialog
       setShowSuccessDialog(true)
     } catch (error) {
       showError(
         "Submission Failed",
-        "There was an error submitting your Work Remote request. Please check your connection and try again.",
+        "There was an error submitting your work from home request. Please check your connection and try again.",
       )
     } finally {
       setIsSubmitting(false)
@@ -100,7 +205,8 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
     setShowSuccessDialog(false)
     // Reset form
     setSelectedDates([])
-    setReason("")
+    setLocation("home")
+    setOtherLocation("")
     setSignature("")
     // Go back to dashboard
     onBack()
@@ -153,11 +259,11 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
           <div className="flex items-center py-6">
             <Button variant="ghost" onClick={onBack} className="mr-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              {t.common.back}
             </Button>
             <div className="flex items-center gap-2">
               <Network className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Request Remote Work</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.remoteForm.title}</h1>
             </div>
           </div>
         </div>
@@ -171,15 +277,19 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Network className="h-5 w-5 text-blue-600" />
-                  Select Work Remote Days
+                  {t.leaveForm.selectDates}
                 </CardTitle>
                 <CardDescription>
-                  Click on individual days to select when you'd like to work remote. You can select multiple individual
-                  days or consecutive periods.
+                  {t.leaveForm.selectDates} when you'd like to work remote. You can select multiple individual days or consecutive periods.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <LeaveCalendar selectedDates={selectedDates} onDateSelect={handleDateSelect} />
+                <LeaveCalendar 
+                  selectedDates={selectedDates} 
+                  onDateSelect={handleDateSelect} 
+                  isWFHCalendar={true}
+                  existingLeaveRequests={existingLeaveRequests}
+                />
               </CardContent>
             </Card>
           </div>
@@ -190,21 +300,21 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Selected Days</CardTitle>
+                  <CardTitle className="text-lg">{t.leaveForm.selectDates}</CardTitle>
                   {selectedDates.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={handleClearAll}>
-                      Clear All
+                      {t.common.clear}
                     </Button>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No days selected</p>
+                  <p className="text-gray-500 text-center py-4">No {t.leaveForm.days} selected</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Days:</span>
+                      <span className="text-sm font-medium">{t.leaveForm.totalDays}:</span>
                       <Badge variant="secondary" className="text-lg px-3 py-1 bg-blue-100 text-blue-800">
                         {getTotalDays()}
                       </Badge>
@@ -239,36 +349,22 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
             {/* Work Remote Request Form */}
             <Card>
               <CardHeader>
-                <CardTitle>Request Details</CardTitle>
+                <CardTitle>{t.remoteForm.title} Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">Reason for Working Remote</Label>
-                    <Textarea
-                      id="reason"
-                      placeholder="Please provide a reason for your work remote request (e.g., focus time, client calls, home repairs, etc.)"
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      rows={4}
-                      required
-                    />
-                    <p className="text-xs text-gray-500">
-                      Help your manager understand why you need to work remote on these days
-                    </p>
-                  </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="location">Work Remote Location</Label>
-                    <Select onValueChange={setLocation}>
+                    <Label htmlFor="location">Work From Home Location</Label>
+                    <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a location" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Home">Home</SelectItem>
-                        <SelectItem value="Client Site">Client Site</SelectItem>
-                        <SelectItem value="Partner Office">Partner Office</SelectItem>
-                        <SelectItem value="Other Office Location">Other Office Location</SelectItem>
+                        <SelectItem value="home">Home</SelectItem>
+                        <SelectItem value="client-site">Client Site</SelectItem>
+                        <SelectItem value="partner-office">Partner Office</SelectItem>
+                        <SelectItem value="other-office">Other Office Location</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -291,31 +387,50 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   <div className="space-y-2">
                     <Label>Manager</Label>
                     <div className="p-3 bg-gray-50 rounded-md">
-                      <p className="font-medium">Michael Chen</p>
-                      <p className="text-sm text-gray-600">Your request will be sent for approval</p>
+                      {loadingManager ? (
+                        <p className="text-sm text-gray-500">Loading manager information...</p>
+                      ) : managerInfo ? (
+                        <>
+                          <p className="font-medium">{managerInfo.name}</p>
+                          <p className="text-sm text-gray-600">Your request will be sent for approval</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-gray-500">No Manager Assigned</p>
+                          <p className="text-sm text-gray-600">Please contact HR to assign a manager</p>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Work Remote Guidelines</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">Work From Home Guidelines</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Work from home requests must be for next week or later</li>
                       <li>• Ensure you have reliable internet connection</li>
                       <li>• Be available during core business hours</li>
-                      <li>• Attend all scheduled meetings via video call</li>
                       <li>• Maintain regular communication with your team</li>
                     </ul>
                   </div>
 
                   {/* Signature Pad */}
-                  <SignaturePad signature={signature} onSignatureChange={setSignature} />
+                  <SignaturePad 
+                    signature={signature} 
+                    onSignatureChange={(sig, isValid) => {
+                      setSignature(sig)
+                      setIsValidSignature(isValid)
+                    }} 
+                  />
 
                   <div className="flex flex-col gap-2 pt-4">
                     <Button
                       type="submit"
-                      disabled={isSubmitting || selectedDates.length === 0 || !signature}
+                      disabled={isSubmitting || selectedDates.length === 0 || !signature || !isValidSignature || !managerInfo}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
-                      {isSubmitting ? "Submitting..." : `Submit Remote Work Request (${getTotalDays()} days)`}
+                      {isSubmitting ? "Submitting..." : 
+                        !managerInfo ? "No Manager Assigned" :
+                        `Submit Work From Home Request (${getTotalDays()} days)`}
                     </Button>
                     <Button type="button" variant="outline" onClick={onBack} className="w-full">
                       Cancel
@@ -336,7 +451,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
         details={{
           days: selectedDates.length,
           dates: formatDateGroups(groupConsecutiveDates(selectedDates)),
-          manager: "Michael Chen",
+          manager: managerInfo?.name || "No Manager",
         }}
       />
 

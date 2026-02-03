@@ -2,13 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || !['HR', 'ADMIN'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ 
+        error: 'Not authenticated',
+        message: 'Please log in to access this resource'
+      }, { status: 401 })
+    }
+
+    if (!session.user?.role) {
+      return NextResponse.json({ 
+        error: 'No role assigned',
+        message: 'User role is not defined. Please contact administrator.'
+      }, { status: 403 })
+    }
+
+    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, department: true }
+    })
+    
+    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    
+    if (!['HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role) && !isHREmployee) {
+      return NextResponse.json({ 
+        error: 'Insufficient permissions',
+        message: `Access denied. Your role (${session.user.role}) does not have permission to access HR documents. Required roles: HR, ADMIN, or HR Department`
+      }, { status: 403 })
     }
 
     // Get all leave requests that have supporting documents OR generated documents
@@ -16,7 +42,7 @@ export async function GET(request: NextRequest) {
     const documents = await prisma.leaveRequest.findMany({
       where: {
         OR: [
-          { supportingDocuments: { not: null } },
+          { supportingDocuments: { not: Prisma.JsonNull } },
           { hrVerificationNotes: { contains: '[Documents removed' } },
           { hrDocumentVerified: true },
           { generatedDocument: { isNot: null } },

@@ -1,3 +1,4 @@
+import React from "react"
 import { SimpleFieldMapper } from '@/components/admin/SimpleFieldMapper'
 
 export default function HRSettingsPage() {

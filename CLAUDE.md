@@ -29,106 +29,126 @@ pnpm build            # Build production application
 pnpm start            # Start production server
 pnpm lint             # Run Next.js linter
 
-# Package management
-pnpm install          # Install dependencies (using pnpm-lock.yaml)
+# Database (requires Docker)
+pnpm db:up            # Start PostgreSQL, Redis, MinIO containers
+pnpm db:down          # Stop containers
+pnpm db:setup         # Full setup: up + migrate + seed
+pnpm db:migrate       # Run Prisma migrations
+pnpm db:seed          # Seed database with tsx prisma/seed.ts
+pnpm db:studio        # Open Prisma Studio GUI
+pnpm db:generate      # Regenerate Prisma client
+
+# Production database
+npx prisma migrate deploy   # Apply migrations in production
 ```
 
 ## Architecture
 
-This is a Next.js 15 leave management application using App Router with role-based dashboards.
+Next.js 15 leave management application with App Router, role-based dashboards, and multi-level approval workflows.
 
 ### Core Stack
-- **Next.js 15.2.4** with App Router
-- **React 19** with TypeScript
-- **Tailwind CSS** for styling
-- **shadcn/ui** component library (Radix UI based)
-- **react-hook-form** + **Zod** for form handling/validation
-- **pnpm** as package manager
+- **Next.js 15.2.6** with App Router and standalone output
+- **React 19** with TypeScript 5
+- **Prisma 6.9** with PostgreSQL 15
+- **NextAuth 4.24** with JWT sessions (Azure AD SSO)
+- **Tailwind CSS 3.4** + **shadcn/ui** components
+- **react-hook-form** + **Zod** for validation
 
-### Project Structure
+### Key Services
+- **Email**: Resend for notifications (`lib/email-service.ts`)
+- **Storage**: MinIO for S3-compatible file storage (`lib/minio.ts`)
+- **Documents**: docxtemplater + pdf-lib for generation (`lib/smart-document-generator.ts`)
+- **Cache**: Redis via ioredis (`lib/services/cache-service.ts`)
+- **Monitoring**: Sentry for error tracking
+
+### Role-Based Routes
 ```
-/app/                 # Next.js App Router pages
-  /page.tsx          # Employee dashboard (default)
-  /manager/          # Manager approval dashboard
-  /hr/               # HR management dashboard
-  /executive/        # Executive analytics dashboard
-/components/         # React components
-  /ui/               # shadcn/ui components
-  /*-form.tsx        # Form components for leave/WFH/remote requests
-/lib/utils.ts        # Utility functions (cn helper)
+/             → Redirects to role-appropriate dashboard
+/employee     → Leave requests, balances, calendar
+/manager      → Team approvals, substitution management
+/hr           → User management, leave policies, reports
+/executive    → Analytics, company-wide dashboards
+/admin        → System configuration, user import
+/setup        → Initial Azure AD configuration (requires SETUP_PASSWORD)
 ```
+
+### API Structure
+API routes in `/app/api/` follow REST patterns:
+- `/api/leave-requests/` - CRUD with approval actions
+- `/api/wfh-requests/` - Work-from-home management
+- `/api/holiday-planning/` - Team holiday coordination
+- `/api/documents/` - Template generation and signing
+- `/api/manager/`, `/api/hr/`, `/api/executive/` - Role-specific endpoints
+- `/api/cron/` - Scheduled jobs (escalation, cleanup)
 
 ### Key Patterns
-- Each role has its own route with specific functionality
-- Forms use react-hook-form with Zod schemas for validation
-- UI components follow shadcn/ui patterns with CVA for variants
-- Mock data is currently hardcoded in components (no backend)
-- Path alias `@/*` maps to root directory
 
-### Authentication & Setup
-- **Initial Setup**: Navigate to `/setup` with admin password to configure Azure AD and import users
-- **Microsoft SSO**: Users authenticate via Azure AD/Microsoft 365
-- **Role-based access**: Employee, Manager, HR, Executive dashboards
-- **Setup password**: Default `admin123` (change via SETUP_PASSWORD env var)
+**Authentication**: JWT sessions, NOT database sessions. The Prisma adapter must NOT be used with NextAuth. Users must exist in database before SSO sign-in.
 
-### Current Limitations
-- Build errors and linting are ignored in next.config.mjs
-- Users must be imported from Microsoft 365 or manually added to database
+**Approval Workflows**: Multi-level chains defined in `lib/services/workflow-engine.ts` with escalation (`lib/services/escalation-service.ts`) and delegation (`ApprovalDelegate` model).
+
+**Document Generation**: Template-based with field mapping. Templates stored in MinIO, generated documents support digital signatures.
+
+**Form Components**: Large form files (`leave-request-form.tsx` ~33KB, `wfh-request-form.tsx` ~17KB) contain complex validation logic and conditional fields.
+
+**Leave Balance**: Pro-rata calculations in `lib/services/pro-rata-service.ts`, year-end rollover in `lib/services/leave-rollover-service.ts`.
+
+### Database Models (Prisma)
+Core: `User`, `LeaveType`, `LeaveBalance`, `LeaveRequest`, `Approval`
+WFH: `WorkFromHomeRequest`, `WFHApproval`, `WFHDocument`, `WFHSignature`
+Documents: `DocumentTemplate`, `GeneratedDocument`, `DocumentSignature`
+Planning: `HolidayPlanningWindow`, `HolidayPlan`, `Holiday`
+Support: `Department`, `Position`, `AuditLog`, `Notification`, `ApprovalDelegate`
+
+Roles enum: `EMPLOYEE`, `MANAGER`, `DEPARTMENT_DIRECTOR`, `HR`, `EXECUTIVE`, `ADMIN`
+
+## Environment Variables
+
+Required:
+```env
+DATABASE_URL="postgresql://user:password@host:port/database"
+NEXTAUTH_URL="https://yourdomain.com"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID
+SETUP_PASSWORD="admin-password"
+```
+
+Optional:
+```env
+REDIS_URL                    # Session cache
+MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET
+RESEND_API_KEY, RESEND_FROM_EMAIL
+SENTRY_DSN
+SHOW_DEV_LOGIN="true"        # Enable dev credentials login
+CRON_SECRET                  # Secure cron endpoints
+```
 
 ## Production Deployment
 
-### Database Setup
 ```bash
-# Initialize Prisma and run migrations
-npx prisma generate
+# Build and run
+docker build -t leave-management .
+docker run -p 3000:3000 --env-file .env leave-management
+
+# Or with docker-compose (includes Postgres, Redis, MinIO)
+docker-compose -f docker-compose.uat.yml up -d
+```
+
+Migrations are applied automatically on container start or run:
+```bash
 npx prisma migrate deploy
 ```
 
-### Environment Variables
-Required for production:
-```env
-# Database
-DATABASE_URL="postgresql://user:password@host:port/database"
-
-# Authentication
-NEXTAUTH_URL="https://yourdomain.com"
-NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
-
-# Azure AD
-AZURE_AD_CLIENT_ID="your-client-id"
-AZURE_AD_CLIENT_SECRET="your-client-secret"
-AZURE_AD_TENANT_ID="your-tenant-id"
-
-# Setup Security
-SETUP_PASSWORD="strong-admin-password"
-```
-
-### Docker Deployment
-```bash
-docker build -t leave-management .
-docker run -p 3000:3000 --env-file .env leave-management
-```
-
-## Testing Authentication
-
-Visit http://localhost:3000 and click "Sign in with Microsoft" to test the authentication flow.
-
-### Important: JWT vs Database Sessions
-
-This application uses JWT session strategy for authentication. The Prisma adapter is **NOT** compatible with JWT sessions and must not be used in the NextAuth configuration. Users must be pre-imported into the database through the /setup interface before they can sign in.
-
-### Authentication Flow
+## Authentication Flow
 
 1. User clicks "Sign in with Microsoft"
-2. User is redirected to Microsoft login
-3. After successful authentication, the app checks if the user exists in the database
-4. If user exists, they are granted access with their role from the database
-5. If user doesn't exist, they see an error message to contact HR
+2. Azure AD authenticates and returns to `/api/auth/callback/azure-ad`
+3. App checks if user email exists in database
+4. If exists: grants access with role from database
+5. If not: shows error to contact HR
 
-### Troubleshooting
+Azure AD redirect URI must match exactly: `{NEXTAUTH_URL}/api/auth/callback/azure-ad`
 
-If you encounter authentication errors:
-1. Check the browser console for detailed error messages
-2. Verify environment variables are set correctly
-3. Ensure the user's email exists in the database (check /api/setup/check-users)
-4. Verify redirect URI in Azure AD matches exactly: `http://localhost:3000/api/auth/callback/azure-ad`
+## Build Configuration
+
+Build errors and TypeScript errors are ignored in `next.config.mjs` to allow partial deployments. The `output: 'standalone'` setting optimizes for Docker.

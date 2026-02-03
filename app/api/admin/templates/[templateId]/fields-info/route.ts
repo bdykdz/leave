@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { PDFDocument } from 'pdf-lib'
-import { readFileSync } from 'fs'
+import { getFromMinio } from '@/lib/minio'
 import { join } from 'path'
 
 export async function GET(
@@ -29,16 +29,38 @@ export async function GET(
     }
 
     // Get form fields from PDF
-    const templatePath = join(process.cwd(), 'public', template.fileUrl)
-    const templateBytes = readFileSync(templatePath)
+    let templateBytes: Buffer
+    
+    if (template.fileUrl.startsWith('minio://')) {
+      // New Minio storage
+      const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
+      templateBytes = await getFromMinio(objectPath, 'leave-management-uat')
+    } else {
+      // Legacy filesystem storage (for existing templates)
+      const templatePath = join(process.cwd(), 'public', template.fileUrl)
+      const fs = await import('fs')
+      templateBytes = fs.readFileSync(templatePath)
+    }
+    
     const pdfDoc = await PDFDocument.load(templateBytes)
     const form = pdfDoc.getForm()
     const fields = form.getFields()
 
-    const formFields = fields.map(field => ({
-      name: field.getName(),
-      type: field.constructor.name.replace('PDF', '').replace('Field', '').toLowerCase()
-    }))
+    const formFields = fields.map(field => {
+      const fieldName = field.getName()
+      let fieldType = field.constructor.name.replace('PDF', '').replace('Field', '').toLowerCase()
+      
+      // Fix common type issues
+      if (fieldType === 'text' || fieldType === '') fieldType = 'text'
+      if (fieldType === 'checkbo' || fieldType === 'check') fieldType = 'checkbox'
+      if (fieldType === 'combobo') fieldType = 'dropdown'
+      
+      return {
+        name: fieldName,
+        type: fieldType,
+        value: fieldType // Debug: show what type was detected
+      }
+    })
 
     // Available data fields
     const availableDataFields = [
@@ -63,6 +85,12 @@ export async function GET(
       { category: 'Leave Details', path: 'leave.status', label: 'Status', type: 'text' },
       { category: 'Leave Details', path: 'leave.requestedDate', label: 'Request Date', type: 'date' },
       
+      // Leave Type Checkboxes
+      { category: 'Leave Type Checks', path: 'leave.isAnnualLeave', label: 'Is Annual Leave (✓)', type: 'checkbox' },
+      { category: 'Leave Type Checks', path: 'leave.isSickLeave', label: 'Is Sick Leave (✓)', type: 'checkbox' },
+      { category: 'Leave Type Checks', path: 'leave.isSpecialLeave', label: 'Is Special Leave (✓)', type: 'checkbox' },
+      { category: 'Leave Type Checks', path: 'leave.isMaternityLeave', label: 'Is Maternity Leave (✓)', type: 'checkbox' },
+      
       // Manager Information
       { category: 'Manager Information', path: 'manager.name', label: 'Manager Name', type: 'text' },
       { category: 'Manager Information', path: 'manager.email', label: 'Manager Email', type: 'text' },
@@ -84,19 +112,19 @@ export async function GET(
       { category: 'Decision Fields', path: 'decision.comments', label: 'Comments', type: 'text' },
       
       // Signature Fields
-      { category: 'Signatures', path: 'signature.employee', label: 'Employee Signature', type: 'signature' },
+      { category: 'Signatures', path: 'signature.employee.signature', label: 'Employee Signature', type: 'signature' },
       { category: 'Signatures', path: 'signature.employee.date', label: 'Employee Signature Date', type: 'date' },
       { category: 'Signatures', path: 'signature.employee.name', label: 'Employee Name (Printed)', type: 'text' },
-      { category: 'Signatures', path: 'signature.manager', label: 'Manager Signature', type: 'signature' },
+      { category: 'Signatures', path: 'signature.manager.signature', label: 'Manager Signature', type: 'signature' },
       { category: 'Signatures', path: 'signature.manager.date', label: 'Manager Signature Date', type: 'date' },
       { category: 'Signatures', path: 'signature.manager.name', label: 'Manager Name (Printed)', type: 'text' },
-      { category: 'Signatures', path: 'signature.director', label: 'Director Signature', type: 'signature' },
+      { category: 'Signatures', path: 'signature.director.signature', label: 'Director Signature', type: 'signature' },
       { category: 'Signatures', path: 'signature.director.date', label: 'Director Signature Date', type: 'date' },
       { category: 'Signatures', path: 'signature.director.name', label: 'Director Name (Printed)', type: 'text' },
-      { category: 'Signatures', path: 'signature.hr', label: 'HR Signature', type: 'signature' },
+      { category: 'Signatures', path: 'signature.hr.signature', label: 'HR Signature', type: 'signature' },
       { category: 'Signatures', path: 'signature.hr.date', label: 'HR Signature Date', type: 'date' },
       { category: 'Signatures', path: 'signature.hr.name', label: 'HR Name (Printed)', type: 'text' },
-      { category: 'Signatures', path: 'signature.executive', label: 'Executive Signature', type: 'signature' },
+      { category: 'Signatures', path: 'signature.executive.signature', label: 'Executive Signature', type: 'signature' },
       { category: 'Signatures', path: 'signature.executive.date', label: 'Executive Signature Date', type: 'date' },
       { category: 'Signatures', path: 'signature.executive.name', label: 'Executive Name (Printed)', type: 'text' },
     ]

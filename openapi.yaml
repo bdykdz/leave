@@ -1,0 +1,3543 @@
+openapi: 3.1.0
+info:
+  title: Leave Management System API
+  version: 1.0.0
+  description: |
+    A comprehensive API for managing employee leave requests, work-from-home requests,
+    holiday planning, and document generation. This API supports role-based access control
+    with different permissions for Employees, Managers, HR, Executives, and Admins.
+
+    ## Authentication
+    All endpoints (except `/api/health`) require authentication via NextAuth JWT sessions.
+    Authentication is handled via Azure AD OAuth 2.0.
+
+    ## Authorization
+    API endpoints are protected by role-based access control (RBAC):
+    - **EMPLOYEE**: Basic access to own requests and team calendar
+    - **MANAGER**: Can approve team member requests
+    - **DEPARTMENT_DIRECTOR**: Department-level oversight
+    - **HR**: User management, document verification
+    - **EXECUTIVE**: Company-wide analytics and approvals
+    - **ADMIN**: Full system configuration access
+
+  contact:
+    name: API Support
+    email: support@company.com
+  license:
+    name: Proprietary
+    url: https://company.com/license
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://leave.company.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: System health checks
+  - name: Authentication
+    description: Authentication endpoints
+  - name: Leave Requests
+    description: Leave request management
+  - name: WFH Requests
+    description: Work from home request management
+  - name: Manager
+    description: Manager-specific operations
+  - name: HR
+    description: HR management operations
+  - name: Executive
+    description: Executive dashboard and approvals
+  - name: Admin
+    description: System administration
+  - name: Documents
+    description: Document generation and signing
+  - name: Holiday Planning
+    description: Annual holiday planning
+  - name: Notifications
+    description: User notifications
+  - name: Employee
+    description: Employee-specific operations
+  - name: Calendar
+    description: Calendar and schedule views
+  - name: Setup
+    description: Initial system setup
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Health Check
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the application and database connection
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: healthy
+                timestamp: "2024-01-15T10:30:00.000Z"
+                environment: production
+                version: "1.0.0"
+                services:
+                  database: connected
+                  app: running
+        "503":
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthErrorResponse"
+
+  # Leave Requests
+  /api/leave-requests:
+    get:
+      tags:
+        - Leave Requests
+      summary: Get user's leave requests
+      description: Retrieves all leave requests for the authenticated user with optional filtering
+      operationId: getLeaveRequests
+      parameters:
+        - name: status
+          in: query
+          description: Filter by request status (ALL to get all statuses)
+          schema:
+            type: string
+            enum: [DRAFT, PENDING, APPROVED, REJECTED, CANCELLED, ALL]
+        - name: year
+          in: query
+          description: Filter by year (defaults to current year, use 'all' for all years)
+          schema:
+            type: string
+            example: "2024"
+      responses:
+        "200":
+          description: List of leave requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leaveRequests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Leave Requests
+      summary: Create a new leave request
+      description: |
+        Creates a new leave request. Supports both JSON and multipart/form-data
+        for file uploads. Automatically generates approval workflow based on
+        the employee's organizational hierarchy.
+      operationId: createLeaveRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveRequestBody"
+            example:
+              leaveTypeId: "clx123abc"
+              startDate: "2024-07-01"
+              endDate: "2024-07-05"
+              reason: "Family vacation"
+              substituteIds: ["clx456def"]
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - leaveTypeId
+                - startDate
+                - endDate
+                - reason
+              properties:
+                leaveTypeId:
+                  type: string
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                reason:
+                  type: string
+                substituteIds:
+                  type: string
+                  description: JSON stringified array of user IDs
+                selectedDates:
+                  type: string
+                  description: JSON stringified array of dates for non-consecutive leave
+                signature:
+                  type: string
+                  description: Base64 encoded employee signature
+                supportingDocument_0:
+                  type: string
+                  format: binary
+                  description: Supporting document (max 5MB, JPEG/PNG/PDF)
+      responses:
+        "200":
+          description: Leave request created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  leaveRequest:
+                    $ref: "#/components/schemas/LeaveRequest"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/leave-requests/{id}:
+    get:
+      tags:
+        - Leave Requests
+      summary: Get leave request details
+      description: Retrieves detailed information about a specific leave request
+      operationId: getLeaveRequestById
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestId"
+      responses:
+        "200":
+          description: Leave request details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - Leave Requests
+      summary: Update leave request
+      description: Updates an existing leave request (only if in DRAFT or PENDING status)
+      operationId: updateLeaveRequest
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeaveRequestBody"
+      responses:
+        "200":
+          description: Leave request updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags:
+        - Leave Requests
+      summary: Delete leave request
+      description: Deletes a leave request (only if in DRAFT status)
+      operationId: deleteLeaveRequest
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestId"
+      responses:
+        "200":
+          description: Leave request deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/leave-requests/{id}/cancel:
+    post:
+      tags:
+        - Leave Requests
+      summary: Cancel leave request (Admin/HR)
+      description: Admin or HR cancels a leave request. Cannot cancel if leave has already started.
+      operationId: cancelLeaveRequest
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for cancellation
+      responses:
+        "200":
+          description: Leave request cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Cannot cancel - leave has started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/leave-requests/{id}/self-cancel:
+    post:
+      tags:
+        - Leave Requests
+      summary: Self-cancel leave request
+      description: Employee cancels their own pending leave request
+      operationId: selfCancelLeaveRequest
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestId"
+      responses:
+        "200":
+          description: Leave request cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Cannot cancel - not in pending status or already started
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not authorized to cancel this request
+
+  # Leave Types
+  /api/leave-types:
+    get:
+      tags:
+        - Leave Requests
+      summary: Get available leave types
+      description: Returns all active leave types configured in the system
+      operationId: getLeaveTypes
+      responses:
+        "200":
+          description: List of leave types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leaveTypes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # WFH Requests
+  /api/wfh-requests:
+    get:
+      tags:
+        - WFH Requests
+      summary: Get user's WFH requests
+      description: Retrieves work from home requests for the authenticated user
+      operationId: getWfhRequests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED, CANCELLED, ALL]
+        - name: year
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of WFH requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wfhRequests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WFHRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - WFH Requests
+      summary: Create a WFH request
+      description: Creates a new work from home request
+      operationId: createWfhRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWFHRequestBody"
+            example:
+              startDate: "2024-07-01"
+              endDate: "2024-07-03"
+              location: "Home"
+              selectedDates: ["2024-07-01", "2024-07-02", "2024-07-03"]
+      responses:
+        "200":
+          description: WFH request created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  wfhRequest:
+                    $ref: "#/components/schemas/WFHRequest"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/wfh-requests/{id}:
+    get:
+      tags:
+        - WFH Requests
+      summary: Get WFH request details
+      operationId: getWfhRequestById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WFH request details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WFHRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/wfh-requests/{id}/cancel:
+    post:
+      tags:
+        - WFH Requests
+      summary: Cancel WFH request (Admin/HR)
+      operationId: cancelWfhRequest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WFH request cancelled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/wfh-requests/{id}/self-cancel:
+    post:
+      tags:
+        - WFH Requests
+      summary: Self-cancel WFH request
+      operationId: selfCancelWfhRequest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WFH request cancelled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Manager Endpoints
+  /api/manager/team:
+    get:
+      tags:
+        - Manager
+      summary: Get team members
+      description: Returns team members and their statistics for the authenticated manager
+      operationId: getManagerTeam
+      responses:
+        "200":
+          description: Team member list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamMember"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/manager/team/pending-approvals:
+    get:
+      tags:
+        - Manager
+      summary: Get pending approvals
+      description: Returns leave requests pending the manager's approval
+      operationId: getPendingApprovals
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Pending approvals list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveRequest"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/manager/team/approve-request/{requestId}:
+    post:
+      tags:
+        - Manager
+      summary: Approve leave request
+      description: Manager approves a leave request with optional comment
+      operationId: approveLeaveRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  description: Optional approval comment
+                signature:
+                  type: string
+                  description: Base64 encoded manager signature
+      responses:
+        "200":
+          description: Leave request approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/manager/team/deny-request/{requestId}:
+    post:
+      tags:
+        - Manager
+      summary: Deny leave request
+      description: Manager denies a leave request with required reason
+      operationId: denyLeaveRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: Reason for denial
+      responses:
+        "200":
+          description: Leave request denied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Reason is required
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/manager/delegations:
+    get:
+      tags:
+        - Manager
+      summary: Get delegations
+      description: Returns approval delegations set up by the manager
+      operationId: getDelegations
+      responses:
+        "200":
+          description: List of delegations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  delegations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApprovalDelegation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Manager
+      summary: Create delegation
+      description: Creates a new approval delegation
+      operationId: createDelegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDelegationBody"
+      responses:
+        "200":
+          description: Delegation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  delegation:
+                    $ref: "#/components/schemas/ApprovalDelegation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/manager/wfh/approve/{requestId}:
+    post:
+      tags:
+        - Manager
+      summary: Approve WFH request
+      operationId: approveWfhRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: WFH request approved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # HR Endpoints
+  /api/hr/employees:
+    get:
+      tags:
+        - HR
+      summary: List all employees
+      description: Returns paginated list of all employees with search capability
+      operationId: getEmployees
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          description: Search by name, email, or employee ID
+          schema:
+            type: string
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [EMPLOYEE, MANAGER, DEPARTMENT_DIRECTOR, HR, EXECUTIVE, ADMIN]
+      responses:
+        "200":
+          description: Employee list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags:
+        - HR
+      summary: Create employee
+      description: Creates a new employee in the system
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserBody"
+      responses:
+        "200":
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/hr/employees/{id}:
+    get:
+      tags:
+        - HR
+      summary: Get employee details
+      operationId: getEmployeeById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Employee details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - HR
+      summary: Update employee
+      operationId: updateEmployee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: Employee updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    delete:
+      tags:
+        - HR
+      summary: Delete employee
+      operationId: deleteEmployee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Employee deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/hr/document-verification:
+    get:
+      tags:
+        - HR
+      summary: Get documents for verification
+      description: Returns sick leave documents requiring HR verification
+      operationId: getDocumentsForVerification
+      responses:
+        "200":
+          description: Documents requiring verification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentVerification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/hr/document-verification/{id}:
+    put:
+      tags:
+        - HR
+      summary: Verify document
+      description: Mark a document as verified or rejected
+      operationId: verifyDocument
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - verified
+              properties:
+                verified:
+                  type: boolean
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Document verification updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/hr/holidays:
+    get:
+      tags:
+        - HR
+      summary: Get company holidays
+      description: Returns list of company holidays
+      operationId: getHolidays
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Holiday list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holidays:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - HR
+      summary: Create holiday
+      operationId: createHoliday
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHolidayBody"
+      responses:
+        "200":
+          description: Holiday created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Executive Endpoints
+  /api/executive/pending-approvals:
+    get:
+      tags:
+        - Executive
+      summary: Get executive pending approvals
+      description: Returns requests awaiting executive approval (peer approvals, escalated requests)
+      operationId: getExecutivePendingApprovals
+      responses:
+        "200":
+          description: Pending approvals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/executive/approve-request/{requestId}:
+    post:
+      tags:
+        - Executive
+      summary: Executive approve request
+      operationId: executiveApproveRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request approved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/executive/company-metrics:
+    get:
+      tags:
+        - Executive
+      summary: Get company metrics
+      description: Returns company-wide leave and WFH metrics
+      operationId: getCompanyMetrics
+      responses:
+        "200":
+          description: Company metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyMetrics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/executive/department-stats:
+    get:
+      tags:
+        - Executive
+      summary: Get department statistics
+      operationId: getDepartmentStats
+      responses:
+        "200":
+          description: Department statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  departments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DepartmentStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Admin Endpoints
+  /api/admin/users:
+    get:
+      tags:
+        - Admin
+      summary: List all users
+      operationId: getAdminUsers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags:
+        - Admin
+      summary: Create user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserBody"
+      responses:
+        "200":
+          description: User created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/users/{userId}:
+    get:
+      tags:
+        - Admin
+      summary: Get user details
+      operationId: getAdminUserById
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - Admin
+      summary: Update user
+      operationId: updateAdminUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: User updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete user
+      operationId: deleteAdminUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/users/{userId}/role:
+    put:
+      tags:
+        - Admin
+      summary: Update user role
+      operationId: updateUserRole
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  $ref: "#/components/schemas/Role"
+      responses:
+        "200":
+          description: Role updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/leave-types:
+    get:
+      tags:
+        - Admin
+      summary: List leave types
+      operationId: getAdminLeaveTypes
+      responses:
+        "200":
+          description: Leave type list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leaveTypes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Admin
+      summary: Create leave type
+      operationId: createLeaveType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveTypeBody"
+      responses:
+        "200":
+          description: Leave type created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/leave-types/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get leave type details
+      operationId: getLeaveTypeById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leave type details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - Admin
+      summary: Update leave type
+      operationId: updateLeaveType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeaveTypeBody"
+      responses:
+        "200":
+          description: Leave type updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete leave type
+      operationId: deleteLeaveType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Leave type deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/departments:
+    get:
+      tags:
+        - Admin
+      summary: List departments
+      operationId: getDepartments
+      responses:
+        "200":
+          description: Department list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  departments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Department"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Admin
+      summary: Create department
+      operationId: createDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDepartmentBody"
+      responses:
+        "200":
+          description: Department created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/positions:
+    get:
+      tags:
+        - Admin
+      summary: List positions
+      operationId: getPositions
+      responses:
+        "200":
+          description: Position list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  positions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Position"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Admin
+      summary: Create position
+      operationId: createPosition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePositionBody"
+      responses:
+        "200":
+          description: Position created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/templates:
+    get:
+      tags:
+        - Admin
+      summary: List document templates
+      operationId: getTemplates
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Admin
+      summary: Create document template
+      operationId: createTemplate
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - category
+                - file
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                category:
+                  type: string
+                leaveTypeId:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Template created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/workflow-rules:
+    get:
+      tags:
+        - Admin
+      summary: List workflow rules
+      operationId: getWorkflowRules
+      responses:
+        "200":
+          description: Workflow rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkflowRule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Admin
+      summary: Create workflow rule
+      operationId: createWorkflowRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkflowRuleBody"
+      responses:
+        "200":
+          description: Rule created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/holidays:
+    get:
+      tags:
+        - Admin
+      summary: List holidays (admin)
+      operationId: getAdminHolidays
+      responses:
+        "200":
+          description: Holiday list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holidays:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Admin
+      summary: Create holiday (admin)
+      operationId: createAdminHoliday
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHolidayBody"
+      responses:
+        "200":
+          description: Holiday created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/audit-logs:
+    get:
+      tags:
+        - Admin
+      summary: Get audit logs
+      operationId: getAuditLogs
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: entity
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLog"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Documents
+  /api/documents/generate:
+    post:
+      tags:
+        - Documents
+      summary: Generate document
+      description: Generates a document from a leave request using a template
+      operationId: generateDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - leaveRequestId
+                - templateId
+              properties:
+                leaveRequestId:
+                  type: string
+                templateId:
+                  type: string
+      responses:
+        "200":
+          description: Document generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  documentId:
+                    type: string
+                  fileUrl:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/documents/{documentId}:
+    get:
+      tags:
+        - Documents
+      summary: Get document
+      operationId: getDocument
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags:
+        - Documents
+      summary: Delete document
+      operationId: deleteDocument
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/documents/{documentId}/download:
+    get:
+      tags:
+        - Documents
+      summary: Download document
+      operationId: downloadDocument
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/documents/{documentId}/sign:
+    post:
+      tags:
+        - Documents
+      summary: Sign document
+      description: Add digital signature to a document
+      operationId: signDocument
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - signatureData
+                - signerRole
+              properties:
+                signatureData:
+                  type: string
+                  description: Base64 encoded signature image
+                signerRole:
+                  type: string
+                  enum: [employee, manager, hr]
+      responses:
+        "200":
+          description: Signature added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Holiday Planning
+  /api/holiday-planning/window:
+    get:
+      tags:
+        - Holiday Planning
+      summary: Get planning window
+      description: Gets current or next holiday planning window
+      operationId: getHolidayPlanningWindow
+      responses:
+        "200":
+          description: Planning window details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HolidayPlanningWindow"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/holiday-planning/my-plan:
+    get:
+      tags:
+        - Holiday Planning
+      summary: Get my holiday plan
+      operationId: getMyHolidayPlan
+      responses:
+        "200":
+          description: User's holiday plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HolidayPlan"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags:
+        - Holiday Planning
+      summary: Create holiday plan
+      operationId: createHolidayPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHolidayPlanBody"
+      responses:
+        "200":
+          description: Plan created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    put:
+      tags:
+        - Holiday Planning
+      summary: Update holiday plan
+      operationId: updateHolidayPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHolidayPlanBody"
+      responses:
+        "200":
+          description: Plan updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      tags:
+        - Holiday Planning
+      summary: Delete holiday plan
+      operationId: deleteHolidayPlan
+      responses:
+        "200":
+          description: Plan deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/holiday-planning/team-plans:
+    get:
+      tags:
+        - Holiday Planning
+      summary: Get team plans
+      description: Manager view of team's holiday plans
+      operationId: getTeamHolidayPlans
+      responses:
+        "200":
+          description: Team plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HolidayPlan"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/holiday-planning/overlaps:
+    get:
+      tags:
+        - Holiday Planning
+      summary: Get holiday overlaps
+      description: Detect overlapping holiday plans in team
+      operationId: getHolidayOverlaps
+      responses:
+        "200":
+          description: Overlap information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overlaps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        users:
+                          type: array
+                          items:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Notifications
+  /api/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get notifications
+      operationId: getNotifications
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  unreadCount:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notifications/{notificationId}/read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification marked as read
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notifications/mark-all-read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark all notifications as read
+      operationId: markAllNotificationsRead
+      responses:
+        "200":
+          description: All notifications marked as read
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Employee Endpoints
+  /api/employee/leave-balance:
+    get:
+      tags:
+        - Employee
+      summary: Get leave balance
+      description: Returns current year leave balance breakdown for the authenticated user
+      operationId: getLeaveBalance
+      responses:
+        "200":
+          description: Leave balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balances:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/employee/blocked-dates:
+    get:
+      tags:
+        - Employee
+      summary: Get blocked dates
+      description: Returns holidays and blocked dates for calendar
+      operationId: getBlockedDates
+      responses:
+        "200":
+          description: Blocked dates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blockedDates:
+                    type: array
+                    items:
+                      type: string
+                      format: date
+                  holidays:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/employee/wfh-stats:
+    get:
+      tags:
+        - Employee
+      summary: Get WFH statistics
+      operationId: getWfhStats
+      responses:
+        "200":
+          description: WFH statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalDays:
+                    type: integer
+                  thisMonth:
+                    type: integer
+                  thisYear:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Calendar
+  /api/calendar:
+    get:
+      tags:
+        - Calendar
+      summary: Get calendar events
+      description: Returns leave and WFH events for calendar view
+      operationId: getCalendar
+      parameters:
+        - name: start
+          in: query
+          description: Start date for calendar range
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: query
+          description: End date for calendar range
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Calendar events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarEvent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/team-calendar:
+    get:
+      tags:
+        - Calendar
+      summary: Get team calendar
+      description: Returns team calendar with leave and WFH events
+      operationId: getTeamCalendar
+      parameters:
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Team calendar events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarEvent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Cron/Scheduled Tasks
+  /api/cron/escalation:
+    get:
+      tags:
+        - Admin
+      summary: Run escalation check
+      description: Checks for and escalates pending approvals (requires CRON_SECRET)
+      operationId: runEscalation
+      security:
+        - cronSecret: []
+      responses:
+        "200":
+          description: Escalation check completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                  escalated:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/cron/document-cleanup:
+    get:
+      tags:
+        - Admin
+      summary: Run document cleanup
+      description: Cleans up old documents based on retention policy (requires CRON_SECRET)
+      operationId: runDocumentCleanup
+      security:
+        - cronSecret: []
+      responses:
+        "200":
+          description: Cleanup completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Setup Endpoints
+  /api/setup/status:
+    get:
+      tags:
+        - Setup
+      summary: Get setup status
+      description: Returns current setup status and environment configuration
+      operationId: getSetupStatus
+      security: []
+      responses:
+        "200":
+          description: Setup status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isConfigured:
+                    type: boolean
+                  hasUsers:
+                    type: boolean
+                  hasLeaveTypes:
+                    type: boolean
+                  environment:
+                    type: string
+
+  /api/setup/auth:
+    post:
+      tags:
+        - Setup
+      summary: Authenticate for setup
+      description: Authenticates with SETUP_PASSWORD to access setup endpoints
+      operationId: setupAuth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Authentication successful
+        "401":
+          description: Invalid password
+
+  /api/setup/import-users:
+    post:
+      tags:
+        - Setup
+      summary: Import users
+      description: Import users from CSV or Excel file
+      operationId: importUsers
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Users imported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  imported:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  # Utility Endpoints
+  /api/validate-overlap:
+    post:
+      tags:
+        - Leave Requests
+      summary: Validate date overlap
+      description: Checks if requested dates overlap with existing leave or WFH
+      operationId: validateOverlap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - startDate
+                - endDate
+              properties:
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                excludeRequestId:
+                  type: string
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasOverlap:
+                    type: boolean
+                  conflictingDates:
+                    type: array
+                    items:
+                      type: string
+                      format: date
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/users/substitutes:
+    get:
+      tags:
+        - Leave Requests
+      summary: Get substitute options
+      description: Returns available substitutes for leave requests
+      operationId: getSubstitutes
+      responses:
+        "200":
+          description: Substitute list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  substitutes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: NextAuth JWT session token
+    cronSecret:
+      type: http
+      scheme: bearer
+      description: CRON_SECRET environment variable for scheduled tasks
+
+  parameters:
+    LeaveRequestId:
+      name: id
+      in: path
+      required: true
+      description: Leave request ID
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Unauthorized
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Forbidden
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Not found
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    field:
+                      type: string
+                    message:
+                      type: string
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Internal server error
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        environment:
+          type: string
+        version:
+          type: string
+        services:
+          type: object
+          properties:
+            database:
+              type: string
+            app:
+              type: string
+
+    HealthErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: string
+
+    Role:
+      type: string
+      enum: [EMPLOYEE, MANAGER, DEPARTMENT_DIRECTOR, HR, EXECUTIVE, ADMIN]
+
+    RequestStatus:
+      type: string
+      enum: [DRAFT, PENDING, APPROVED, REJECTED, CANCELLED]
+
+    ApprovalStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+
+    DocumentStatus:
+      type: string
+      enum: [DRAFT, PENDING_SIGNATURES, COMPLETED]
+
+    WorkingPattern:
+      type: string
+      enum: [FULL_TIME, PART_TIME, COMPRESSED_HOURS, JOB_SHARE]
+
+    ContractType:
+      type: string
+      enum: [PERMANENT, FIXED_TERM, CASUAL, CONTRACTOR, INTERN]
+
+    PlanningStage:
+      type: string
+      enum: [CLOSED, DRAFT, SUBMISSION, COORDINATION, FINALIZATION, LOCKED]
+
+    PlanStatus:
+      type: string
+      enum: [DRAFT, SUBMITTED, REVIEWED, FINALIZED, LOCKED]
+
+    PlanPriority:
+      type: string
+      enum: [ESSENTIAL, PREFERRED, NICE_TO_HAVE]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        employeeId:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        department:
+          type: string
+        position:
+          type: string
+        joiningDate:
+          type: string
+          format: date-time
+        phoneNumber:
+          type: string
+          nullable: true
+        profileImage:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        managerId:
+          type: string
+          nullable: true
+        departmentDirectorId:
+          type: string
+          nullable: true
+        workingPattern:
+          $ref: "#/components/schemas/WorkingPattern"
+        workingDaysPerWeek:
+          type: number
+        workingHoursPerWeek:
+          type: number
+        contractType:
+          $ref: "#/components/schemas/ContractType"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        department:
+          type: string
+
+    LeaveType:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        daysAllowed:
+          type: integer
+        carryForward:
+          type: boolean
+        maxCarryForward:
+          type: integer
+          nullable: true
+        requiresApproval:
+          type: boolean
+        requiresDocument:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        maxDaysPerRequest:
+          type: integer
+          nullable: true
+        isSpecialLeave:
+          type: boolean
+        requiresHRVerification:
+          type: boolean
+        documentTypes:
+          type: array
+          items:
+            type: string
+
+    LeaveBalance:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        leaveTypeId:
+          type: string
+        year:
+          type: integer
+        entitled:
+          type: number
+        used:
+          type: number
+        pending:
+          type: number
+        available:
+          type: number
+        carriedForward:
+          type: number
+        leaveType:
+          $ref: "#/components/schemas/LeaveType"
+
+    LeaveRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        requestNumber:
+          type: string
+        userId:
+          type: string
+        leaveTypeId:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        totalDays:
+          type: number
+        reason:
+          type: string
+        substituteId:
+          type: string
+          nullable: true
+        selectedDates:
+          type: array
+          items:
+            type: string
+            format: date-time
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        documentUrl:
+          type: string
+          nullable: true
+        supportingDocuments:
+          type: object
+          nullable: true
+        hrDocumentVerified:
+          type: boolean
+        hrVerifiedBy:
+          type: string
+          nullable: true
+        hrVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        hrVerificationNotes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        leaveType:
+          $ref: "#/components/schemas/LeaveType"
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        substitute:
+          $ref: "#/components/schemas/UserSummary"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Approval"
+        generatedDocument:
+          $ref: "#/components/schemas/GeneratedDocument"
+
+    Approval:
+      type: object
+      properties:
+        id:
+          type: string
+        leaveRequestId:
+          type: string
+        approverId:
+          type: string
+        level:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ApprovalStatus"
+        comments:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        signature:
+          type: string
+          nullable: true
+        signedAt:
+          type: string
+          format: date-time
+          nullable: true
+        escalatedToId:
+          type: string
+          nullable: true
+        escalatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        escalationReason:
+          type: string
+          nullable: true
+        approver:
+          $ref: "#/components/schemas/UserSummary"
+
+    WFHRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        requestNumber:
+          type: string
+        userId:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        selectedDates:
+          type: object
+          nullable: true
+        totalDays:
+          type: integer
+        location:
+          type: string
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WFHApproval"
+
+    WFHApproval:
+      type: object
+      properties:
+        id:
+          type: string
+        wfhRequestId:
+          type: string
+        approverId:
+          type: string
+        status:
+          $ref: "#/components/schemas/ApprovalStatus"
+        comments:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approver:
+          $ref: "#/components/schemas/UserSummary"
+
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        order:
+          type: integer
+
+    Position:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        order:
+          type: integer
+
+    Holiday:
+      type: object
+      properties:
+        id:
+          type: string
+        nameEn:
+          type: string
+        nameRo:
+          type: string
+        date:
+          type: string
+          format: date-time
+        description:
+          type: string
+          nullable: true
+        isRecurring:
+          type: boolean
+        country:
+          type: string
+        isActive:
+          type: boolean
+        isBlocked:
+          type: boolean
+
+    DocumentTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        fileUrl:
+          type: string
+        fileType:
+          type: string
+        category:
+          type: string
+        version:
+          type: integer
+        isActive:
+          type: boolean
+        leaveTypeId:
+          type: string
+          nullable: true
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    GeneratedDocument:
+      type: object
+      properties:
+        id:
+          type: string
+        templateId:
+          type: string
+        leaveRequestId:
+          type: string
+        fileUrl:
+          type: string
+        status:
+          $ref: "#/components/schemas/DocumentStatus"
+        templateSnapshot:
+          type: object
+        decisions:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        signatures:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentSignature"
+
+    DocumentSignature:
+      type: object
+      properties:
+        id:
+          type: string
+        documentId:
+          type: string
+        signerId:
+          type: string
+        signerRole:
+          type: string
+        signatureData:
+          type: string
+        signedAt:
+          type: string
+          format: date-time
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+
+    WorkflowRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        conditions:
+          type: object
+        approvalLevels:
+          type: array
+          items:
+            type: object
+        skipDuplicateSignatures:
+          type: boolean
+        autoApproveConditions:
+          type: object
+          nullable: true
+        priority:
+          type: integer
+        isActive:
+          type: boolean
+
+    ApprovalDelegation:
+      type: object
+      properties:
+        id:
+          type: string
+        delegatorId:
+          type: string
+        delegateId:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        delegator:
+          $ref: "#/components/schemas/UserSummary"
+        delegate:
+          $ref: "#/components/schemas/UserSummary"
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [LEAVE_REQUESTED, LEAVE_APPROVED, LEAVE_REJECTED, LEAVE_CANCELLED, APPROVAL_REQUIRED, DOCUMENT_READY]
+        title:
+          type: string
+        message:
+          type: string
+        link:
+          type: string
+          nullable: true
+        isRead:
+          type: boolean
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+          nullable: true
+        action:
+          type: string
+        entity:
+          type: string
+        entityType:
+          type: string
+          nullable: true
+        entityId:
+          type: string
+          nullable: true
+        oldValues:
+          type: object
+          nullable: true
+        newValues:
+          type: object
+          nullable: true
+        details:
+          type: object
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/UserSummary"
+
+    HolidayPlanningWindow:
+      type: object
+      properties:
+        id:
+          type: string
+        year:
+          type: integer
+        openDate:
+          type: string
+          format: date-time
+        closeDate:
+          type: string
+          format: date-time
+        stage:
+          $ref: "#/components/schemas/PlanningStage"
+        isActive:
+          type: boolean
+
+    HolidayPlan:
+      type: object
+      properties:
+        id:
+          type: string
+        windowId:
+          type: string
+        userId:
+          type: string
+        year:
+          type: integer
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finalizedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        dates:
+          type: array
+          items:
+            $ref: "#/components/schemas/HolidayPlanDate"
+        user:
+          $ref: "#/components/schemas/UserSummary"
+
+    HolidayPlanDate:
+      type: object
+      properties:
+        id:
+          type: string
+        planId:
+          type: string
+        date:
+          type: string
+          format: date-time
+        priority:
+          $ref: "#/components/schemas/PlanPriority"
+        reason:
+          type: string
+          nullable: true
+
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [leave, wfh, holiday]
+        status:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        department:
+          type: string
+        position:
+          type: string
+        pendingRequests:
+          type: integer
+        onLeave:
+          type: boolean
+
+    CompanyMetrics:
+      type: object
+      properties:
+        totalEmployees:
+          type: integer
+        onLeaveToday:
+          type: integer
+        wfhToday:
+          type: integer
+        pendingApprovals:
+          type: integer
+        leaveTrends:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              count:
+                type: integer
+
+    DepartmentStats:
+      type: object
+      properties:
+        department:
+          type: string
+        totalEmployees:
+          type: integer
+        onLeave:
+          type: integer
+        wfh:
+          type: integer
+        pendingRequests:
+          type: integer
+
+    DocumentVerification:
+      type: object
+      properties:
+        id:
+          type: string
+        leaveRequestId:
+          type: string
+        requestNumber:
+          type: string
+        employeeName:
+          type: string
+        leaveType:
+          type: string
+        documents:
+          type: array
+          items:
+            type: string
+        submittedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    # Request Bodies
+    CreateLeaveRequestBody:
+      type: object
+      required:
+        - leaveTypeId
+        - startDate
+        - endDate
+        - reason
+      properties:
+        leaveTypeId:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
+        substituteIds:
+          type: array
+          items:
+            type: string
+        selectedDates:
+          type: array
+          items:
+            type: string
+            format: date
+          description: For non-consecutive leave days
+        signature:
+          type: string
+          description: Base64 encoded signature
+
+    UpdateLeaveRequestBody:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
+        substituteIds:
+          type: array
+          items:
+            type: string
+        selectedDates:
+          type: array
+          items:
+            type: string
+            format: date
+
+    CreateWFHRequestBody:
+      type: object
+      required:
+        - startDate
+        - endDate
+        - location
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        location:
+          type: string
+        selectedDates:
+          type: array
+          items:
+            type: string
+            format: date
+
+    CreateUserBody:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+        - employeeId
+        - department
+        - position
+        - joiningDate
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        employeeId:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        department:
+          type: string
+        position:
+          type: string
+        joiningDate:
+          type: string
+          format: date
+        phoneNumber:
+          type: string
+        managerId:
+          type: string
+        departmentDirectorId:
+          type: string
+        workingPattern:
+          $ref: "#/components/schemas/WorkingPattern"
+        workingDaysPerWeek:
+          type: number
+        workingHoursPerWeek:
+          type: number
+        contractType:
+          $ref: "#/components/schemas/ContractType"
+
+    UpdateUserBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        department:
+          type: string
+        position:
+          type: string
+        phoneNumber:
+          type: string
+        managerId:
+          type: string
+        departmentDirectorId:
+          type: string
+        isActive:
+          type: boolean
+        workingPattern:
+          $ref: "#/components/schemas/WorkingPattern"
+        workingDaysPerWeek:
+          type: number
+        workingHoursPerWeek:
+          type: number
+        contractType:
+          $ref: "#/components/schemas/ContractType"
+
+    CreateLeaveTypeBody:
+      type: object
+      required:
+        - name
+        - code
+        - daysAllowed
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        daysAllowed:
+          type: integer
+        carryForward:
+          type: boolean
+        maxCarryForward:
+          type: integer
+        requiresApproval:
+          type: boolean
+        requiresDocument:
+          type: boolean
+        description:
+          type: string
+        maxDaysPerRequest:
+          type: integer
+        isSpecialLeave:
+          type: boolean
+        requiresHRVerification:
+          type: boolean
+        documentTypes:
+          type: array
+          items:
+            type: string
+
+    UpdateLeaveTypeBody:
+      type: object
+      properties:
+        name:
+          type: string
+        daysAllowed:
+          type: integer
+        carryForward:
+          type: boolean
+        maxCarryForward:
+          type: integer
+        requiresApproval:
+          type: boolean
+        requiresDocument:
+          type: boolean
+        description:
+          type: string
+        isActive:
+          type: boolean
+        maxDaysPerRequest:
+          type: integer
+        isSpecialLeave:
+          type: boolean
+        requiresHRVerification:
+          type: boolean
+
+    CreateDepartmentBody:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        order:
+          type: integer
+
+    CreatePositionBody:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        order:
+          type: integer
+
+    CreateHolidayBody:
+      type: object
+      required:
+        - nameEn
+        - nameRo
+        - date
+      properties:
+        nameEn:
+          type: string
+        nameRo:
+          type: string
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        isRecurring:
+          type: boolean
+        country:
+          type: string
+          default: RO
+        isBlocked:
+          type: boolean
+
+    CreateDelegationBody:
+      type: object
+      required:
+        - delegateId
+        - startDate
+      properties:
+        delegateId:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
+
+    CreateWorkflowRuleBody:
+      type: object
+      required:
+        - name
+        - conditions
+        - approvalLevels
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        conditions:
+          type: object
+          properties:
+            userRole:
+              type: array
+              items:
+                type: string
+            leaveType:
+              type: array
+              items:
+                type: string
+            department:
+              type: array
+              items:
+                type: string
+            daysGreaterThan:
+              type: integer
+            daysLessThan:
+              type: integer
+        approvalLevels:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              required:
+                type: boolean
+        skipDuplicateSignatures:
+          type: boolean
+        priority:
+          type: integer
+
+    CreateHolidayPlanBody:
+      type: object
+      required:
+        - dates
+      properties:
+        dates:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+            properties:
+              date:
+                type: string
+                format: date
+              priority:
+                $ref: "#/components/schemas/PlanPriority"
+              reason:
+                type: string
+        notes:
+          type: string
+
+    UpdateHolidayPlanBody:
+      type: object
+      properties:
+        dates:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+            properties:
+              date:
+                type: string
+                format: date
+              priority:
+                $ref: "#/components/schemas/PlanPriority"
+              reason:
+                type: string
+        notes:
+          type: string
+        status:
+          $ref: "#/components/schemas/PlanStatus"
