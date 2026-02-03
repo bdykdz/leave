@@ -5,7 +5,18 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    
+
+    // Debug endpoint is only available in development OR for authenticated admin users
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    const isAdmin = session?.user?.role === 'ADMIN'
+
+    if (!isDevelopment && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Not Found' },
+        { status: 404 }
+      )
+    }
+
     // Check environment variables (without exposing secrets)
     const config = {
       NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'NOT SET',
@@ -36,7 +47,7 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Debug error:', error)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Failed to get debug info',
       message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
