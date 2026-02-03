@@ -140,7 +140,7 @@ function LoginContent() {
               </div>
 
               <div className="space-y-4 border rounded-lg p-4 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
-                <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
                   <Code2 className="h-4 w-4" />
                   <span className="font-medium">Development Login</span>
                 </div>

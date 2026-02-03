@@ -21,8 +21,9 @@ export function LanguageToggle() {
           variant="ghost"
           size="icon"
           className="h-9 w-9"
+          aria-label="Toggle language"
         >
-          <Languages className="h-[1.2rem] w-[1.2rem]" />
+          <Languages className="h-[1.2rem] w-[1.2rem]" aria-hidden="true" />
           <span className="sr-only">Toggle language</span>
         </Button>
       </DropdownMenuTrigger>
