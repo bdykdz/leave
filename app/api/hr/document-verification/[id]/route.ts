@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { logDocumentVerification } from '@/lib/utils/audit-log'
+import { emailService } from '@/lib/email-service'
+import { format } from 'date-fns'
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +13,25 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || !['HR', 'ADMIN'].includes(session.user.role)) {
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
+    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { 
+        role: true, 
+        department: true,
+        firstName: true,
+        lastName: true,
+        email: true
+      }
+    })
+    
+    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    
+    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -45,7 +66,7 @@ export async function POST(
       where: { id: params.id },
       data: {
         hrDocumentVerified: approved,
-        hrVerifiedBy: session.user.id,
+        hrVerifiedBy: user.id,
         hrVerifiedAt: new Date(),
         hrVerificationNotes: notes,
         // If rejected, update status
@@ -81,7 +102,42 @@ export async function POST(
       })
     }
 
-    // Log the action
+    // Send email notification to employee about sick leave verification
+    if (leaveRequest.leaveType.code === 'SL' && leaveRequest.user.email) {
+      try {
+        await emailService.sendLeaveStatusEmail(leaveRequest.user.email, {
+          employeeName: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+          leaveType: leaveRequest.leaveType.name,
+          startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
+          endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
+          days: leaveRequest.totalDays,
+          status: approved ? 'VERIFIED' : 'REJECTED',
+          approverName: `${user.firstName || ''} ${user.lastName || user.email} (HR)`,
+          approverComments: notes || (approved 
+            ? 'Your medical documents have been verified successfully.' 
+            : 'Your medical documents could not be verified. Please contact HR.'),
+          companyName: process.env.COMPANY_NAME || 'Company'
+        })
+        
+        console.log('Sick leave verification email sent to employee', {
+          requestId: leaveRequest.id,
+          employee: leaveRequest.user.email,
+          approved
+        })
+      } catch (emailError) {
+        console.error('Failed to send sick leave verification email:', emailError)
+      }
+    }
+
+    // Log the action with audit helper
+    await logDocumentVerification(
+      session.user.id,
+      params.id,
+      approved,
+      notes
+    )
+    
+    // Also create traditional audit log for backward compatibility
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,

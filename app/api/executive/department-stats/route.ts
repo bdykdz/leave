@@ -1,95 +1,89 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is an executive
-    if (!["EXECUTIVE", "HR"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    if (session.user.role !== 'EXECUTIVE' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    const today = new Date();
+    const monthStart = startOfMonth(today);
+    const monthEnd = endOfMonth(today);
 
-    // Get all departments with employee counts
+    // Get all departments
     const departments = await prisma.user.groupBy({
       by: ['department'],
-      where: {
-        isActive: true,
-        department: {
-          not: 'Unassigned'
-        }
-      },
-      _count: {
-        id: true
-      }
-    })
+      where: { isActive: true },
+      _count: { id: true }
+    });
 
-    // For each department, get additional stats
+    // Get leave stats by department
     const departmentStats = await Promise.all(
       departments.map(async (dept) => {
-        // Get employees on leave today
-        const onLeaveToday = await prisma.leaveRequest.count({
+        // Get employees in this department
+        const deptUsers = await prisma.user.findMany({
           where: {
-            status: 'APPROVED',
-            startDate: { lte: tomorrow },
-            endDate: { gte: today },
-            user: {
-              department: dept.department
-            }
-          }
-        })
+            department: dept.department,
+            isActive: true
+          },
+          select: { id: true }
+        });
 
-        // Get employees working remote today
-        const remoteToday = await prisma.workFromHomeRequest.count({
-          where: {
-            status: 'APPROVED',
-            date: {
-              gte: today,
-              lt: tomorrow
-            },
-            user: {
-              department: dept.department
-            }
-          }
-        })
+        const userIds = deptUsers.map(u => u.id);
 
-        // Get pending requests for this department
-        const pendingRequests = await prisma.leaveRequest.count({
+        // Get leave requests for this department this month
+        const leaveRequests = await prisma.leaveRequest.findMany({
           where: {
-            status: 'PENDING',
-            user: {
-              department: dept.department
-            }
+            userId: { in: userIds },
+            status: 'APPROVED',
+            startDate: { lte: monthEnd },
+            endDate: { gte: monthStart }
+          },
+          select: { totalDays: true }
+        });
+
+        const totalLeaveDays = leaveRequests.reduce(
+          (sum, req) => sum + req.totalDays, 
+          0
+        );
+
+        // Get WFH requests
+        const wfhRequests = await prisma.workFromHomeRequest.count({
+          where: {
+            userId: { in: userIds },
+            status: 'APPROVED',
+            startDate: { lte: monthEnd },
+            endDate: { gte: monthStart }
           }
-        })
+        });
 
         return {
           department: dept.department,
-          employees: dept._count.id,
-          onLeaveToday,
-          remoteToday,
-          pendingRequests
-        }
+          employeeCount: dept._count.id,
+          totalLeaveDays,
+          averageLeavePerEmployee: dept._count.id > 0 
+            ? (totalLeaveDays / dept._count.id).toFixed(1) 
+            : 0,
+          wfhRequests
+        };
       })
-    )
+    );
 
-    // Sort by number of employees (largest departments first)
-    departmentStats.sort((a, b) => b.employees - a.employees)
-
-    return NextResponse.json(departmentStats)
+    return NextResponse.json(departmentStats);
   } catch (error) {
-    console.error("Error fetching department stats:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error('Error fetching department stats:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch department statistics' },
+      { status: 500 }
+    );
   }
 }

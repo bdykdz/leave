@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { prisma } from '@/lib/prisma'
 import { azureAdConfig } from '@/lib/env'
+import { emailService } from '@/lib/email-service'
 import bcrypt from 'bcryptjs'
 import 'isomorphic-fetch'
 
@@ -35,7 +36,7 @@ async function getAccessToken() {
 
 export async function POST(request: NextRequest) {
   // Check if user is authenticated for setup
-  const setupAuth = cookies().get('setup-auth')
+  const setupAuth = (await cookies()).get('setup-auth')
   if (!setupAuth?.value) {
     return NextResponse.json(
       { error: 'Unauthorized' },
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
             const defaultLeaveSetting = await prisma.companySetting.findUnique({
               where: { key: 'default_leave_days' }
             })
-            const defaultDays = defaultLeaveSetting?.value?.normalLeaveDays || 21
+            const defaultDays = (defaultLeaveSetting?.value as any)?.normalLeaveDays || 21
 
             await prisma.leaveBalance.create({
               data: {
@@ -215,6 +216,26 @@ export async function POST(request: NextRequest) {
                 carriedForward: 0
               }
             })
+          }
+
+          // Send welcome email to the new user
+          try {
+            const companyName = process.env.COMPANY_NAME || 'Compania Noastră';
+            const loginUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+            
+            await emailService.sendNewUserWelcomeEmail(newUser.email, {
+              firstName: newUser.firstName,
+              lastName: newUser.lastName,
+              email: newUser.email,
+              employeeId: newUser.employeeId,
+              position: newUser.position,
+              department: newUser.department,
+              companyName: companyName,
+              loginUrl: loginUrl
+            });
+          } catch (emailError) {
+            console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
+            // Don't fail the import if email fails
           }
 
           importedUsers.push({

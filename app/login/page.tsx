@@ -2,7 +2,7 @@
 
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -21,7 +21,7 @@ interface User {
   department: string
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const [devEmail, setDevEmail] = useState('dev@company.com')
@@ -29,7 +29,10 @@ export default function LoginPage() {
   const [selectedUserId, setSelectedUserId] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
-  const isDevelopment = process.env.NODE_ENV === 'development'
+  const isDevelopment = typeof window !== 'undefined' ? 
+    (window.location.hostname === 'localhost' || 
+     /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)) :
+    (process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'uat')
 
   useEffect(() => {
     if (isDevelopment) {
@@ -137,7 +140,7 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-4 border rounded-lg p-4 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
-                <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
                   <Code2 className="h-4 w-4" />
                   <span className="font-medium">Development Login</span>
                 </div>
@@ -215,6 +218,7 @@ export default function LoginPage() {
                           <SelectItem value="DEPARTMENT_DIRECTOR">Department Director</SelectItem>
                           <SelectItem value="HR">HR</SelectItem>
                           <SelectItem value="EXECUTIVE">Executive</SelectItem>
+                          <SelectItem value="ADMIN">Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -240,5 +244,15 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export const dynamic = 'force-dynamic'
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   )
 }

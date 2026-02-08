@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -21,6 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { 
   FileText,
   Download,
@@ -32,6 +40,9 @@ import {
   Shield,
   Calendar,
   User,
+  ChevronDown,
+  CheckSquare,
+  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -54,7 +65,15 @@ interface LeaveRequestForVerification {
   endDate: string
   totalDays: number
   reason: string
-  supportingDocuments: string[]
+  supportingDocuments: {
+    uploadedDocuments?: string[]
+    selectedDates?: string[]
+    formattedDates?: string
+    substituteNames?: string
+    employeeSignature?: string
+    employeeSignatureDate?: string
+    documentUploadDate?: string
+  } | string[]  // Keep backward compatibility
   createdAt: string
   hrDocumentVerified: boolean
   hrVerifiedBy?: string
@@ -66,9 +85,64 @@ interface LeaveRequestForVerification {
 export function DocumentVerification() {
   const [requests, setRequests] = useState<LeaveRequestForVerification[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Helper function to extract document URLs from supportingDocuments
+  const getDocumentUrls = (supportingDocs: any): { url: string; name: string }[] => {
+    try {
+      if (Array.isArray(supportingDocs)) {
+        // Backward compatibility: treat as string array
+        return supportingDocs
+          .filter(doc => typeof doc === 'string' && doc.trim().length > 0)
+          .map((doc, index) => ({
+            url: doc,
+            name: `Document ${index + 1}`
+          }))
+      } else if (supportingDocs?.uploadedDocuments && Array.isArray(supportingDocs.uploadedDocuments)) {
+        // New format: extract from uploadedDocuments
+        return supportingDocs.uploadedDocuments
+          .filter((url: any) => typeof url === 'string' && url.trim().length > 0)
+          .map((url: string, index: number) => {
+            try {
+              const fileName = url.split('/').pop() || `document_${index + 1}`
+              // Safely remove prefix and sanitize display name
+              const displayName = fileName
+                .replace(/^[^-]+-[^-]+-[^-]+-/, '') // Remove prefix
+                .replace(/[<>"/\\|?*]/g, '_') // Sanitize potentially dangerous characters
+                .substring(0, 50) // Limit length
+              
+              return {
+                url,
+                name: displayName || `Document ${index + 1}`
+              }
+            } catch (error) {
+              console.warn('Error processing document URL:', url, error)
+              return {
+                url,
+                name: `Document ${index + 1}`
+              }
+            }
+          })
+      }
+    } catch (error) {
+      console.error('Error extracting document URLs:', error)
+    }
+    return []
+  }
+
+  // Helper function to get document count for display
+  const getDocumentCount = (supportingDocs: any): number => {
+    return getDocumentUrls(supportingDocs).length
+  }
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequestForVerification | null>(null)
   const [verificationNotes, setVerificationNotes] = useState("")
   const [verifying, setVerifying] = useState(false)
+  
+  // Bulk verification state
+  const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set())
+  const [bulkVerifying, setBulkVerifying] = useState(false)
+  const [bulkNotes, setBulkNotes] = useState("")
+  const [showBulkDialog, setShowBulkDialog] = useState(false)
+  const [bulkAction, setBulkAction] = useState<'approve' | 'reject'>('approve')
 
   useEffect(() => {
     fetchPendingVerifications()
@@ -125,7 +199,16 @@ export function DocumentVerification() {
 
   const downloadDocument = async (url: string, filename: string) => {
     try {
-      const response = await fetch(url)
+      // Convert MinIO URL to API endpoint
+      const apiUrl = url.startsWith('minio://') 
+        ? `/api/documents/${url.replace('minio://', '').replace('leave-management/', '')}`
+        : url
+
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.statusText}`)
+      }
+      
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -140,6 +223,68 @@ export function DocumentVerification() {
       toast.error('Failed to download document')
     }
   }
+
+  // Bulk verification functions
+  const handleSelectRequest = (requestId: string, checked: boolean) => {
+    const newSelected = new Set(selectedRequests)
+    if (checked) {
+      newSelected.add(requestId)
+    } else {
+      newSelected.delete(requestId)
+    }
+    setSelectedRequests(newSelected)
+  }
+
+  const handleCheckSquare = (checked: boolean) => {
+    if (checked) {
+      const eligibleRequests = requests.filter(r => !r.hrDocumentVerified && r.status === 'PENDING')
+      setSelectedRequests(new Set(eligibleRequests.map(r => r.id)))
+    } else {
+      setSelectedRequests(new Set())
+    }
+  }
+
+  const initiateBulkVerification = (action: 'approve' | 'reject') => {
+    setBulkAction(action)
+    setShowBulkDialog(true)
+  }
+
+  const handleBulkVerification = async () => {
+    if (selectedRequests.size === 0) return
+
+    try {
+      setBulkVerifying(true)
+      const response = await fetch('/api/hr/document-verification/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestIds: Array.from(selectedRequests),
+          action: bulkAction,
+          notes: bulkNotes.trim() || undefined
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(data.message)
+        setSelectedRequests(new Set())
+        setBulkNotes("")
+        setShowBulkDialog(false)
+        fetchPendingVerifications()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to process bulk verification')
+      }
+    } catch (error) {
+      console.error('Bulk verification error:', error)
+      toast.error('Failed to process bulk verification')
+    } finally {
+      setBulkVerifying(false)
+    }
+  }
+
+  const eligibleRequests = requests.filter(r => !r.hrDocumentVerified && r.status === 'PENDING')
+  const isAllSelected = eligibleRequests.length > 0 && eligibleRequests.every(r => selectedRequests.has(r.id))
 
   if (loading) {
     return <div className="text-center py-8">Loading pending verifications...</div>
@@ -159,10 +304,18 @@ export function DocumentVerification() {
                 Review and verify supporting documents for special leave requests
               </CardDescription>
             </div>
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {requests.filter(r => !r.hrDocumentVerified).length} Pending
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {requests.filter(r => !r.hrDocumentVerified).length} Pending
+              </Badge>
+              {selectedRequests.size > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <CheckSquare className="h-3 w-3" />
+                  {selectedRequests.size} Selected
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -183,10 +336,67 @@ export function DocumentVerification() {
             </div>
           </div>
 
+          {/* Bulk Actions */}
+          {eligibleRequests.length > 0 && (
+            <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={handleCheckSquare}
+                  className="data-[state=checked]:bg-blue-600"
+                />
+                <span className="text-sm font-medium">
+                  Select All ({eligibleRequests.length} requests)
+                </span>
+              </div>
+              
+              {selectedRequests.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedRequests.size} selected
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={bulkVerifying}>
+                        {bulkVerifying ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        ) : (
+                          <CheckSquare className="h-4 w-4 mr-1" />
+                        )}
+                        Bulk Actions
+                        <ChevronDown className="h-4 w-4 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem 
+                        onClick={() => initiateBulkVerification('approve')}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        Verify & Approve All
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => initiateBulkVerification('reject')}
+                        className="flex items-center gap-2 text-red-600"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Reject All
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <span className="sr-only">Select</span>
+                  </TableHead>
                   <TableHead>Request #</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead>Leave Type</TableHead>
@@ -199,13 +409,26 @@ export function DocumentVerification() {
               <TableBody>
                 {requests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No pending document verifications
                     </TableCell>
                   </TableRow>
                 ) : (
-                  requests.map((request) => (
-                    <TableRow key={request.id}>
+                  requests.map((request) => {
+                    const isEligible = !request.hrDocumentVerified && request.status === 'PENDING'
+                    const isSelected = selectedRequests.has(request.id)
+                    
+                    return (
+                    <TableRow key={request.id} className={isSelected ? 'bg-blue-50' : ''}>
+                      <TableCell>
+                        {isEligible && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handleSelectRequest(request.id, checked as boolean)}
+                            className="data-[state=checked]:bg-blue-600"
+                          />
+                        )}
+                      </TableCell>
                       <TableCell className="font-mono text-sm">
                         {request.requestNumber.slice(0, 8)}
                       </TableCell>
@@ -232,7 +455,7 @@ export function DocumentVerification() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary">
-                          {request.supportingDocuments.length} file{request.supportingDocuments.length !== 1 && 's'}
+                          {getDocumentCount(request.supportingDocuments)} file{getDocumentCount(request.supportingDocuments) !== 1 && 's'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
@@ -261,7 +484,8 @@ export function DocumentVerification() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -326,23 +550,59 @@ export function DocumentVerification() {
               <div>
                 <h4 className="font-medium mb-2">Supporting Documents</h4>
                 <div className="space-y-2">
-                  {selectedRequest.supportingDocuments.map((doc, index) => (
+                  {getDocumentUrls(selectedRequest.supportingDocuments).map((doc, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm">Document {index + 1}</span>
+                        <span className="text-sm" title={doc.name}>{doc.name}</span>
+                        {selectedRequest.leaveType.code === 'SL' && (
+                          <Badge variant="outline" className="text-xs">Medical Certificate</Badge>
+                        )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadDocument(doc, `document_${index + 1}.pdf`)}
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Download
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadDocument(doc.url, doc.name)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Download
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(doc.url, '_blank')}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          View
+                        </Button>
+                      </div>
                     </div>
                   ))}
+                  {getDocumentUrls(selectedRequest.supportingDocuments).length === 0 && (
+                    <p className="text-sm text-gray-500 italic">No documents uploaded</p>
+                  )}
                 </div>
+                
+                {/* Show upload date for sick leave */}
+                {selectedRequest.leaveType.code === 'SL' && 
+                 typeof selectedRequest.supportingDocuments === 'object' && 
+                 selectedRequest.supportingDocuments.documentUploadDate && (() => {
+                   try {
+                     const uploadDate = new Date(selectedRequest.supportingDocuments.documentUploadDate)
+                     if (isNaN(uploadDate.getTime())) {
+                       return null // Invalid date
+                     }
+                     return (
+                       <div className="mt-2 text-xs text-gray-500">
+                         Documents uploaded: {format(uploadDate, 'PPp')}
+                       </div>
+                     )
+                   } catch (error) {
+                     console.warn('Error parsing upload date:', error)
+                     return null
+                   }
+                 })()}
               </div>
 
               {/* Verification Notes */}
@@ -388,6 +648,97 @@ export function DocumentVerification() {
             >
               <CheckCircle className="h-4 w-4" />
               Verify & Approve
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Verification Dialog */}
+      <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {bulkAction === 'approve' ? 'Bulk Verify & Approve' : 'Bulk Reject'} Documents
+            </DialogTitle>
+            <DialogDescription>
+              You are about to {bulkAction === 'approve' ? 'verify and approve' : 'reject'} {selectedRequests.size} document verification requests.
+              {bulkAction === 'reject' && ' This action will also reject the associated leave requests.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-medium mb-2">Selected Requests ({selectedRequests.size})</h4>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {Array.from(selectedRequests).map(id => {
+                  const request = requests.find(r => r.id === id)
+                  return request ? (
+                    <div key={id} className="text-sm flex justify-between">
+                      <span>{request.user.firstName} {request.user.lastName}</span>
+                      <span className="text-muted-foreground">{request.leaveType.name}</span>
+                    </div>
+                  ) : null
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {bulkAction === 'approve' ? 'Verification Notes (Optional)' : 'Rejection Reason'}
+              </label>
+              <Textarea
+                placeholder={bulkAction === 'approve' 
+                  ? "Add notes about the bulk verification..." 
+                  : "Explain why these documents are being rejected..."}
+                value={bulkNotes}
+                onChange={(e) => setBulkNotes(e.target.value)}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {bulkAction === 'approve' 
+                  ? 'These notes are internal and help with audit trails'
+                  : 'This reason will be visible to employees and managers'}
+              </p>
+            </div>
+
+            {bulkAction === 'reject' && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-red-900">Warning</p>
+                    <p className="text-red-800">
+                      Rejecting documents will also reject the associated leave requests. 
+                      Employees will need to resubmit their requests with proper documentation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDialog(false)}
+              disabled={bulkVerifying}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={bulkAction === 'approve' ? 'default' : 'destructive'}
+              onClick={handleBulkVerification}
+              disabled={bulkVerifying || (bulkAction === 'reject' && !bulkNotes.trim())}
+              className="flex items-center gap-2"
+            >
+              {bulkVerifying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : bulkAction === 'approve' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              {bulkAction === 'approve' ? 'Verify & Approve All' : 'Reject All'}
             </Button>
           </DialogFooter>
         </DialogContent>

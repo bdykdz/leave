@@ -268,7 +268,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
                             <AvatarImage
-                              src={`/placeholder.svg?height=32&width=32&text=${selectedEmployeeData.avatar}`}
+                              
                             />
                             <AvatarFallback>{selectedEmployeeData.avatar}</AvatarFallback>
                           </Avatar>

@@ -280,7 +280,7 @@ export function SmartTemplateDesigner() {
                     <SelectValue placeholder="Select a leave type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {leaveTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name}
@@ -404,7 +404,7 @@ export function SmartTemplateDesigner() {
                                 <SelectValue placeholder="Select a data field to map" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">None (Skip this field)</SelectItem>
+                                <SelectItem value="skip">None (Skip this field)</SelectItem>
                                 {Object.entries(groupedDataFields).map(([category, fields]) => (
                                   <div key={category}>
                                     <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">

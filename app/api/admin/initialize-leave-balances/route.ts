@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
           
           // Set default entitlements based on leave type code
           if (leaveType.code === 'ANNUAL' || leaveType.code === 'AL' || leaveType.code === 'NL') {
-            entitled = leaveType.daysAllowed || 21 // Default annual leave
+            entitled = leaveType.daysAllowed || 30 // Default annual leave (updated for production)
           } else if (leaveType.code === 'SICK' || leaveType.code === 'SL') {
             entitled = 0 // Sick leave is unlimited (tracked only)
           } else {

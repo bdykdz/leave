@@ -145,7 +145,7 @@ export function EmployeePicker({ selectedEmployee, onEmployeeChange }: EmployeeP
             {selectedEmployeeData ? (
               <>
                 <Avatar className="h-6 w-6 shrink-0">
-                  <AvatarImage src={`/placeholder.svg?height=24&width=24&text=${selectedEmployeeData.avatar}`} />
+                  <AvatarImage  />
                   <AvatarFallback className="text-xs">{selectedEmployeeData.avatar}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
@@ -183,7 +183,7 @@ export function EmployeePicker({ selectedEmployee, onEmployeeChange }: EmployeeP
                 >
                   <div className="flex items-center gap-3 flex-1 w-full p-3 hover:bg-gray-50 rounded">
                     <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${employee.avatar}`} />
+                      <AvatarImage  />
                       <AvatarFallback className="text-xs">{employee.avatar}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">

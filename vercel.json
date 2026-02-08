@@ -1,0 +1,19 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/cleanup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/escalation",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/document-cleanup",
+      "schedule": "0 3 * * 1"
+    }
+  ],
+  "env": {
+    "CRON_SECRET": "@cron-secret"
+  }
+}

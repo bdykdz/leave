@@ -34,6 +34,7 @@ import {
   XCircle,
   Clock,
   Trash2,
+  Eye,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -86,15 +87,26 @@ export function DocumentFileManager() {
     try {
       setLoading(true)
       const response = await fetch('/api/hr/document-manager')
-      if (response.ok) {
-        const data = await response.json()
-        setDocuments(data.documents)
-      } else {
-        toast.error('Failed to load documents')
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Document fetch error:', errorData)
+        
+        if (response.status === 401) {
+          toast.error(errorData.message || 'Please log in to view documents')
+        } else if (response.status === 403) {
+          toast.error(errorData.message || 'You do not have permission to view HR documents')
+        } else {
+          toast.error(errorData.message || 'Failed to load documents')
+        }
+        return
       }
+      
+      const data = await response.json()
+      setDocuments(data.documents || [])
     } catch (error) {
       console.error('Error fetching documents:', error)
-      toast.error('Failed to load documents')
+      toast.error('Failed to connect to server. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -127,16 +139,29 @@ export function DocumentFileManager() {
 
   const downloadAllDocuments = async (documentUrls: string[], requestNumber: string) => {
     try {
-      // For now, just download the first document
-      // In a real implementation, you'd zip multiple files or download them separately
+      // Download supporting documents through our API
       if (documentUrls.length > 0) {
-        const link = document.createElement('a')
-        link.href = documentUrls[0]
-        link.download = `${requestNumber}_documents.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        toast.success('Document downloaded successfully')
+        for (let i = 0; i < documentUrls.length; i++) {
+          const url = documentUrls[i]
+          const fileName = `${requestNumber}_supporting_${i + 1}.pdf`
+          
+          // Use our API endpoint to fetch the document
+          const apiUrl = `/api/hr/documents/supporting?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`
+          
+          const response = await fetch(apiUrl)
+          if (response.ok) {
+            const blob = await response.blob()
+            const downloadUrl = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = downloadUrl
+            link.download = fileName
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(downloadUrl)
+          }
+        }
+        toast.success('Documents downloaded successfully')
       }
     } catch (error) {
       console.error('Error downloading documents:', error)
@@ -146,7 +171,14 @@ export function DocumentFileManager() {
 
   const downloadDocument = async (url: string, filename: string) => {
     try {
-      const response = await fetch(url)
+      // Use our API endpoint to fetch the document
+      const apiUrl = `/api/hr/documents/supporting?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+      
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        throw new Error('Failed to fetch document')
+      }
+      
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -160,6 +192,20 @@ export function DocumentFileManager() {
     } catch (error) {
       console.error('Download error:', error)
       toast.error('Failed to download document')
+    }
+  }
+
+  const viewSupportingDocuments = (documentUrls: string[], requestNumber: string) => {
+    // Open the first supporting document in a new tab for viewing
+    if (documentUrls.length > 0) {
+      const url = documentUrls[0]
+      const fileName = `${requestNumber}_supporting_1.pdf`
+      const viewUrl = `/api/hr/documents/supporting?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`
+      window.open(viewUrl, '_blank')
+      
+      if (documentUrls.length > 1) {
+        toast.info(`Viewing first document. ${documentUrls.length - 1} more documents available for download.`)
+      }
     }
   }
 
@@ -505,15 +551,26 @@ export function DocumentFileManager() {
                       <div className="flex items-center gap-2 justify-end">
                         {/* Supporting Documents */}
                         {doc.supportingDocuments && doc.supportingDocuments.length > 0 && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => downloadAllDocuments(doc.supportingDocuments!, doc.requestNumber)}
-                            className="flex items-center gap-1"
-                          >
-                            <Download className="h-3 w-3" />
-                            Support Docs
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => viewSupportingDocuments(doc.supportingDocuments!, doc.requestNumber)}
+                              className="flex items-center gap-1"
+                            >
+                              <Eye className="h-3 w-3" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => downloadAllDocuments(doc.supportingDocuments!, doc.requestNumber)}
+                              className="flex items-center gap-1"
+                            >
+                              <Download className="h-3 w-3" />
+                              Download
+                            </Button>
+                          </>
                         )}
                         
                         {/* Generated Documents */}
@@ -521,7 +578,7 @@ export function DocumentFileManager() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(doc.generatedDocument.fileUrl, '_blank')}
+                            onClick={() => window.open(`/api/hr/documents/view/${doc.generatedDocument.id}`, '_blank')}
                             className="flex items-center gap-1"
                           >
                             <FileText className="h-3 w-3" />

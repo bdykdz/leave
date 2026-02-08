@@ -88,9 +88,17 @@ interface LeaveType {
   code: string
 }
 
+interface TemplateCategory {
+  id: string
+  name: string
+  code: string
+  type: 'leave' | 'wfh'
+}
+
 export function TemplateManager() {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([])
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
+  const [templateCategories, setTemplateCategories] = useState<TemplateCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -125,8 +133,27 @@ export function TemplateManager() {
       const response = await fetch('/api/admin/leave-types')
       if (response.ok) {
         const data = await response.json()
-        console.log('Leave types loaded:', data.leaveTypes)
-        setLeaveTypes(data.leaveTypes || [])
+        const leaveTypesList = data.leaveTypes || []
+        setLeaveTypes(leaveTypesList)
+        
+        // Create combined categories for both leave types and WFH
+        const categories: TemplateCategory[] = [
+          // Add WFH as a special category
+          {
+            id: 'wfh',
+            name: 'Work From Home',
+            code: 'WFH',
+            type: 'wfh'
+          },
+          // Add all leave types
+          ...leaveTypesList.map((lt: LeaveType) => ({
+            id: lt.id,
+            name: lt.name,
+            code: lt.code,
+            type: 'leave' as const
+          }))
+        ]
+        setTemplateCategories(categories)
       } else {
         toast.error('Failed to load leave types')
       }
@@ -156,7 +183,7 @@ export function TemplateManager() {
 
   const handleFileUpload = async () => {
     if (!uploadForm.file || !uploadForm.name || !uploadForm.leaveTypeId) {
-      toast.error('Please provide a name, select a leave type, and select a file')
+      toast.error('Please provide a name, select a template category, and select a file')
       return
     }
 
@@ -164,8 +191,14 @@ export function TemplateManager() {
     formData.append('file', uploadForm.file)
     formData.append('name', uploadForm.name)
     formData.append('description', uploadForm.description)
-    if (uploadForm.leaveTypeId) {
+    
+    // Check if this is a WFH template
+    if (uploadForm.leaveTypeId === 'wfh') {
+      formData.append('category', 'wfh')
+      formData.append('isWFHTemplate', 'true')
+    } else {
       formData.append('leaveTypeId', uploadForm.leaveTypeId)
+      formData.append('category', 'leave_request')
     }
 
     try {
@@ -223,7 +256,7 @@ export function TemplateManager() {
     setEditForm({
       name: template.name,
       description: template.description || "",
-      leaveTypeId: template.leaveTypeId || "",
+      leaveTypeId: template.category === 'wfh' ? 'wfh' : (template.leaveTypeId || ""),
       isActive: template.isActive,
     })
     setEditDialogOpen(true)
@@ -233,9 +266,19 @@ export function TemplateManager() {
     if (!selectedTemplate) return
 
     try {
-      const payload = {
-        ...editForm,
-        leaveTypeId: editForm.leaveTypeId || null
+      const payload: any = {
+        name: editForm.name,
+        description: editForm.description,
+        isActive: editForm.isActive,
+      }
+      
+      // Handle WFH vs leave type
+      if (editForm.leaveTypeId === 'wfh') {
+        payload.category = 'wfh'
+        payload.leaveTypeId = null
+      } else {
+        payload.leaveTypeId = editForm.leaveTypeId || null
+        payload.category = 'leave_request'
       }
       
       const response = await fetch(`/api/admin/templates/${selectedTemplate.id}`, {
@@ -371,6 +414,7 @@ export function TemplateManager() {
                 <SelectItem value="leave_request">Leave Request</SelectItem>
                 <SelectItem value="sick_leave">Sick Leave</SelectItem>
                 <SelectItem value="vacation">Vacation</SelectItem>
+                <SelectItem value="wfh">Work From Home</SelectItem>
                 <SelectItem value="remote_work">Remote Work</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
@@ -411,7 +455,11 @@ export function TemplateManager() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {template.leaveType ? (
+                        {template.category === 'wfh' ? (
+                          <Badge variant="outline" className="bg-blue-50">
+                            Work From Home
+                          </Badge>
+                        ) : template.leaveType ? (
                           <Badge variant="outline">
                             {template.leaveType.name}
                           </Badge>
@@ -525,28 +573,28 @@ export function TemplateManager() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="leaveType">Leave Type *</Label>
+              <Label htmlFor="leaveType">Template Category *</Label>
               <Select
                 value={uploadForm.leaveTypeId}
                 onValueChange={(value) => setUploadForm({ ...uploadForm, leaveTypeId: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a leave type" />
+                  <SelectValue placeholder="Select a template category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {leaveTypes.length === 0 ? (
-                    <SelectItem value="loading" disabled>Loading leave types...</SelectItem>
+                  {templateCategories.length === 0 ? (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
                   ) : (
-                    leaveTypes.map((leaveType) => (
-                      <SelectItem key={leaveType.id} value={leaveType.id}>
-                        {leaveType.name} ({leaveType.code})
+                    templateCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name} ({category.code})
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Select which leave type this template is for
+                Select which type this template is for (Leave types or Work From Home)
               </p>
             </div>
             <div className="space-y-2">
@@ -613,21 +661,21 @@ export function TemplateManager() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-leaveType">Leave Type *</Label>
+              <Label htmlFor="edit-leaveType">Template Category *</Label>
               <Select
                 value={editForm.leaveTypeId}
                 onValueChange={(value) => setEditForm({ ...editForm, leaveTypeId: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a leave type" />
+                  <SelectValue placeholder="Select a template category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {leaveTypes.length === 0 ? (
-                    <SelectItem value="loading" disabled>Loading leave types...</SelectItem>
+                  {templateCategories.length === 0 ? (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
                   ) : (
-                    leaveTypes.map((leaveType) => (
-                      <SelectItem key={leaveType.id} value={leaveType.id}>
-                        {leaveType.name} ({leaveType.code})
+                    templateCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name} ({category.code})
                       </SelectItem>
                     ))
                   )}

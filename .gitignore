@@ -13,15 +13,23 @@ dist/
 
 # Environment files (NEVER commit these)
 .env
-.env*.local
-.env.development
-.env.production
-
-# Keep environment templates for deployment
+.env*
 !.env.example
-!.env.uat
-!.env.stg
-!.env.prod
+!.env.sentry.example
+
+# Docker compose files with secrets (NEVER commit these)
+docker-compose.yml
+docker-compose.uat.yml
+docker-compose.staging.yml
+docker-compose.production.yml
+docker-compose.prod.yml
+docker-compose.uat.local.yml
+docker-compose.uat.backup.yml
+docker-compose.reportportal.yml
+docker-compose.allure.yml
+
+# Keep only dev docker-compose as template
+!docker-compose.dev.yml
 
 # Database
 *.db
@@ -110,8 +118,16 @@ prisma/migrations/dev.db*
 
 # Testing
 test-results/
+test-results-visual/
 playwright-report/
+playwright-report-visual/
 playwright/.cache/
+.playwright/
+visual-test-results.json
+
+# Visual regression test snapshots - KEEP these in git
+# Baseline snapshots are stored in e2e/visual-regression/__snapshots__/
+# They should be committed to track visual changes over time
 
 # Deployment
 .vercel

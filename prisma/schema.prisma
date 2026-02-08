@@ -1,0 +1,571 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Position {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id                    String                   @id @default(cuid())
+  email                 String                   @unique
+  password              String
+  firstName             String
+  lastName              String
+  employeeId            String                   @unique
+  role                  Role                     @default(EMPLOYEE)
+  department            String
+  position              String
+  joiningDate           DateTime
+  phoneNumber           String?
+  profileImage          String?
+  isActive              Boolean                  @default(true)
+  managerId             String?
+  departmentDirectorId  String?
+  workingPattern        WorkingPattern           @default(FULL_TIME)
+  workingDaysPerWeek    Float                    @default(5.0)
+  workingHoursPerWeek   Float                    @default(40.0)
+  contractType          ContractType             @default(PERMANENT)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  approvals             Approval[]
+  escalatedApprovals    Approval[]               @relation("EscalatedApprovals")
+  comments              Comment[]
+  documentSignatures    DocumentSignature[]
+  leaveBalances         LeaveBalance[]
+  substituteFor         LeaveRequest[]           @relation("SubstituteRequests")
+  leaveRequests         LeaveRequest[]
+  notifications         Notification[]
+  substituteAssignments LeaveRequestSubstitute[]
+  departmentDirector    User?                    @relation("DirectorSubordinates", fields: [departmentDirectorId], references: [id])
+  directsReports        User[]                   @relation("DirectorSubordinates")
+  manager               User?                    @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates          User[]                   @relation("ManagerSubordinates")
+  wfhRequests           WorkFromHomeRequest[]
+  wfhApprovals          WFHApproval[]
+  wfhSignatures         WFHSignature[]
+  delegatorRelations    ApprovalDelegate[]   @relation("DelegatorRelation")
+  delegateRelations     ApprovalDelegate[]   @relation("DelegateRelation")
+  auditLogs             AuditLog[]
+  holidayPlans          HolidayPlan[]
+}
+
+model LeaveType {
+  id                     String             @id @default(cuid())
+  name                   String             @unique
+  code                   String             @unique
+  daysAllowed            Int
+  carryForward           Boolean            @default(false)
+  maxCarryForward        Int?
+  requiresApproval       Boolean            @default(true)
+  requiresDocument       Boolean            @default(false)
+  description            String?
+  isActive               Boolean            @default(true)
+  maxDaysPerRequest      Int?
+  isSpecialLeave         Boolean            @default(false)
+  requiresHRVerification Boolean            @default(false)
+  documentTypes          String[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  documentTemplates      DocumentTemplate[]
+  leaveBalances          LeaveBalance[]
+  leaveRequests          LeaveRequest[]
+}
+
+model LeaveBalance {
+  id             String    @id @default(cuid())
+  userId         String
+  leaveTypeId    String
+  year           Int
+  entitled       Float
+  used           Float     @default(0)
+  pending        Float     @default(0)
+  available      Float
+  carriedForward Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  leaveType      LeaveType @relation(fields: [leaveTypeId], references: [id])
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, leaveTypeId, year])
+}
+
+model LeaveRequest {
+  id                  String                   @id @default(cuid())
+  requestNumber       String                   @unique @default(cuid())
+  userId              String
+  leaveTypeId         String
+  startDate           DateTime
+  endDate             DateTime
+  totalDays           Float
+  reason              String
+  substituteId        String?
+  selectedDates       DateTime[] // Array of individual dates selected
+  status              RequestStatus            @default(PENDING)
+  documentUrl         String?
+  supportingDocuments Json?
+  hrDocumentVerified  Boolean                  @default(false)
+  hrVerifiedBy        String?
+  hrVerifiedAt        DateTime?
+  hrVerificationNotes String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  approvals           Approval[]
+  comments            Comment[]
+  generatedDocument   GeneratedDocument?
+  leaveType           LeaveType                @relation(fields: [leaveTypeId], references: [id])
+  substitute          User?                    @relation("SubstituteRequests", fields: [substituteId], references: [id])
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  substitutes         LeaveRequestSubstitute[] // Many-to-many relation for multiple substitutes
+}
+
+model Approval {
+  id               String         @id @default(cuid())
+  leaveRequestId   String
+  approverId       String
+  level            Int
+  status           ApprovalStatus @default(PENDING)
+  comments         String?
+  approvedAt       DateTime?
+  signature        String?
+  signedAt         DateTime?
+  escalatedToId    String?
+  escalatedAt      DateTime?
+  escalationReason String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  approver         User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  escalatedTo      User?          @relation("EscalatedApprovals", fields: [escalatedToId], references: [id])
+  leaveRequest     LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id             String       @id @default(cuid())
+  leaveRequestId String
+  userId         String
+  text           String
+  isInternal     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DocumentTemplate {
+  id                  String                 @id @default(cuid())
+  name                String
+  description         String?
+  fileUrl             String
+  fileType            String
+  category            String
+  version             Int                    @default(1)
+  isActive            Boolean                @default(true)
+  leaveTypeId         String?
+  createdBy           String
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  leaveType           LeaveType?             @relation(fields: [leaveTypeId], references: [id])
+  generatedDocuments  GeneratedDocument[]
+  wfhDocuments        WFHDocument[]
+  fieldMappings       TemplateFieldMapping[]
+  signaturePlacements TemplateSignature[]
+}
+
+model TemplateFieldMapping {
+  id               String           @id @default(cuid())
+  templateId       String
+  fieldKey         String
+  fieldLabel       String
+  documentPosition Json
+  fieldStyle       Json
+  isRequired       Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  template         DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model TemplateSignature {
+  id               String           @id @default(cuid())
+  templateId       String
+  signerRole       String
+  documentPosition Json
+  label            String
+  isRequired       Boolean          @default(true)
+  orderIndex       Int
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  template         DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, signerRole])
+  @@index([templateId])
+}
+
+model WorkflowRule {
+  id                      String   @id @default(cuid())
+  name                    String
+  description             String?
+  conditions              Json
+  approvalLevels          Json
+  skipDuplicateSignatures Boolean  @default(true)
+  autoApproveConditions   Json?
+  priority                Int      @default(0)
+  isActive                Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([priority])
+}
+
+model GeneratedDocument {
+  id               String              @id @default(cuid())
+  templateId       String
+  leaveRequestId   String              @unique
+  fileUrl          String
+  status           DocumentStatus      @default(PENDING_SIGNATURES)
+  templateSnapshot Json
+  decisions        Json?
+  createdAt        DateTime            @default(now())
+  completedAt      DateTime?
+  signatures       DocumentSignature[]
+  leaveRequest     LeaveRequest        @relation(fields: [leaveRequestId], references: [id])
+  template         DocumentTemplate    @relation(fields: [templateId], references: [id])
+}
+
+model DocumentSignature {
+  id            String            @id @default(cuid())
+  documentId    String
+  signerId      String
+  signerRole    String
+  signatureData String
+  signedAt      DateTime          @default(now())
+  ipAddress     String?
+  userAgent     String?
+  document      GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer        User              @relation(fields: [signerId], references: [id], onDelete: Cascade)
+}
+
+model CompanySetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  category    String
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entity     String
+  entityType String?  // Added missing field
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  details    Json?    // Added missing field
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ApprovalDelegate {
+  id          String    @id @default(cuid())
+  delegatorId String
+  delegateId  String
+  startDate   DateTime
+  endDate     DateTime?
+  reason      String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  delegator User @relation("DelegatorRelation", fields: [delegatorId], references: [id], onDelete: Cascade)
+  delegate  User @relation("DelegateRelation", fields: [delegateId], references: [id], onDelete: Cascade)
+
+  @@unique([delegatorId, delegateId, startDate])
+}
+
+model LeaveRequestSubstitute {
+  id             String   @id @default(cuid())
+  leaveRequestId String
+  userId         String
+  createdAt      DateTime @default(now())
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveRequestId, userId])
+  @@index([leaveRequestId])
+  @@index([userId])
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  DEPARTMENT_DIRECTOR
+  HR
+  EXECUTIVE
+  ADMIN
+}
+
+enum RequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  LEAVE_CANCELLED
+  APPROVAL_REQUIRED
+  DOCUMENT_READY
+}
+
+enum DocumentStatus {
+  DRAFT
+  PENDING_SIGNATURES
+  COMPLETED
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  nameEn      String   // English name
+  nameRo      String   // Romanian name
+  date        DateTime
+  description String?
+  isRecurring Boolean  @default(false)
+  country     String   @default("RO") // Default to Romania
+  isActive    Boolean  @default(true)
+  isBlocked   Boolean  @default(false) // Whether leave/WFH is blocked on this day
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  
+  @@unique([date, nameEn])
+}
+
+model WorkFromHomeRequest {
+  id            String                @id @default(cuid())
+  requestNumber String                @unique
+  userId        String
+  startDate     DateTime
+  endDate       DateTime
+  selectedDates Json?                 // Array of specific dates for non-consecutive WFH
+  totalDays     Int
+  location      String                // "home" or specific location
+  status        RequestStatus         @default(PENDING)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  
+  // Relations
+  user          User                  @relation(fields: [userId], references: [id])
+  approvals     WFHApproval[]
+  document      WFHDocument?
+  
+  @@index([userId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model WFHApproval {
+  id           String              @id @default(cuid())
+  wfhRequestId String
+  approverId   String
+  status       ApprovalStatus      @default(PENDING)
+  comments     String?
+  approvedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  
+  // Relations
+  wfhRequest   WorkFromHomeRequest @relation(fields: [wfhRequestId], references: [id], onDelete: Cascade)
+  approver     User                @relation(fields: [approverId], references: [id])
+  
+  @@unique([wfhRequestId, approverId])
+  @@index([wfhRequestId])
+  @@index([approverId])
+}
+
+model WFHDocument {
+  id             String              @id @default(cuid())
+  wfhRequestId   String              @unique
+  templateId     String?
+  fileUrl        String?
+  pdfData        Bytes?
+  status         DocumentStatus      @default(DRAFT)
+  completedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  
+  // Relations
+  wfhRequest     WorkFromHomeRequest @relation(fields: [wfhRequestId], references: [id], onDelete: Cascade)
+  template       DocumentTemplate?   @relation(fields: [templateId], references: [id])
+  signatures     WFHSignature[]
+  
+  @@index([wfhRequestId])
+  @@index([templateId])
+}
+
+model WFHSignature {
+  id            String       @id @default(cuid())
+  documentId    String
+  signerId      String
+  signerRole    String       // "employee", "manager", "hr"
+  signatureData String       // Base64 encoded signature image
+  signedAt      DateTime     @default(now())
+  
+  // Relations
+  document      WFHDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer        User         @relation(fields: [signerId], references: [id])
+  
+  @@unique([documentId, signerId, signerRole])
+  @@index([documentId])
+  @@index([signerId])
+}
+
+// Holiday Planning Models
+model HolidayPlanningWindow {
+  id          String                @id @default(cuid())
+  year        Int                   @unique
+  openDate    DateTime
+  closeDate   DateTime
+  stage       PlanningStage         @default(CLOSED)
+  isActive    Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  createdBy   String?
+  
+  holidayPlans HolidayPlan[]
+  
+  @@index([year])
+  @@index([stage])
+}
+
+model HolidayPlan {
+  id          String                @id @default(cuid())
+  windowId    String
+  userId      String
+  year        Int
+  status      PlanStatus            @default(DRAFT)
+  submittedAt DateTime?
+  finalizedAt DateTime?
+  notes       String?
+  version     Int                   @default(0)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  
+  window      HolidayPlanningWindow @relation(fields: [windowId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dates       HolidayPlanDate[]
+  
+  @@unique([userId, year])
+  @@index([windowId])
+  @@index([userId])
+  @@index([year])
+  @@index([status])
+}
+
+model HolidayPlanDate {
+  id          String         @id @default(cuid())
+  planId      String
+  date        DateTime
+  priority    PlanPriority   @default(PREFERRED)
+  reason      String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  plan        HolidayPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  @@unique([planId, date])
+  @@index([planId])
+  @@index([date])
+}
+
+enum PlanningStage {
+  CLOSED
+  DRAFT        // Oct 1-15: Employees can freely edit
+  SUBMISSION   // Oct 16-Nov 30: Submit for review
+  COORDINATION // Dec 1-15: Managers negotiate conflicts
+  FINALIZATION // Dec 16-31: Lock in plans
+  LOCKED       // Jan 1+: Read-only reference
+}
+
+enum PlanStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  FINALIZED
+  LOCKED
+}
+
+enum PlanPriority {
+  ESSENTIAL    // Must have these dates
+  PREFERRED    // Would like these dates
+  NICE_TO_HAVE // Flexible on these dates
+}
+
+enum WorkingPattern {
+  FULL_TIME
+  PART_TIME
+  COMPRESSED_HOURS
+  JOB_SHARE
+}
+
+enum ContractType {
+  PERMANENT
+  FIXED_TERM
+  CASUAL
+  CONTRACTOR
+  INTERN
+}

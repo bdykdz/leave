@@ -1,0 +1,653 @@
+{
+  "name": "Leave Management System - Environment Separation, Bug Fixes, Testing & Documentation",
+  "description": "Complete enhancement of Leave Management System: environment separation, bug fixes, comprehensive testing infrastructure, and Romanian user documentation",
+  "branchName": "ralph/leave-management-testing-docs",
+  "userStories": [
+    {
+      "id": "US-000",
+      "title": "Analyze Existing Infrastructure",
+      "description": "As a developer, I want to analyze the current system setup so that I can make informed decisions about environment separation and testing strategy.",
+      "acceptanceCriteria": [
+        "Docker Analysis: Read and document docker-compose.yml, identify all services, port mappings, volume mounts, environment variables",
+        "Codebase Analysis: Document tech stack, authentication implementation, routing logic, existing tests, folder structure",
+        "Database Analysis: Document database type, review Prisma schema/models, check seeding approach",
+        "Authentication Analysis: Document Microsoft SSO configuration, Azure AD credential storage, auth middleware and session handling",
+        "Create DISCOVERY.md with complete tech stack, Docker services map, database schema overview, auth flow diagram",
+        "Document identified issues, technical debt, and recommendations for staging environment",
+        "DISCOVERY.md is comprehensive and ready to guide staging environment creation",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-001",
+      "title": "Create Staging Environment",
+      "description": "As a developer, I want an isolated staging environment so that automated tests can run without affecting production data.",
+      "acceptanceCriteria": [
+        "Create docker-compose.staging.yml as override file",
+        "Configure separate staging containers: app-staging (different port), db-staging (separate database instance)",
+        "Staging containers use different network isolated from production",
+        "Staging does NOT share volumes with production database",
+        "Create .env.staging with staging-specific configuration",
+        "Create scripts/start-staging.sh startup script",
+        "Staging environment starts independently with ./scripts/start-staging.sh",
+        "Staging accessible on designated port (determined during discovery)",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-000"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Create Staging Database with Seed Data",
+      "description": "As a developer, I want comprehensive seed data in staging so that all user roles and scenarios can be tested.",
+      "acceptanceCriteria": [
+        "Create or enhance seed script for staging database",
+        "Seed includes multiple users for each role: Employee, Manager, HR, Executive, Admin",
+        "Seed includes all leave types and policies",
+        "Seed includes historical requests in various states (pending, approved, rejected, cancelled)",
+        "Seed includes organizational hierarchy with departments",
+        "Seed includes edge case scenarios (executives who can approve each other)",
+        "Seed script is idempotent (can run multiple times safely)",
+        "Document seed data in DISCOVERY.md or separate SEED_DATA.md",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "Authentication Handling for Testing",
+      "description": "As a developer, I want automated tests to authenticate without manual intervention so that CI/CD pipelines can run unattended.",
+      "acceptanceCriteria": [
+        "Implement test authentication mode (environment variable controlled)",
+        "Test mode only activates in staging environment (never in production)",
+        "All user roles can be authenticated programmatically",
+        "Create test user credentials/tokens for each role",
+        "Document authentication approach in DISCOVERY.md",
+        "Production authentication flow remains completely unaffected",
+        "Security review confirms no risk of test mode leaking to production",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-002"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-004",
+      "title": "Testing Tools Setup",
+      "description": "As a developer, I want testing infrastructure configured so that I can write and run comprehensive tests.",
+      "acceptanceCriteria": [
+        "Install Playwright with all browsers: @playwright/test",
+        "Install accessibility testing: @axe-core/playwright",
+        "Create playwright.config.ts pointing to staging environment",
+        "Configure auth state persistence in Playwright",
+        "Configure HTML reporter for test results",
+        "Add npm scripts: test:e2e, test:smoke",
+        "Verify Playwright can connect to staging and run a basic test",
+        "Document testing setup in README or TESTING.md",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-003"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-005",
+      "title": "Fix HR Navigation Issue",
+      "description": "As an HR user, I want to navigate between HR dashboard and my personal section seamlessly so that I can manage both HR duties and my own leave requests.",
+      "acceptanceCriteria": [
+        "Write E2E test that reproduces HR navigation bug (initially failing)",
+        "Investigate and identify root cause in navigation/routing code",
+        "Fix navigation logic for HR role switching",
+        "E2E test passes after fix",
+        "HR user can: HR Dashboard -> Personal View -> HR Dashboard without errors",
+        "No console errors during navigation",
+        "Navigation state is preserved correctly",
+        "Manual verification confirms fix works",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-004"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-006",
+      "title": "Fix Executive Routing Errors",
+      "description": "As an Executive user, I want to access executive-appropriate pages so that I'm not incorrectly redirected to employee-level views.",
+      "acceptanceCriteria": [
+        "Map all routes and their role guards",
+        "Write E2E tests for all executive navigation paths",
+        "Identify where executive role incorrectly falls through to employee",
+        "Fix route guards and role hierarchy logic",
+        "All executive routes land on correct pages (manager-level or higher, not employee)",
+        "E2E tests cover all executive-specific routes",
+        "Role hierarchy is correctly implemented and documented",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-004"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-007",
+      "title": "Fix Executive Leave Approval Flow",
+      "description": "As an Executive, I want to submit leave requests and have them approved by peer executives so that executives aren't blocked from taking leave.",
+      "acceptanceCriteria": [
+        "Write E2E test: Executive A submits leave -> Executive B can approve",
+        "Trace and document approval chain logic for executives",
+        "Fix approval chain to correctly assign peer executive as approver",
+        "Peer executive can view, approve, and reject the request",
+        "Notifications are sent to correct approver",
+        "Handle edge case: designated approver is on leave (fallback approver)",
+        "Handle edge case: only one executive exists (escalation path)",
+        "Prevent circular approval (executive cannot approve own request)",
+        "E2E tests pass for all executive approval scenarios",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-004"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-008",
+      "title": "E2E Test Suite - Authentication & Core Flows",
+      "description": "As a developer, I want E2E tests for authentication and core flows so that basic functionality is always verified.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/auth.spec.ts covering login/logout for all roles",
+        "Create tests/e2e/employee/leave-request.spec.ts for submitting leave",
+        "Create tests/e2e/employee/leave-history.spec.ts for viewing history",
+        "Create tests/e2e/employee/balance.spec.ts for checking balances",
+        "All tests run against staging environment",
+        "Tests use proper authentication fixtures",
+        "HTML report generated after test run",
+        "All tests pass",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-005",
+        "US-006",
+        "US-007"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-009",
+      "title": "E2E Test Suite - Manager Flows",
+      "description": "As a developer, I want E2E tests for manager functionality so that approval workflows are verified.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/manager/approvals.spec.ts for approval actions",
+        "Create tests/e2e/manager/team-calendar.spec.ts for team view",
+        "Create tests/e2e/manager/delegation.spec.ts for delegating approvals",
+        "Tests cover approve, reject, and request-more-info actions",
+        "Tests verify notifications are triggered",
+        "All tests pass against staging",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-010",
+      "title": "E2E Test Suite - HR Flows",
+      "description": "As a developer, I want E2E tests for HR functionality so that HR-specific features are verified.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/hr/employee-management.spec.ts",
+        "Create tests/e2e/hr/policies.spec.ts for leave policy management",
+        "Create tests/e2e/hr/reports.spec.ts for report generation",
+        "Create tests/e2e/hr/navigation.spec.ts verifying bug fix (US-005)",
+        "Tests cover CRUD operations for employees",
+        "Tests verify report export functionality",
+        "All tests pass against staging",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-011",
+      "title": "E2E Test Suite - Executive Flows",
+      "description": "As a developer, I want E2E tests for executive functionality so that executive-specific features are verified.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/executive/routing.spec.ts verifying bug fix (US-006)",
+        "Create tests/e2e/executive/peer-approval.spec.ts verifying bug fix (US-007)",
+        "Create tests/e2e/executive/dashboard.spec.ts for executive dashboard",
+        "Tests cover all executive-specific routes",
+        "Tests verify peer approval workflow end-to-end",
+        "All tests pass against staging",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-012",
+      "title": "E2E Test Suite - Edge Cases",
+      "description": "As a developer, I want E2E tests for edge cases so that unusual scenarios don't break the system.",
+      "acceptanceCriteria": [
+        "Create tests/e2e/edge-cases/empty-states.spec.ts (new users, no history)",
+        "Create tests/e2e/edge-cases/max-limits.spec.ts (max leave days, long names)",
+        "Create tests/e2e/edge-cases/concurrent-actions.spec.ts (simultaneous approvals)",
+        "Create tests/e2e/edge-cases/error-handling.spec.ts (network errors, invalid data)",
+        "Tests verify graceful handling of edge cases",
+        "All tests pass against staging",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-013",
+      "title": "WCAG 2.1 AA Accessibility Testing",
+      "description": "As a user with disabilities, I want the application to be accessible so that I can use it with assistive technologies.",
+      "acceptanceCriteria": [
+        "Integrate @axe-core/playwright into test suite",
+        "Create accessibility tests for all main pages",
+        "Test color contrast compliance",
+        "Test full keyboard navigation (tab order, focus management)",
+        "Test screen reader compatibility (ARIA labels, roles)",
+        "Test form labels and error announcements",
+        "Fix all WCAG 2.1 AA violations found",
+        "Generate accessibility report",
+        "Zero violations in final test run",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-014",
+      "title": "Security Testing",
+      "description": "As a security-conscious organization, I want the application tested for vulnerabilities so that user data is protected.",
+      "acceptanceCriteria": [
+        "Create tests/security/ directory for security tests",
+        "Test SQL injection on all input fields and API endpoints",
+        "Test XSS on all input fields and URL parameters",
+        "Test broken access control (accessing other users' data, IDOR)",
+        "Test authentication (session timeout, token expiration, logout invalidation)",
+        "Verify CSRF protection on state-changing operations",
+        "Check security headers (HSTS, CSP, X-Frame-Options)",
+        "Run npm audit and document/fix vulnerabilities",
+        "No critical or high vulnerabilities in final assessment",
+        "Generate security report documenting all tests and results",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-015",
+      "title": "Performance Testing",
+      "description": "As a system administrator, I want to know the application's performance limits so that I can plan for scaling.",
+      "acceptanceCriteria": [
+        "Set up k6 or artillery for load testing",
+        "Create load test for normal expected usage (baseline)",
+        "Create load test for peak usage (2x expected)",
+        "Create stress test to find breaking point",
+        "Test critical endpoints: login, dashboard, leave request submission, approvals",
+        "Measure and document p50, p95, p99 response times",
+        "Document error rates under load",
+        "Document throughput limits",
+        "Generate performance report with recommendations",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-016",
+      "title": "Smoke Tests",
+      "description": "As a DevOps engineer, I want quick deployment verification tests so that I can confirm deployments are successful.",
+      "acceptanceCriteria": [
+        "Create tests/smoke/smoke.spec.ts",
+        "Test: application loads without errors",
+        "Test: authentication works",
+        "Test: main pages render for each role",
+        "Test: API health check endpoint responds",
+        "Test: database connection is functional",
+        "Test: can submit and rollback a test request",
+        "Entire smoke suite runs in under 2 minutes",
+        "Add pnpm test:smoke script",
+        "Clear pass/fail output suitable for CI/CD",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:smoke passes"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-017",
+      "title": "Visual Regression Tests",
+      "description": "As a developer, I want visual regression tests so that unintended UI changes are caught.",
+      "acceptanceCriteria": [
+        "Configure Playwright visual comparison",
+        "Capture baseline screenshots for all main pages",
+        "Capture screenshots for different user roles",
+        "Capture screenshots for mobile viewport",
+        "Capture screenshots for desktop viewport",
+        "Visual tests integrated into E2E suite",
+        "Document process for updating baselines when intentional changes are made",
+        "Visual tests run in CI",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes",
+        "pnpm test:e2e passes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-018",
+      "title": "API Contract Tests",
+      "description": "As an API consumer, I want API responses to be consistent so that integrations don't break.",
+      "acceptanceCriteria": [
+        "Identify all API endpoints from codebase analysis",
+        "Create contract tests validating response schemas",
+        "Test required fields are always present",
+        "Test correct status codes for success and error cases",
+        "Test error response format consistency",
+        "Contract tests integrated into test suite",
+        "All API endpoints have contract test coverage",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-008"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-019",
+      "title": "API Documentation with Scalar",
+      "description": "As a developer/integrator, I want comprehensive API documentation so that I can understand and use the API.",
+      "acceptanceCriteria": [
+        "Create or update openapi.yaml/openapi.json specification",
+        "Document all API endpoints with path, method, description",
+        "Document request parameters, body schemas, headers",
+        "Document response schemas for success and error cases",
+        "Document authentication requirements for each endpoint",
+        "Include request/response examples for each endpoint",
+        "Integrate Scalar UI into application (e.g., /api/docs route)",
+        "Scalar documentation is accessible and renders correctly",
+        "Auth flow clearly documented",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-018"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-020",
+      "title": "Wiki in Romanian - Getting Started Guide",
+      "description": "As a Romanian-speaking user, I want a getting started guide in Romanian so that I can quickly learn to use the application.",
+      "acceptanceCriteria": [
+        "Create docs/wiki/ro/01-ghid-de-pornire.md",
+        "Write introduction explaining application purpose",
+        "Document authentication steps with Microsoft",
+        "Include annotated screenshots of main interface",
+        "Write step-by-step guide for submitting first leave request",
+        "Document how to check leave balance",
+        "Include role-specific first steps for Managers",
+        "Include role-specific first steps for HR",
+        "Include role-specific first steps for Executives",
+        "Use modern professional Romanian (tu form)",
+        "No machine translation - natural Romanian language",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-019"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-021",
+      "title": "Wiki in Romanian - Features Documentation",
+      "description": "As a Romanian-speaking user, I want feature documentation in Romanian so that I can use all application features.",
+      "acceptanceCriteria": [
+        "Create docs/wiki/ro/02-functionalitati.md",
+        "Document leave management: types, requesting, cancelling, modifying, history",
+        "Document approval workflow: how it works, approving, rejecting, delegating",
+        "Document executive peer approval process",
+        "Document reports: available reports, generating, exporting (CSV, PDF)",
+        "Document calendar: team calendar, personal calendar, Outlook integration (if exists)",
+        "Document notifications: types, configuration",
+        "Include relevant screenshots",
+        "Step-by-step instructions for each feature",
+        "Modern professional Romanian throughout",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-020"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-022",
+      "title": "Wiki in Romanian - FAQ",
+      "description": "As a Romanian-speaking user, I want an FAQ in Romanian so that I can find quick answers to common questions.",
+      "acceptanceCriteria": [
+        "Create docs/wiki/ro/03-intrebari-frecvente.md",
+        "Include minimum 15 questions with answers",
+        "Cover: password reset, missing requests, modifying submitted requests",
+        "Cover: manager on leave, balance calculations, balance reset timing",
+        "Cover: retroactive requests, unused leave carryover",
+        "Cover: team calendar viewing, delegation setup",
+        "Cover: rejected request reasons, technical support contact",
+        "Cover: mobile usage, report export, error handling",
+        "Clear, helpful answers in natural Romanian",
+        "Easy-to-search format with clear headings",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-021"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-023",
+      "title": "Wiki in Romanian - Troubleshooting",
+      "description": "As a Romanian-speaking user, I want a troubleshooting guide in Romanian so that I can resolve common issues myself.",
+      "acceptanceCriteria": [
+        "Create docs/wiki/ro/04-depanare.md",
+        "Document authentication problems and solutions",
+        "Document request submission problems and solutions",
+        "Document display/rendering problems and solutions",
+        "Document performance problems and solutions",
+        "Include step-by-step troubleshooting instructions",
+        "Document how to report bugs (what info to include, where to send)",
+        "Include support contact information",
+        "Natural Romanian language throughout",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-022"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-024",
+      "title": "Wiki in Romanian - API Guide",
+      "description": "As a Romanian-speaking technical user, I want API documentation in Romanian so that I can integrate with the system.",
+      "acceptanceCriteria": [
+        "Create docs/wiki/ro/05-ghid-api.md",
+        "Write API introduction in Romanian",
+        "Document authentication (how to obtain tokens)",
+        "List available endpoints with descriptions",
+        "Include working code examples in cURL, JavaScript, Python",
+        "Document response codes and error formats",
+        "Document rate limiting if applicable",
+        "Include practical examples: check balance, submit request, list pending",
+        "Technical terms can remain in English with Romanian explanations",
+        "Code examples are tested and functional",
+        "pnpm lint passes",
+        "pnpm typecheck passes",
+        "pnpm build passes"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-023"
+      ],
+      "completionNotes": "Completed by agent"
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-02-01T16:08:52.270Z"
+  }
+}

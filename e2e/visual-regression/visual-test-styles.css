@@ -1,0 +1,70 @@
+/**
+ * Visual Regression Test Styles
+ *
+ * These styles are applied during visual regression tests to:
+ * 1. Hide or mask dynamic content that changes between test runs
+ * 2. Disable animations and transitions
+ * 3. Ensure consistent rendering
+ */
+
+/* Disable all animations and transitions */
+*,
+*::before,
+*::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+
+/* Hide loading spinners */
+[data-testid="loading"],
+[data-loading="true"],
+.loading,
+.spinner,
+.skeleton {
+  visibility: hidden !important;
+}
+
+/* Mask timestamps and dates that change */
+[data-testid="timestamp"],
+[data-testid="date"],
+time {
+  color: transparent !important;
+  background-color: #f0f0f0 !important;
+}
+
+/* Mask user avatars that might vary */
+[data-testid="user-avatar"] img {
+  visibility: hidden !important;
+}
+
+/* Mask dynamic counters and badges */
+[data-testid="notification-count"],
+[data-testid="pending-count"] {
+  color: transparent !important;
+  background-color: #e0e0e0 !important;
+}
+
+/* Ensure consistent font rendering */
+body {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: geometricPrecision !important;
+}
+
+/* Hide cursor for consistent screenshots */
+* {
+  caret-color: transparent !important;
+}
+
+/* Mask scrollbars for consistency across platforms */
+::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Hide tooltips during visual tests */
+[role="tooltip"],
+.tooltip {
+  display: none !important;
+}
