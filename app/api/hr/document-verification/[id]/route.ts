@@ -96,7 +96,7 @@ export async function POST(
           userId: leaveRequest.user.managerId,
           type: 'APPROVAL_REQUIRED',
           title: 'Leave Request Pending Approval',
-          message: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName} has submitted a ${leaveRequest.leaveType.name} request (HR verified).`,
+          message: `${leaveRequest.user?.firstName || ''} ${leaveRequest.user?.lastName || ''} has submitted a ${leaveRequest.leaveType?.name || 'leave'} request (HR verified).`,
           link: `/leave-requests/${leaveRequest.id}`,
         },
       })
@@ -106,7 +106,7 @@ export async function POST(
     if (leaveRequest.leaveType.code === 'SL' && leaveRequest.user.email) {
       try {
         await emailService.sendLeaveStatusEmail(leaveRequest.user.email, {
-          employeeName: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+          employeeName: `${leaveRequest.user?.firstName || ''} ${leaveRequest.user?.lastName || ''}`,
           leaveType: leaveRequest.leaveType.name,
           startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
           endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
@@ -116,7 +116,7 @@ export async function POST(
           approverComments: notes || (approved 
             ? 'Your medical documents have been verified successfully.' 
             : 'Your medical documents could not be verified. Please contact HR.'),
-          companyName: process.env.COMPANY_NAME || 'Company'
+          companyName: process.env.COMPANY_NAME || 'TPF'
         })
         
         console.log('Sick leave verification email sent to employee', {

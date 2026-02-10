@@ -28,23 +28,36 @@ import { toast } from "sonner"
 interface MobileApprovalCardProps {
   request: {
     id: string
-    user: {
-      firstName: string
-      lastName: string
-      email: string
+    // Original shape from direct DB queries
+    user?: {
+      firstName?: string
+      lastName?: string
+      email?: string
       position?: string
       profileImage?: string
     }
-    leaveType: {
-      name: string
+    leaveType?: {
+      name?: string
       requiresDocument?: boolean
     }
+    // Transformed shape from API endpoints
+    employee?: {
+      name?: string
+      avatar?: string
+      department?: string
+    }
+    type?: string
+    days?: number
+    dates?: string
+    requestType?: string
+    submittedDate?: string
+    // Common fields
     startDate: string
     endDate: string
-    totalDays: number
-    reason: string
+    totalDays?: number
+    reason?: string
     status: string
-    createdAt: string
+    createdAt?: string
     documentUrl?: string
     substituteUser?: {
       firstName: string
@@ -60,9 +73,20 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
   const [comments, setComments] = useState('')
   const [processing, setProcessing] = useState(false)
 
-  const userName = `${request.user.firstName} ${request.user.lastName}`
-  const userInitials = `${request.user.firstName[0]}${request.user.lastName[0]}`
-  
+  // Support both data shapes: direct DB (user.firstName) and API-transformed (employee.name)
+  const userName = request.user?.firstName
+    ? `${request.user.firstName} ${request.user.lastName || ''}`.trim()
+    : request.employee?.name || 'Unknown'
+  const userInitials = request.user?.firstName
+    ? `${request.user.firstName[0] || ''}${request.user.lastName?.[0] || ''}`
+    : (request.employee?.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('').toUpperCase().slice(0, 2) || 'U'
+  const userEmail = request.user?.email || ''
+  const userPosition = request.user?.position || request.employee?.department || ''
+  const userProfileImage = request.user?.profileImage || request.employee?.avatar || ''
+  const leaveTypeName = request.leaveType?.name || request.type || 'Unknown'
+  const totalDays = request.totalDays || request.days || 0
+  const createdAt = request.createdAt || request.submittedDate || new Date().toISOString()
+
   const startDate = new Date(request.startDate)
   const endDate = new Date(request.endDate)
   const daysUntilStart = differenceInDays(startDate, new Date())
@@ -101,13 +125,13 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3 flex-1">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={request.user.profileImage} />
+                <AvatarImage src={userProfileImage} />
                 <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{userName}</p>
                 <p className="text-xs text-gray-600 truncate">
-                  {request.totalDays} days • {format(startDate, 'MMM d')}
+                  {totalDays} days • {format(startDate, 'MMM d')}
                 </p>
               </div>
             </div>
@@ -129,12 +153,12 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={request.user.profileImage} />
+              <AvatarImage src={userProfileImage} />
               <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>
             <div>
               <h4 className="font-medium">{userName}</h4>
-              <p className="text-sm text-gray-600">{request.user.position}</p>
+              <p className="text-sm text-gray-600">{userPosition}</p>
             </div>
           </div>
           <div className="flex flex-col items-end space-y-1">
@@ -158,7 +182,7 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
               <Calendar className="h-4 w-4 text-gray-400" />
               <span className="text-gray-600">Type</span>
             </div>
-            <p className="font-medium">{request.leaveType.name}</p>
+            <p className="font-medium">{leaveTypeName}</p>
           </div>
 
           <div className="space-y-2">
@@ -166,7 +190,7 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
               <Clock className="h-4 w-4 text-gray-400" />
               <span className="text-gray-600">Duration</span>
             </div>
-            <p className="font-medium">{request.totalDays} days</p>
+            <p className="font-medium">{totalDays} days</p>
           </div>
         </div>
 
@@ -201,7 +225,7 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
             <FileText className="h-4 w-4 text-gray-400" />
             <span className="text-gray-600 text-sm">Reason</span>
           </div>
-          <p className="text-sm bg-gray-50 p-3 rounded-lg">{request.reason}</p>
+          <p className="text-sm bg-gray-50 p-3 rounded-lg">{request.reason || 'No reason provided'}</p>
         </div>
 
         {/* Substitute */}
@@ -218,26 +242,19 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
         )}
 
         {/* Contact Options */}
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.href = `tel:${request.user.email}`}
-            className="flex-1"
-          >
-            <Phone className="h-4 w-4 mr-1" />
-            Call
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.href = `mailto:${request.user.email}`}
-            className="flex-1"
-          >
-            <Mail className="h-4 w-4 mr-1" />
-            Email
-          </Button>
-        </div>
+        {userEmail && (
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = `mailto:${userEmail}`}
+              className="flex-1"
+            >
+              <Mail className="h-4 w-4 mr-1" />
+              Email
+            </Button>
+          </div>
+        )}
 
         {/* Approval Actions */}
         {request.status === 'PENDING' && onApproval && (
@@ -302,7 +319,7 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
                       <Alert>
                         <Check className="h-4 w-4" />
                         <AlertDescription>
-                          This will approve the leave request for {request.totalDays} days.
+                          This will approve the leave request for {totalDays} days.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -338,7 +355,7 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
 
         {/* Request Info */}
         <div className="text-xs text-gray-500 pt-2 border-t">
-          Submitted {format(new Date(request.createdAt), 'MMM d, yyyy HH:mm')}
+          Submitted {format(new Date(createdAt), 'MMM d, yyyy HH:mm')}
         </div>
       </CardContent>
     </Card>

@@ -25,11 +25,13 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Clear setup auth cookie
-    (await cookies()).delete('setup-auth')
+    // Clear setup auth cookie via response
+    const response = NextResponse.json({ success: true })
+    response.cookies.delete('setup-auth')
 
-    return NextResponse.json({ success: true })
+    return response
   } catch (error) {
+    console.error('Failed to complete setup:', error)
     return NextResponse.json(
       { error: 'Failed to complete setup' },
       { status: 500 }

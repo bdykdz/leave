@@ -152,18 +152,18 @@ export async function GET(request: Request) {
       id: request.id,
       requestType: 'leave',
       employee: {
-        name: `${request.user.firstName} ${request.user.lastName}`,
-        avatar: request.user.image || '',
-        department: request.user.department
+        name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
+        avatar: request.user?.image || '',
+        department: request.user?.department || ''
       },
-      type: request.leaveType.name,
+      type: request.leaveType?.name || 'Unknown',
       dates: `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate).toLocaleDateString()}`,
       startDate: request.startDate,
       endDate: request.endDate,
       days: request.totalDays,
       reason: request.reason,
       submittedDate: request.createdAt.toISOString(),
-      substitute: request.substitute ? `${request.substitute.firstName} ${request.substitute.lastName}` : null,
+      substitute: request.substitute ? `${request.substitute?.firstName || ''} ${request.substitute?.lastName || ''}` : null,
       status: 'pending'
     }))
 
@@ -172,9 +172,9 @@ export async function GET(request: Request) {
       id: request.id,
       requestType: 'wfh',
       employee: {
-        name: `${request.user.firstName} ${request.user.lastName}`,
-        avatar: request.user.image || '',
-        department: request.user.department
+        name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
+        avatar: request.user?.image || '',
+        department: request.user?.department || ''
       },
       type: 'Work From Home',
       dates: `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate).toLocaleDateString()}`,

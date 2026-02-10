@@ -154,7 +154,7 @@ export function SubstituteRequestManager() {
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-lg">
-              {request.leaveRequest.user.firstName} {request.leaveRequest.user.lastName}
+              {request.leaveRequest?.user?.firstName || ''} {request.leaveRequest?.user?.lastName || ''}
             </CardTitle>
             <CardDescription className="flex items-center gap-2">
               <Building className="h-3 w-3" />

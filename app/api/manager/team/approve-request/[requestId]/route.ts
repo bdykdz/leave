@@ -246,7 +246,7 @@ export async function POST(
             approverName: `${approver.firstName} ${approver.lastName}`,
             status: 'approved',
             comments: cleanComment || undefined,
-            companyName: process.env.COMPANY_NAME || 'Company',
+            companyName: process.env.COMPANY_NAME || 'TPF',
             requestId: requestId
           });
           console.log(`Approval email sent to user ID: ${updatedLeaveRequest.user.id}`);
@@ -267,7 +267,7 @@ export async function POST(
                 days: updatedLeaveRequest.totalDays,
                 responsibilities: updatedLeaveRequest.substituteNotes || undefined,
                 contactInfo: updatedLeaveRequest.user.email || undefined,
-                companyName: process.env.COMPANY_NAME || 'Company'
+                companyName: process.env.COMPANY_NAME || 'TPF'
               });
               console.log(`Substitute assignment email sent to: ${substitute.email}`);
             }
@@ -390,16 +390,21 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
     })
 
     // Send email to employee
-    await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
-      employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
-      startDate: format(wfhRequest.startDate, 'dd MMMM yyyy'),
-      endDate: format(wfhRequest.endDate, 'dd MMMM yyyy'),
-      days: wfhRequest.totalDays,
-      location: wfhRequest.location,
-      approved: true,
-      managerName: `${session.user.firstName} ${session.user.lastName}`,
-      comments: cleanComment
-    })
+    try {
+      await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
+        employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
+        startDate: format(wfhRequest.startDate, 'dd MMMM yyyy'),
+        endDate: format(wfhRequest.endDate, 'dd MMMM yyyy'),
+        days: wfhRequest.totalDays,
+        location: wfhRequest.location,
+        approved: true,
+        managerName: `${session.user.firstName} ${session.user.lastName}`,
+        comments: cleanComment
+      })
+    } catch (emailError) {
+      console.error('Error sending WFH approval email:', emailError)
+      // Don't fail the approval if email fails
+    }
 
     // Invalidate related caches after WFH approval
     try {

@@ -389,7 +389,7 @@ export class HolidayPlanningService {
       const employeeName = `${plan.user.firstName} ${plan.user.lastName}`
       const totalDays = plan.dates.length
       const submissionDate = format(plan.submittedAt, 'MMMM d, yyyy')
-      const companyName = process.env.COMPANY_NAME || 'Company'
+      const companyName = process.env.COMPANY_NAME || 'TPF'
 
       // Prepare notification data
       const notificationData: HolidayPlanSubmissionEmailData = {

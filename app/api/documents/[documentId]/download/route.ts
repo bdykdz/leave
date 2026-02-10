@@ -45,8 +45,10 @@ export async function GET(
     try {
       if (document.fileUrl.startsWith('minio://')) {
         // Get from Minio
-        const objectPath = document.fileUrl.replace('minio://leave-management-uat/', '')
-        fileBuffer = await getFromMinio(objectPath, 'leave-management-uat')
+        const minioPath = document.fileUrl.replace('minio://', '')
+        const bucketName = minioPath.split('/')[0]
+        const objectPath = minioPath.substring(bucketName.length + 1)
+        fileBuffer = await getFromMinio(objectPath, bucketName)
       } else {
         // Legacy filesystem storage
         const fs = await import('fs/promises')

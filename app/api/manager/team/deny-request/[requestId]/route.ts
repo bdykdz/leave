@@ -145,7 +145,7 @@ export async function POST(
           approverName: `${approver.firstName} ${approver.lastName}`,
           status: 'rejected',
           comments: comment || undefined,
-          companyName: process.env.COMPANY_NAME || 'Company',
+          companyName: process.env.COMPANY_NAME || 'TPF',
           requestId: requestId
         });
         console.log(`Rejection email sent to user ID: ${updatedLeaveRequest.user.id}`);

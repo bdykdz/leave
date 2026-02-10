@@ -674,8 +674,8 @@ export function DocumentVerification() {
                   const request = requests.find(r => r.id === id)
                   return request ? (
                     <div key={id} className="text-sm flex justify-between">
-                      <span>{request.user.firstName} {request.user.lastName}</span>
-                      <span className="text-muted-foreground">{request.leaveType.name}</span>
+                      <span>{request.user?.firstName || ''} {request.user?.lastName || ''}</span>
+                      <span className="text-muted-foreground">{request.leaveType?.name || ''}</span>
                     </div>
                   ) : null
                 })}

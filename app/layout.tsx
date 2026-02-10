@@ -16,7 +16,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Leave Management System",
+  title: "TPF - Sistem de Management Concedii",
   description: "Manage leave requests and work remote arrangements",
 }
 

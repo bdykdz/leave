@@ -196,12 +196,12 @@ export function EmployeeList() {
     }
   }
 
-  const filteredEmployees = employees.filter(emp => 
-    emp.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.department.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredEmployees = employees.filter(emp =>
+    (emp.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.employeeId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.department || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const getRoleBadgeColor = (role: string) => {
@@ -334,7 +334,7 @@ export function EmployeeList() {
                   <TableRow key={employee.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{employee.firstName} {employee.lastName}</div>
+                        <div className="font-medium">{employee?.firstName || ''} {employee?.lastName || ''}</div>
                         <div className="text-sm text-muted-foreground">ID: {employee.employeeId}</div>
                       </div>
                     </TableCell>
@@ -445,7 +445,7 @@ export function EmployeeList() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">Name</label>
-                <p className="text-sm">{selectedEmployee.firstName} {selectedEmployee.lastName}</p>
+                <p className="text-sm">{selectedEmployee?.firstName || ''} {selectedEmployee?.lastName || ''}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Employee ID</label>

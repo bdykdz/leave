@@ -32,9 +32,11 @@ export async function GET(
     let templateBytes: Buffer
     
     if (template.fileUrl.startsWith('minio://')) {
-      // New Minio storage
-      const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
-      templateBytes = await getFromMinio(objectPath, 'leave-management-uat')
+      // New Minio storage - parse bucket and path from URL
+      const minioPath = template.fileUrl.replace('minio://', '')
+      const bucketName = minioPath.split('/')[0]
+      const objectPath = minioPath.substring(bucketName.length + 1)
+      templateBytes = await getFromMinio(objectPath, bucketName)
     } else {
       // Legacy filesystem storage (for existing templates)
       const templatePath = join(process.cwd(), 'public', template.fileUrl)

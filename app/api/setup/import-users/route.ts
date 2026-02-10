@@ -3,7 +3,6 @@ import { cookies } from 'next/headers'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { prisma } from '@/lib/prisma'
 import { azureAdConfig } from '@/lib/env'
-import { emailService } from '@/lib/email-service'
 import bcrypt from 'bcryptjs'
 import 'isomorphic-fetch'
 
@@ -218,25 +217,9 @@ export async function POST(request: NextRequest) {
             })
           }
 
-          // Send welcome email to the new user
-          try {
-            const companyName = process.env.COMPANY_NAME || 'Compania Noastră';
-            const loginUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-            
-            await emailService.sendNewUserWelcomeEmail(newUser.email, {
-              firstName: newUser.firstName,
-              lastName: newUser.lastName,
-              email: newUser.email,
-              employeeId: newUser.employeeId,
-              position: newUser.position,
-              department: newUser.department,
-              companyName: companyName,
-              loginUrl: loginUrl
-            });
-          } catch (emailError) {
-            console.error(`Failed to send welcome email to ${newUser.email}:`, emailError);
-            // Don't fail the import if email fails
-          }
+          // Welcome emails are NOT sent during bulk import to avoid
+          // accidentally emailing large numbers of users. Use the admin
+          // panel to send welcome emails individually after import.
 
           importedUsers.push({
             id: newUser.id,

@@ -496,7 +496,7 @@ export default function ManagerDashboard() {
   }
 
   const nextMyRequestsPage = () => {
-    setMyRequestsPage(Math.min(myRequestsTotalPages, myRequestsPage + 1))
+    setMyRequestsPage(Math.max(1, Math.min(myRequestsTotalPages, myRequestsPage + 1)))
   }
 
   // Check session status

@@ -100,6 +100,7 @@ export async function PUT(request: NextRequest) {
       create: {
         key: 'ESCALATION_SETTINGS',
         value: settings,
+        category: 'system',
         description: 'Automatic approval escalation rules and timeouts'
       }
     });

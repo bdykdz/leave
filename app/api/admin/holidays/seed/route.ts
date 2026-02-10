@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const allHolidays = [...ROMANIAN_HOLIDAYS_2025, ...ROMANIAN_HOLIDAYS_2026, ...ROMANIAN_HOLIDAYS_2027]
+    const allHolidays = [...ROMANIAN_HOLIDAYS_2026, ...ROMANIAN_HOLIDAYS_2027]
     
     // Clear existing holidays
     await prisma.holiday.deleteMany({})

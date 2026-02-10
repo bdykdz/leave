@@ -264,7 +264,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         days: totalDays,
         reason: validatedData.reason || undefined,
         managerName: `${approver.firstName} ${approver.lastName}`,
-        companyName: process.env.COMPANY_NAME || 'Company',
+        companyName: process.env.COMPANY_NAME || 'TPF',
         requestId: leaveRequest.id
       });
       

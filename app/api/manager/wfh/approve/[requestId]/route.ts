@@ -196,18 +196,23 @@ export const POST = asyncHandler(async (
   });
 
   // Send email to employee
-  const formattedDates = formatWFHDates(wfhRequest.startDate, wfhRequest.endDate, wfhRequest.selectedDates as string[] | null);
-  
-  await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
-    employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
-    startDate: formattedDates,
-    endDate: '',  // Not needed when using formatted dates
-    days: wfhRequest.totalDays,
-    location: wfhRequest.location,
-    approved: true,
-    managerName: `${session.user.firstName} ${session.user.lastName}`,
-    comments: comment
-  });
+  try {
+    const formattedDates = formatWFHDates(wfhRequest.startDate, wfhRequest.endDate, wfhRequest.selectedDates as string[] | null);
+
+    await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
+      employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
+      startDate: formattedDates,
+      endDate: '',  // Not needed when using formatted dates
+      days: wfhRequest.totalDays,
+      location: wfhRequest.location,
+      approved: true,
+      managerName: `${session.user.firstName} ${session.user.lastName}`,
+      comments: comment
+    });
+  } catch (emailError) {
+    console.error('Error sending WFH approval email:', emailError);
+    // Don't fail the approval if email fails
+  }
 
   log.info('WFH request approved', { requestId });
 
@@ -290,18 +295,23 @@ export const DELETE = asyncHandler(async (
   });
 
   // Send email to employee
-  const formattedDates = formatWFHDates(wfhRequest.startDate, wfhRequest.endDate, wfhRequest.selectedDates as string[] | null);
-  
-  await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
-    employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
-    startDate: formattedDates,
-    endDate: '',  // Not needed when using formatted dates
-    days: wfhRequest.totalDays,
-    location: wfhRequest.location,
-    approved: false,
-    managerName: `${session.user.firstName} ${session.user.lastName}`,
-    comments: comment
-  });
+  try {
+    const formattedDates = formatWFHDates(wfhRequest.startDate, wfhRequest.endDate, wfhRequest.selectedDates as string[] | null);
+
+    await emailService.sendWFHApprovalNotification(wfhRequest.user.email, {
+      employeeName: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`,
+      startDate: formattedDates,
+      endDate: '',  // Not needed when using formatted dates
+      days: wfhRequest.totalDays,
+      location: wfhRequest.location,
+      approved: false,
+      managerName: `${session.user.firstName} ${session.user.lastName}`,
+      comments: comment
+    });
+  } catch (emailError) {
+    console.error('Error sending WFH rejection email:', emailError);
+    // Don't fail the rejection if email fails
+  }
 
   log.info('WFH request rejected', { requestId });
 

@@ -241,8 +241,10 @@ export class DocumentGenerator {
     
     if (template.fileUrl.startsWith('minio://')) {
       // Load from Minio
-      const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
-      existingPdfBytes = await getFromMinio(objectPath, 'leave-management-uat')
+      const minioPath = template.fileUrl.replace('minio://', '')
+      const bucketName = minioPath.split('/')[0]
+      const objectPath = minioPath.substring(bucketName.length + 1)
+      existingPdfBytes = await getFromMinio(objectPath, bucketName)
     } else {
       // Legacy filesystem storage
       const templatePath = path.join(process.cwd(), 'public', template.fileUrl);
@@ -388,7 +390,7 @@ export class DocumentGenerator {
       Buffer.from(pdfBytes), 
       fileName, 
       'application/pdf',
-      'leave-management-uat',
+      undefined,
       'documents/draft'
     );
 

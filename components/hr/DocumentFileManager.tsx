@@ -263,10 +263,10 @@ export function DocumentFileManager() {
   // Filter documents
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = 
-      doc.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (doc.requestNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.user?.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.user?.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.user?.email || '').toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || doc.status === statusFilter
 
@@ -511,7 +511,7 @@ export function DocumentFileManager() {
                         {doc.generatedDocument ? (
                           <div className="flex items-center gap-1">
                             <FileText className="h-4 w-4 text-green-600" />
-                            <span className="text-sm text-green-600">Generated ({doc.generatedDocument.status})</span>
+                            <span className="text-sm text-green-600">Generated ({doc.generatedDocument?.status})</span>
                           </div>
                         ) : (
                           doc.status === 'APPROVED' && (
@@ -529,7 +529,7 @@ export function DocumentFileManager() {
                           </div>
                           {doc.hrVerifiedBy && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              by {doc.hrVerifiedBy.firstName} {doc.hrVerifiedBy.lastName}
+                              by {doc.hrVerifiedBy?.firstName || ''} {doc.hrVerifiedBy?.lastName || ''}
                             </p>
                           )}
                           {doc.hrVerifiedAt && (
@@ -578,7 +578,7 @@ export function DocumentFileManager() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(`/api/hr/documents/view/${doc.generatedDocument.id}`, '_blank')}
+                            onClick={() => window.open(`/api/hr/documents/view/${doc.generatedDocument?.id}`, '_blank')}
                             className="flex items-center gap-1"
                           >
                             <FileText className="h-3 w-3" />

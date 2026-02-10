@@ -631,7 +631,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
             days: actualDays,
             reason: `Medical leave with ${uploadedDocumentUrls.length} document(s) for verification`,
             managerName: `${hrUser.firstName} ${hrUser.lastName}`,
-            companyName: process.env.COMPANY_NAME || 'Company',
+            companyName: process.env.COMPANY_NAME || 'TPF',
             requestId: leaveRequest.id
           });
           
@@ -662,7 +662,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           days: actualDays,
           reason: validatedData.reason || undefined,
           managerName: `${firstApprover.approver.firstName} ${firstApprover.approver.lastName}`,
-          companyName: process.env.COMPANY_NAME || 'Company',
+          companyName: process.env.COMPANY_NAME || 'TPF',
           requestId: leaveRequest.id
         });
         log.info('Email notification sent', { to: firstApprover.approver.email });

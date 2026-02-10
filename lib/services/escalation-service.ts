@@ -573,7 +573,7 @@ export class EscalationService {
           escalatedFromName: `${currentApprover.firstName} ${currentApprover.lastName}`,
           escalatedToName: `${escalatedToUser.firstName} ${escalatedToUser.lastName}`,
           escalationReason: escalationReason,
-          companyName: process.env.COMPANY_NAME || 'Company',
+          companyName: process.env.COMPANY_NAME || 'TPF',
           requestId: leaveRequest.id
         });
         

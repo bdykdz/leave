@@ -124,7 +124,7 @@ export async function GET() {
     // Format the data for the calendar component
     const formattedApprovedEvents = leaveEvents.map(event => ({
       id: event.id,
-      employeeName: `${event.user.firstName} ${event.user.lastName}`,
+      employeeName: `${event.user?.firstName || ''} ${event.user?.lastName || ''}`.trim() || 'Unknown',
       department: event.user.department || 'Unknown',
       leaveType: event.leaveType.name,
       startDate: event.startDate,
@@ -137,7 +137,7 @@ export async function GET() {
 
     const formattedPendingEvents = pendingLeaveEvents.map(event => ({
       id: event.id,
-      employeeName: `${event.user.firstName} ${event.user.lastName}`,
+      employeeName: `${event.user?.firstName || ''} ${event.user?.lastName || ''}`.trim() || 'Unknown',
       department: event.user.department || 'Unknown',
       leaveType: event.leaveType.name,
       startDate: event.startDate,
@@ -231,7 +231,7 @@ export async function GET() {
     // Format WFH events
     const formattedWFHEvents = wfhEvents.map(event => ({
       id: event.id,
-      employeeName: `${event.user.firstName} ${event.user.lastName}`,
+      employeeName: `${event.user?.firstName || ''} ${event.user?.lastName || ''}`.trim() || 'Unknown',
       department: event.user.department || 'Unknown',
       leaveType: `WFH - ${event.location}`,
       startDate: event.startDate,
@@ -244,7 +244,7 @@ export async function GET() {
 
     const formattedPendingWFHEvents = pendingWFHEvents.map(event => ({
       id: event.id,
-      employeeName: `${event.user.firstName} ${event.user.lastName}`,
+      employeeName: `${event.user?.firstName || ''} ${event.user?.lastName || ''}`.trim() || 'Unknown',
       department: event.user.department || 'Unknown',
       leaveType: `WFH - ${event.location}`,
       startDate: event.startDate,

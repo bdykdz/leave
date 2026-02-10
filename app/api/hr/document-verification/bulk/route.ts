@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           results.push({
             id: request.id,
             requestNumber: request.requestNumber,
-            employeeName: `${request.user.firstName} ${request.user.lastName}`,
+            employeeName: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
             status: 'success',
             action: approved ? 'approved' : 'rejected'
           })
@@ -229,8 +229,8 @@ export async function GET(request: NextRequest) {
         timestamp: op.timestamp,
         action: op.action,
         performedBy: {
-          name: `${op.user.firstName} ${op.user.lastName}`,
-          email: op.user.email
+          name: `${op.user?.firstName || ''} ${op.user?.lastName || ''}`.trim() || 'Unknown',
+          email: op.user?.email || ''
         },
         entityId: op.entityId,
         reason: (op.details as any)?.reason || 'No reason provided'

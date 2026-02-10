@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch settings from database or return defaults
-    const settings = await prisma.systemSettings.findFirst({
+    const settings = await prisma.companySetting.findUnique({
       where: { key: 'LEAVE_BALANCE_CONFIG' }
     });
 
@@ -95,16 +95,18 @@ export async function PUT(request: NextRequest) {
     }
 
     // Upsert settings
-    await prisma.systemSettings.upsert({
+    await prisma.companySetting.upsert({
       where: { key: 'LEAVE_BALANCE_CONFIG' },
       update: {
         value: settings,
-        updatedAt: new Date()
+        updatedBy: session.user.id
       },
       create: {
         key: 'LEAVE_BALANCE_CONFIG',
         value: settings,
-        description: 'Leave balance calculation and carry-forward configuration'
+        category: 'leave',
+        description: 'Leave balance calculation and carry-forward configuration',
+        updatedBy: session.user.id
       }
     });
 

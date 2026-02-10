@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
           escapeCSV(emp.role),
           escapeCSV(emp.isActive ? 'Active' : 'Inactive'),
           escapeCSV(emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString() : ''),
-          escapeCSV(emp.manager ? `${emp.manager.firstName} ${emp.manager.lastName}` : ''),
+          escapeCSV(emp.manager ? `${emp.manager?.firstName || ''} ${emp.manager?.lastName || ''}` : ''),
           escapeCSV(annualLeave),
           escapeCSV(sickLeave),
           escapeCSV(personalLeave)

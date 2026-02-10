@@ -158,7 +158,7 @@ export async function PATCH(
       message: `Employee ${isActive ? 'reactivated' : 'deactivated'} successfully`,
       employee: {
         id: updatedEmployee.id,
-        name: `${updatedEmployee.firstName} ${updatedEmployee.lastName}`,
+        name: `${updatedEmployee.firstName || ''} ${updatedEmployee.lastName || ''}`,
         isActive: updatedEmployee.isActive
       }
     });
@@ -239,7 +239,7 @@ export async function GET(
     return NextResponse.json({
       employee: {
         id: employee.id,
-        name: `${employee.firstName} ${employee.lastName}`,
+        name: `${employee.firstName || ''} ${employee.lastName || ''}`,
         employeeId: employee.employeeId,
         isActive: employee.isActive,
         metadata: employee.metadata
@@ -248,8 +248,8 @@ export async function GET(
         action: log.action,
         timestamp: log.timestamp,
         performedBy: {
-          name: `${log.user.firstName} ${log.user.lastName}`,
-          email: log.user.email
+          name: `${log.user?.firstName || ''} ${log.user?.lastName || ''}`.trim() || 'Unknown',
+          email: log.user?.email || ''
         },
         reason: (log.details as any)?.reason || 'Not specified'
       }))

@@ -497,7 +497,7 @@ export function EmployeeArchiveManager() {
                       )}
                       {employeeDetails.employee.manager && (
                         <p className="text-sm">
-                          <span className="font-medium">Manager:</span> {employeeDetails.employee.manager.firstName} {employeeDetails.employee.manager.lastName}
+                          <span className="font-medium">Manager:</span> {employeeDetails.employee.manager?.firstName || ''} {employeeDetails.employee.manager?.lastName || ''}
                         </p>
                       )}
                     </div>

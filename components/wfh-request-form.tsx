@@ -61,7 +61,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
           const data = await response.json()
           if (data.manager) {
             setManagerInfo({
-              name: `${data.manager.firstName} ${data.manager.lastName}`,
+              name: `${data.manager?.firstName || ''} ${data.manager?.lastName || ''}`,
               id: data.manager.id
             })
           }

@@ -143,7 +143,7 @@ export async function POST(
       totalDays: plan.dates.length,
       status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'needs_revision',
       comments,
-      companyName: process.env.COMPANY_NAME || 'Company',
+      companyName: process.env.COMPANY_NAME || 'TPF',
       planId: plan.id
     }
 

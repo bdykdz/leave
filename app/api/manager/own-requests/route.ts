@@ -20,9 +20,10 @@ export async function GET(request: NextRequest) {
     const page = parseInt(pageParam)
     const limit = parseInt(limitParam)
     
-    if (isNaN(page) || page < 1 || page > 1000) {
+    if (isNaN(page) || page > 1000) {
       return NextResponse.json({ error: 'Invalid page parameter' }, { status: 400 })
     }
+    const safePage = Math.max(1, page)
     
     if (isNaN(limit) || limit < 1 || limit > 100) {
       return NextResponse.json({ error: 'Invalid limit parameter' }, { status: 400 })
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc'
       },
-      skip: (page - 1) * limit,
+      skip: (safePage - 1) * limit,
       take: limit
     });
 
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       requests: formattedRequests,
       pagination: {
-        page,
+        page: safePage,
         limit,
         total: totalRequests,
         totalPages: Math.ceil(totalRequests / limit)

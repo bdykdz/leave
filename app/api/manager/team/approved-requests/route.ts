@@ -74,11 +74,11 @@ export async function GET(request: Request) {
       return {
         id: request.id,
         employee: {
-          name: `${request.user.firstName} ${request.user.lastName}`,
-          avatar: request.user.image || '',
-          department: request.user.department
+          name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
+          avatar: request.user?.image || '',
+          department: request.user?.department || ''
         },
-        type: request.leaveType.name,
+        type: request.leaveType?.name || 'Unknown',
         dates: `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate).toLocaleDateString()}`,
         startDate: request.startDate,
         endDate: request.endDate,
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
         reason: request.reason,
         submittedDate: request.createdAt.toISOString(),
         approvedDate: approval?.approvedAt?.toISOString() || request.updatedAt.toISOString(),
-        substitute: request.substitute ? `${request.substitute.firstName} ${request.substitute.lastName}` : null,
+        substitute: request.substitute ? `${request.substitute?.firstName || ''} ${request.substitute?.lastName || ''}` : null,
         status: overallStatus,
         overallRequestStatus: request.status // Add the actual request status
       }

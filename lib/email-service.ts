@@ -122,9 +122,20 @@ class EmailService {
       return false
     }
 
+    // Domain filter: only send to allowed domains
+    const allowedDomains = process.env.EMAIL_ALLOWED_DOMAINS
+    if (allowedDomains) {
+      const domains = allowedDomains.split(',').map(d => d.trim().toLowerCase())
+      const recipientDomain = to.split('@')[1]?.toLowerCase()
+      if (!recipientDomain || !domains.includes(recipientDomain)) {
+        console.log(`Email blocked: ${to} not in allowed domains (${allowedDomains})`)
+        return true // Return true so it doesn't trigger error handling
+      }
+    }
+
     try {
       const { data, error } = await this.resend.emails.send({
-        from: `${process.env.COMPANY_NAME || 'Leave Management'} <${process.env.RESEND_FROM_EMAIL}>`,
+        from: `${process.env.COMPANY_NAME || 'TPF'} <${process.env.RESEND_FROM_EMAIL}>`,
         to: [to],
         subject,
         html,
@@ -446,8 +457,8 @@ ${process.env.NEXTAUTH_URL}/manager/approvals
     managerName: string
     requestId?: string
   }): EmailTemplate {
-    const subject = `New Work From Home Request - ${data.employeeName}`
-    
+    const subject = `Cerere nouă de lucru de acasă - ${data.employeeName}`
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -460,53 +471,55 @@ ${process.env.NEXTAUTH_URL}/manager/approvals
         .content { background-color: #f9fafb; padding: 20px; }
         .details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
         .button { display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Work From Home Request</h2>
+            <h2>Cerere de Lucru de Acasă</h2>
         </div>
         <div class="content">
-            <p>Dear ${data.managerName},</p>
-            <p><strong>${data.employeeName}</strong> has submitted a work from home request that requires your approval.</p>
-            
+            <p>Bună ziua <strong>${data.managerName}</strong>,</p>
+            <p><strong>${data.employeeName}</strong> a trimis o cerere de lucru de acasă care necesită aprobarea dvs.</p>
+
             <div class="details">
-                <h3>Request Details:</h3>
-                <p><strong>Period:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
-                <p><strong>Total Days:</strong> ${data.days}</p>
-                <p><strong>Location:</strong> ${data.location}</p>
+                <h3>Detalii Cerere:</h3>
+                <p><strong>Perioada:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
+                <p><strong>Numărul de zile:</strong> ${data.days}</p>
+                <p><strong>Locația:</strong> ${data.location}</p>
             </div>
-            
-            <p>Please log in to the system to review and approve/reject this request.</p>
-            
-            <a href="${process.env.NEXTAUTH_URL}/manager" class="button">Review Request</a>
+
+            <p>Vă rugăm să vă conectați la sistem pentru a revizui și aproba/respinge această cerere.</p>
+
+            <a href="${process.env.NEXTAUTH_URL}/manager" class="button">Revizuiește Cererea</a>
         </div>
         <div class="footer">
-            <p>This is an automated message from the Leave Management System</p>
+            <p>&copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
         </div>
     </div>
 </body>
 </html>`
-    
+
     const text = `
-Work From Home Request
+Cerere de Lucru de Acasă
 
-Dear ${data.managerName},
+Bună ziua ${data.managerName},
 
-${data.employeeName} has submitted a work from home request that requires your approval.
+${data.employeeName} a trimis o cerere de lucru de acasă care necesită aprobarea dvs.
 
-Request Details:
-- Period: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
-- Total Days: ${data.days}
-- Location: ${data.location}
+Detalii Cerere:
+- Perioada: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
+- Numărul de zile: ${data.days}
+- Locația: ${data.location}
 
-Please log in to the system to review and approve/reject this request.
+Vă rugăm să vă conectați la sistem pentru a revizui și aproba/respinge această cerere:
+${process.env.NEXTAUTH_URL}/manager
 
-This is an automated message from the Leave Management System.
+© ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.
 `
-    
+
     return { subject, html, text }
   }
 
@@ -520,9 +533,9 @@ This is an automated message from the Leave Management System.
     managerName: string
     comments?: string
   }): EmailTemplate {
-    const status = data.approved ? 'Approved' : 'Rejected'
-    const subject = `Your Work From Home Request Has Been ${status}`
-    
+    const statusText = data.approved ? 'Aprobată' : 'Respinsă'
+    const subject = `Cererea de lucru de acasă ${statusText.toLowerCase()}`
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -535,59 +548,60 @@ This is an automated message from the Leave Management System.
         .content { background-color: #f9fafb; padding: 20px; }
         .details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
         .status { font-weight: bold; color: ${data.approved ? '#10b981' : '#ef4444'}; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Work From Home Request ${status}</h2>
+            <h2>Cerere de Lucru de Acasă ${statusText}</h2>
         </div>
         <div class="content">
-            <p>Dear ${data.employeeName},</p>
-            <p>Your work from home request has been <span class="status">${status.toLowerCase()}</span> by ${data.managerName}.</p>
-            
+            <p>Bună ziua <strong>${data.employeeName}</strong>,</p>
+            <p>Cererea dvs. de lucru de acasă a fost <span class="status">${statusText.toLowerCase()}</span> de ${data.managerName}.</p>
+
             <div class="details">
-                <h3>Request Details:</h3>
-                <p><strong>Period:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
-                <p><strong>Total Days:</strong> ${data.days}</p>
-                <p><strong>Location:</strong> ${data.location}</p>
-                ${data.comments && !data.comments.includes('[SIGNATURE:') ? `<p><strong>Manager's Comments:</strong> ${data.comments}</p>` : ''}
+                <h3>Detalii Cerere:</h3>
+                <p><strong>Perioada:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
+                <p><strong>Numărul de zile:</strong> ${data.days}</p>
+                <p><strong>Locația:</strong> ${data.location}</p>
+                ${data.comments && !data.comments.includes('[SIGNATURE:') ? `<p><strong>Comentarii manager:</strong> ${data.comments}</p>` : ''}
             </div>
-            
-            ${data.approved ? 
-              '<p>You are approved to work from the specified location during the requested period.</p>' :
-              '<p>Please contact your manager if you need to discuss this decision.</p>'
+
+            ${data.approved ?
+              '<p>Sunteți aprobat(ă) să lucrați de la locația specificată în perioada solicitată.</p>' :
+              '<p>Vă rugăm să contactați managerul dvs. dacă doriți să discutați această decizie.</p>'
             }
         </div>
         <div class="footer">
-            <p>This is an automated message from the Leave Management System</p>
+            <p>&copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
         </div>
     </div>
 </body>
 </html>`
-    
+
     const text = `
-Work From Home Request ${status}
+Cerere de Lucru de Acasă ${statusText}
 
-Dear ${data.employeeName},
+Bună ziua ${data.employeeName},
 
-Your work from home request has been ${status.toLowerCase()} by ${data.managerName}.
+Cererea dvs. de lucru de acasă a fost ${statusText.toLowerCase()} de ${data.managerName}.
 
-Request Details:
-- Period: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
-- Total Days: ${data.days}
-- Location: ${data.location}
-${data.comments && !data.comments.includes('[SIGNATURE:') ? `- Manager's Comments: ${data.comments}` : ''}
+Detalii Cerere:
+- Perioada: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
+- Numărul de zile: ${data.days}
+- Locația: ${data.location}
+${data.comments && !data.comments.includes('[SIGNATURE:') ? `- Comentarii manager: ${data.comments}` : ''}
 
-${data.approved ? 
-  'You are approved to work from the specified location during the requested period.' :
-  'Please contact your manager if you need to discuss this decision.'
+${data.approved ?
+  'Sunteți aprobat(ă) să lucrați de la locația specificată în perioada solicitată.' :
+  'Vă rugăm să contactați managerul dvs. dacă doriți să discutați această decizie.'
 }
 
-This is an automated message from the Leave Management System.
+© ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.
 `
-    
+
     return { subject, html, text }
   }
 
@@ -861,8 +875,8 @@ Vă mulțumim pentru flexibilitate și colaborare!
   }
 
   generateHolidayPlanSubmissionEmail(data: HolidayPlanSubmissionEmailData): EmailTemplate {
-    const subject = `Holiday Plan Submission - ${data.employeeName} (${data.year})`
-    
+    const subject = `Plan de concediu trimis - ${data.employeeName} (${data.year})`
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -882,44 +896,44 @@ Vă mulțumim pentru flexibilitate și colaborare!
 <body>
     <div class="container">
         <div class="header">
-            <h1>📅 New Holiday Plan Submission</h1>
+            <h1>Plan Nou de Concediu</h1>
         </div>
-        
+
         <div class="content">
-            <p>Dear <strong>${data.managerName}</strong>,</p>
-            
-            <p><strong>${data.employeeName}</strong> has submitted their holiday plan for ${data.year} that requires your review and approval.</p>
-            
+            <p>Bună ziua <strong>${data.managerName}</strong>,</p>
+
+            <p><strong>${data.employeeName}</strong> a trimis planul de concediu pentru ${data.year} care necesită revizuirea și aprobarea dvs.</p>
+
             <div class="details">
-                <h3>Plan Details:</h3>
+                <h3>Detalii Plan:</h3>
                 <ul>
-                    <li><strong>Employee:</strong> ${data.employeeName}</li>
-                    <li><strong>Planning Year:</strong> ${data.year}</li>
-                    <li><strong>Total Days Requested:</strong> ${data.totalDays}</li>
-                    <li><strong>Submitted On:</strong> ${data.submissionDate}</li>
+                    <li><strong>Angajat:</strong> ${data.employeeName}</li>
+                    <li><strong>Anul de planificare:</strong> ${data.year}</li>
+                    <li><strong>Total zile solicitate:</strong> ${data.totalDays}</li>
+                    <li><strong>Trimis la:</strong> ${data.submissionDate}</li>
                 </ul>
             </div>
-            
+
             <div style="text-align: center; margin: 20px 0;">
                 <a href="${process.env.NEXTAUTH_URL}/manager/holiday-planning" class="button review">
-                    Review Holiday Plan
+                    Revizuiește Planul
                 </a>
             </div>
-            
-            <p>Please review the holiday plan and coordinate with your team to ensure proper coverage during the requested periods.</p>
-            
-            <p><strong>Next Steps:</strong></p>
+
+            <p>Vă rugăm să revizuiți planul de concediu și să coordonați cu echipa pentru a asigura acoperirea corespunzătoare în perioadele solicitate.</p>
+
+            <p><strong>Pași următori:</strong></p>
             <ul>
-                <li>Review the requested dates and priorities</li>
-                <li>Check for conflicts with other team members</li>
-                <li>Approve, reject, or request revisions as needed</li>
-                <li>Coordinate with other managers if necessary</li>
+                <li>Revizuiți datele și prioritățile solicitate</li>
+                <li>Verificați conflictele cu alți membri ai echipei</li>
+                <li>Aprobați, respingeți sau solicitați revizuiri după caz</li>
+                <li>Coordonați cu alți manageri dacă este necesar</li>
             </ul>
         </div>
-        
+
         <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. All rights reserved.</p>
-            <p>This is an automated email. Please do not reply to this message.</p>
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
         </div>
     </div>
 </body>
@@ -927,38 +941,38 @@ Vă mulțumim pentru flexibilitate și colaborare!
     `
 
     const text = `
-Holiday Plan Submission
+Plan de Concediu Trimis
 
-Dear ${data.managerName},
+Bună ziua ${data.managerName},
 
-${data.employeeName} has submitted their holiday plan for ${data.year} that requires your review and approval.
+${data.employeeName} a trimis planul de concediu pentru ${data.year} care necesită revizuirea și aprobarea dvs.
 
-Plan Details:
-- Employee: ${data.employeeName}
-- Planning Year: ${data.year}
-- Total Days Requested: ${data.totalDays}
-- Submitted On: ${data.submissionDate}
+Detalii Plan:
+- Angajat: ${data.employeeName}
+- Anul de planificare: ${data.year}
+- Total zile solicitate: ${data.totalDays}
+- Trimis la: ${data.submissionDate}
 
-Please log in to the system to review and approve this holiday plan:
+Vă rugăm să vă conectați la sistem pentru a revizui și aproba planul:
 ${process.env.NEXTAUTH_URL}/manager/holiday-planning
 
-Next Steps:
-- Review the requested dates and priorities
-- Check for conflicts with other team members
-- Approve, reject, or request revisions as needed
-- Coordinate with other managers if necessary
+Pași următori:
+- Revizuiți datele și prioritățile solicitate
+- Verificați conflictele cu alți membri ai echipei
+- Aprobați, respingeți sau solicitați revizuiri după caz
+- Coordonați cu alți manageri dacă este necesar
 
-© ${new Date().getFullYear()} ${data.companyName}. All rights reserved.
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
     `
 
     return { subject, html, text }
   }
 
   generateHolidayPlanApprovalEmail(data: HolidayPlanApprovalEmailData): EmailTemplate {
-    const statusText = data.status === 'approved' ? 'Approved' : 
-                      data.status === 'rejected' ? 'Rejected' : 'Needs Revision'
-    const subject = `Your Holiday Plan for ${data.year} - ${statusText}`
-    
+    const statusText = data.status === 'approved' ? 'Aprobat' :
+                      data.status === 'rejected' ? 'Respins' : 'Necesită Revizuire'
+    const subject = `Planul dvs. de concediu pentru ${data.year} - ${statusText}`
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -980,44 +994,44 @@ Next Steps:
 <body>
     <div class="container">
         <div class="header">
-            <h1>Holiday Plan ${statusText}</h1>
+            <h1>Plan de Concediu ${statusText}</h1>
         </div>
-        
+
         <div class="content">
-            <p>Dear <strong>${data.employeeName}</strong>,</p>
-            
+            <p>Bună ziua <strong>${data.employeeName}</strong>,</p>
+
             <div class="status ${data.status === 'approved' ? 'approved' : data.status === 'rejected' ? 'rejected' : 'revision'}">
-                <h3>Your holiday plan for ${data.year} has been ${statusText.toUpperCase()}</h3>
+                <h3>Planul dvs. de concediu pentru ${data.year} a fost ${statusText.toUpperCase()}</h3>
             </div>
-            
+
             <div class="details">
-                <h3>Plan Details:</h3>
+                <h3>Detalii Plan:</h3>
                 <ul>
-                    <li><strong>Planning Year:</strong> ${data.year}</li>
-                    <li><strong>Total Days:</strong> ${data.totalDays}</li>
-                    <li><strong>Reviewed by:</strong> ${data.managerName}</li>
-                    ${data.comments ? `<li><strong>Comments:</strong> ${data.comments}</li>` : ''}
+                    <li><strong>Anul de planificare:</strong> ${data.year}</li>
+                    <li><strong>Total zile:</strong> ${data.totalDays}</li>
+                    <li><strong>Revizuit de:</strong> ${data.managerName}</li>
+                    ${data.comments ? `<li><strong>Comentarii:</strong> ${data.comments}</li>` : ''}
                 </ul>
             </div>
-            
-            ${data.status === 'approved' 
-              ? '<p>Your holiday plan has been approved! You can now proceed with booking your holidays according to the approved dates.</p>'
+
+            ${data.status === 'approved'
+              ? '<p>Planul dvs. de concediu a fost aprobat! Puteți proceda cu rezervarea concediilor conform datelor aprobate.</p>'
               : data.status === 'rejected'
-              ? '<p>Unfortunately, your holiday plan could not be approved. Please contact your manager to discuss alternative dates or arrangements.</p>'
-              : '<p>Your manager has requested some revisions to your holiday plan. Please review the comments and update your plan accordingly.</p>'
+              ? '<p>Din păcate, planul dvs. de concediu nu a putut fi aprobat. Vă rugăm să contactați managerul pentru a discuta date sau aranjamente alternative.</p>'
+              : '<p>Managerul dvs. a solicitat unele revizuiri ale planului de concediu. Vă rugăm să revizuiți comentariile și să actualizați planul în consecință.</p>'
             }
-            
-            <p>To view your holiday plan and make any necessary changes, please visit:</p>
+
+            <p>Pentru a vedea planul dvs. de concediu și a face modificările necesare, accesați:</p>
             <p style="text-align: center;">
                 <a href="${process.env.NEXTAUTH_URL}/holiday-planning" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                    View Holiday Plan
+                    Vezi Planul de Concediu
                 </a>
             </p>
         </div>
-        
+
         <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. All rights reserved.</p>
-            <p>This is an automated email. Please do not reply to this message.</p>
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
         </div>
     </div>
 </body>
@@ -1025,28 +1039,28 @@ Next Steps:
     `
 
     const text = `
-Holiday Plan ${statusText}
+Plan de Concediu ${statusText}
 
-Dear ${data.employeeName},
+Bună ziua ${data.employeeName},
 
-Your holiday plan for ${data.year} has been ${statusText.toUpperCase()}.
+Planul dvs. de concediu pentru ${data.year} a fost ${statusText.toUpperCase()}.
 
-Plan Details:
-- Planning Year: ${data.year}
-- Total Days: ${data.totalDays}
-- Reviewed by: ${data.managerName}
-${data.comments ? `- Comments: ${data.comments}` : ''}
+Detalii Plan:
+- Anul de planificare: ${data.year}
+- Total zile: ${data.totalDays}
+- Revizuit de: ${data.managerName}
+${data.comments ? `- Comentarii: ${data.comments}` : ''}
 
-${data.status === 'approved' 
-  ? 'Your holiday plan has been approved! You can now proceed with booking your holidays according to the approved dates.'
+${data.status === 'approved'
+  ? 'Planul dvs. de concediu a fost aprobat! Puteți proceda cu rezervarea concediilor conform datelor aprobate.'
   : data.status === 'rejected'
-  ? 'Unfortunately, your holiday plan could not be approved. Please contact your manager to discuss alternative dates or arrangements.'
-  : 'Your manager has requested some revisions to your holiday plan. Please review the comments and update your plan accordingly.'
+  ? 'Din păcate, planul dvs. de concediu nu a putut fi aprobat. Vă rugăm să contactați managerul pentru a discuta date sau aranjamente alternative.'
+  : 'Managerul dvs. a solicitat unele revizuiri ale planului de concediu. Vă rugăm să revizuiți comentariile și să actualizați planul în consecință.'
 }
 
-To view your holiday plan: ${process.env.NEXTAUTH_URL}/holiday-planning
+Pentru a vedea planul de concediu: ${process.env.NEXTAUTH_URL}/holiday-planning
 
-© ${new Date().getFullYear()} ${data.companyName}. All rights reserved.
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
     `
 
     return { subject, html, text }

@@ -362,7 +362,7 @@ export default function ManagerHolidayPlanningPage() {
                       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                         <DialogHeader>
                           <DialogTitle>
-                            Holiday Plan - {plan.user.firstName} {plan.user.lastName}
+                            Holiday Plan - {plan.user?.firstName || ''} {plan.user?.lastName || ''}
                           </DialogTitle>
                           <DialogDescription>
                             Detailed view of holiday planning request for {planningYear}
@@ -418,7 +418,7 @@ export default function ManagerHolidayPlanningPage() {
                             <DialogHeader>
                               <DialogTitle>Approve Holiday Plan</DialogTitle>
                               <DialogDescription>
-                                Approve {plan.user.firstName} {plan.user.lastName}'s holiday plan for {planningYear}
+                                Approve {plan.user?.firstName || ''} {plan.user?.lastName || ''}'s holiday plan for {planningYear}
                               </DialogDescription>
                             </DialogHeader>
                             
@@ -459,7 +459,7 @@ export default function ManagerHolidayPlanningPage() {
                             <DialogHeader>
                               <DialogTitle>Reject Holiday Plan</DialogTitle>
                               <DialogDescription>
-                                Reject {plan.user.firstName} {plan.user.lastName}'s holiday plan for {planningYear}
+                                Reject {plan.user?.firstName || ''} {plan.user?.lastName || ''}'s holiday plan for {planningYear}
                               </DialogDescription>
                             </DialogHeader>
                             
@@ -501,7 +501,7 @@ export default function ManagerHolidayPlanningPage() {
                             <DialogHeader>
                               <DialogTitle>Request Plan Revision</DialogTitle>
                               <DialogDescription>
-                                Request {plan.user.firstName} {plan.user.lastName} to revise their holiday plan
+                                Request {plan.user?.firstName || ''} {plan.user?.lastName || ''} to revise their holiday plan
                               </DialogDescription>
                             </DialogHeader>
                             

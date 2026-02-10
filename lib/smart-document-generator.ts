@@ -95,8 +95,10 @@ export class SmartDocumentGenerator {
       // 3) Load PDF bytes (Minio or FS)
       let templateBytes: Buffer
       if (template.fileUrl.startsWith('minio://')) {
-        const objectPath = template.fileUrl.replace('minio://leave-management-uat/', '')
-        templateBytes = await getFromMinio(objectPath, 'leave-management-uat')
+        const minioPath = template.fileUrl.replace('minio://', '')
+        const bucketName = minioPath.split('/')[0]
+        const objectPath = minioPath.substring(bucketName.length + 1)
+        templateBytes = await getFromMinio(objectPath, bucketName)
       } else {
         const templatePath = join(process.cwd(), 'public', template.fileUrl)
         const fs = await import('fs')
@@ -382,7 +384,7 @@ export class SmartDocumentGenerator {
         Buffer.from(pdfBytes),
         fileName,
         'application/pdf',
-        'leave-management-uat',
+        undefined,
         folderPath
       )
 

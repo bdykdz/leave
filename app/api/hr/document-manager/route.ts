@@ -123,8 +123,8 @@ export async function GET(request: NextRequest) {
         supportingDocuments: doc.supportingDocuments as string[] | null,
         hrDocumentVerified: doc.hrDocumentVerified,
         hrVerifiedBy: doc.hrVerifiedBy ? {
-          firstName: hrApproval?.approver.firstName || 'HR',
-          lastName: hrApproval?.approver.lastName || 'User',
+          firstName: hrApproval?.approver?.firstName || 'HR',
+          lastName: hrApproval?.approver?.lastName || 'User',
         } : null,
         hrVerifiedAt: doc.hrVerifiedAt,
         hrVerificationNotes: doc.hrVerificationNotes,
@@ -136,9 +136,9 @@ export async function GET(request: NextRequest) {
           templateCategory: doc.generatedDocument.template?.category || 'general',
           createdAt: doc.generatedDocument.createdAt,
           completedAt: doc.generatedDocument.completedAt,
-          signatureCount: doc.generatedDocument.signatures.length,
-          signatures: doc.generatedDocument.signatures.map(sig => ({
-            signerName: `${sig.signer.firstName} ${sig.signer.lastName}`,
+          signatureCount: doc.generatedDocument.signatures?.length || 0,
+          signatures: (doc.generatedDocument.signatures || []).map(sig => ({
+            signerName: `${sig.signer?.firstName || ''} ${sig.signer?.lastName || ''}`.trim() || 'Unknown',
             signerRole: sig.signerRole,
             signedAt: sig.signedAt,
           })),

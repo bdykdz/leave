@@ -254,9 +254,9 @@ export async function GET(request: NextRequest) {
             <tbody>
                 ${leaveRequests.slice(0, 50).map(req => `
                     <tr>
-                        <td>${req.user.firstName} ${req.user.lastName} (${req.user.employeeId})</td>
-                        <td>${req.user.department || 'N/A'}</td>
-                        <td>${req.leaveType.name}</td>
+                        <td>${req.user?.firstName || ''} ${req.user?.lastName || ''} (${req.user?.employeeId || ''})</td>
+                        <td>${req.user?.department || 'N/A'}</td>
+                        <td>${req.leaveType?.name || 'N/A'}</td>
                         <td>${format(req.startDate, 'MMM dd, yyyy')}</td>
                         <td>${format(req.endDate, 'MMM dd, yyyy')}</td>
                         <td>${req.totalDays}</td>
@@ -275,7 +275,7 @@ export async function GET(request: NextRequest) {
 
     <div class="footer">
         <p>Generated on ${format(new Date(), 'MMMM dd, yyyy \'at\' HH:mm')} by ${session.user.email}</p>
-        <p>Leave Management System - Analytics Report</p>
+        <p>TPF - Raport Analitic</p>
     </div>
 </body>
 </html>

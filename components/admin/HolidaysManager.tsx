@@ -118,7 +118,7 @@ export function HolidaysManager() {
   }
 
   const handleSeedHolidays = async () => {
-    if (!confirm('This will replace all existing holidays with Romanian holidays for 2025-2026. Continue?')) return
+    if (!confirm('This will replace all existing holidays with Romanian holidays for 2026-2027. Continue?')) return
     
     setSeeding(true)
     try {

@@ -89,7 +89,7 @@ function LoginContent() {
           <div className="flex justify-center mb-4">
             <Building2 className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold">Leave Management System</CardTitle>
+          <CardTitle className="text-2xl font-bold">TPF - Sistem de Management Concedii</CardTitle>
           <CardDescription>
             Sign in with your company Microsoft account
           </CardDescription>

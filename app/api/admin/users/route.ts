@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
 
     // Send welcome email to the new user
     try {
-      const companyName = process.env.COMPANY_NAME || 'Compania Noastră';
+      const companyName = process.env.COMPANY_NAME || 'TPF';
       const loginUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
       
       await emailService.sendNewUserWelcomeEmail(newUser.email, {
