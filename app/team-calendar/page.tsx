@@ -295,9 +295,9 @@ export default function TeamCalendarPage() {
                       <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
                           <p className="font-medium">
-                            {holiday.member.firstName} {holiday.member.lastName}
+                            {holiday.member?.firstName || ''} {holiday.member?.lastName || ''}
                           </p>
-                          <p className="text-sm text-gray-600">{holiday.member.position}</p>
+                          <p className="text-sm text-gray-600">{holiday.member?.position || ''}</p>
                           {holiday.reason && (
                             <p className="text-sm text-gray-500 mt-1">{holiday.reason}</p>
                           )}

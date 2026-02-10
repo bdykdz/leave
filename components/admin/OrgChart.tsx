@@ -297,7 +297,7 @@ export function OrgChart() {
                 </div>
                 <div>
                   <h4 className="font-semibold">
-                    {employee.firstName} {employee.lastName}
+                    {employee?.firstName || ''} {employee?.lastName || ''}
                   </h4>
                   <p className="text-sm text-muted-foreground">{employee.position}</p>
                   <p className="text-xs text-muted-foreground">{employee.department}</p>
@@ -369,9 +369,9 @@ export function OrgChart() {
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      {department.director.firstName} {department.director.lastName}
+                      {department.director?.firstName || ''} {department.director?.lastName || ''}
                     </p>
-                    <p className="text-xs text-muted-foreground">{department.director.position}</p>
+                    <p className="text-xs text-muted-foreground">{department.director?.position || ''}</p>
                   </div>
                 </div>
               </div>
@@ -397,9 +397,9 @@ export function OrgChart() {
                       </div>
                       <div>
                         <p className="font-medium text-sm">
-                          {manager.firstName} {manager.lastName}
+                          {manager?.firstName || ''} {manager?.lastName || ''}
                         </p>
-                        <p className="text-xs text-muted-foreground">{manager.position}</p>
+                        <p className="text-xs text-muted-foreground">{manager?.position || ''}</p>
                       </div>
                     </div>
                   </div>

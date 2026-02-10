@@ -229,16 +229,16 @@ export function DocumentFileManager() {
 
     const rows = filteredDocuments.map(doc => [
       doc.requestNumber,
-      `${doc.user.firstName} ${doc.user.lastName}`,
-      doc.user.department,
-      doc.leaveType.name,
+      `${doc.user?.firstName || ''} ${doc.user?.lastName || ''}`.trim(),
+      doc.user?.department || '',
+      doc.leaveType?.name || '',
       format(new Date(doc.startDate), 'yyyy-MM-dd'),
       format(new Date(doc.endDate), 'yyyy-MM-dd'),
       doc.totalDays,
       doc.status,
       doc.supportingDocuments ? `${doc.supportingDocuments.length} files` : 'No documents',
       doc.hrDocumentVerified ? 'Yes' : 'No',
-      doc.hrVerifiedBy ? `${doc.hrVerifiedBy.firstName} ${doc.hrVerifiedBy.lastName}` : '',
+      doc.hrVerifiedBy ? `${doc.hrVerifiedBy?.firstName || ''} ${doc.hrVerifiedBy?.lastName || ''}`.trim() : '',
       doc.hrVerifiedAt ? format(new Date(doc.hrVerifiedAt), 'yyyy-MM-dd HH:mm') : '',
       doc.hrVerificationNotes || '',
     ])
@@ -474,8 +474,8 @@ export function DocumentFileManager() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{doc.user.firstName} {doc.user.lastName}</p>
-                        <p className="text-sm text-muted-foreground">{doc.user.department}</p>
+                        <p className="font-medium">{doc.user?.firstName || ''} {doc.user?.lastName || ''}</p>
+                        <p className="text-sm text-muted-foreground">{doc.user?.department || ''}</p>
                       </div>
                     </TableCell>
                     <TableCell>

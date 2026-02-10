@@ -435,10 +435,10 @@ export function DocumentVerification() {
                       <TableCell>
                         <div>
                           <p className="font-medium">
-                            {request.user.firstName} {request.user.lastName}
+                            {request.user?.firstName || ''} {request.user?.lastName || ''}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {request.user.department}
+                            {request.user?.department || ''}
                           </p>
                         </div>
                       </TableCell>
@@ -513,9 +513,9 @@ export function DocumentVerification() {
                     <span className="text-sm font-medium">Employee</span>
                   </div>
                   <p className="text-sm">
-                    {selectedRequest.user.firstName} {selectedRequest.user.lastName}
+                    {selectedRequest?.user?.firstName || ''} {selectedRequest?.user?.lastName || ''}
                   </p>
-                  <p className="text-xs text-muted-foreground">{selectedRequest.user.email}</p>
+                  <p className="text-xs text-muted-foreground">{selectedRequest?.user?.email || ''}</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">

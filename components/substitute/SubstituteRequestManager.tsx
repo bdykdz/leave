@@ -344,7 +344,7 @@ export function SubstituteRequestManager() {
           {selectedRequest && (
             <div className="space-y-4">
               <div className="p-3 bg-gray-50 rounded text-sm">
-                <p><strong>Employee:</strong> {selectedRequest.leaveRequest.user.firstName} {selectedRequest.leaveRequest.user.lastName}</p>
+                <p><strong>Employee:</strong> {selectedRequest?.leaveRequest?.user?.firstName || ''} {selectedRequest?.leaveRequest?.user?.lastName || ''}</p>
                 <p><strong>Period:</strong> {format(new Date(selectedRequest.leaveRequest.startDate), 'MMM d, yyyy')} - {format(new Date(selectedRequest.leaveRequest.endDate), 'MMM d, yyyy')}</p>
                 <p><strong>Duration:</strong> {selectedRequest.leaveRequest.totalDays} days</p>
               </div>

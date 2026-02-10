@@ -680,7 +680,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                                   {approvers.manager ? (
                                     <>
                                       <AvatarImage src={undefined} />
-                                      <AvatarFallback>{approvers.manager.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                      <AvatarFallback>{(approvers.manager?.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}</AvatarFallback>
                                     </>
                                   ) : (
                                     <AvatarFallback>?</AvatarFallback>
@@ -703,7 +703,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                                 <div className="flex-shrink-0">
                                   <Avatar className="h-8 w-8">
                                     <AvatarImage src={undefined} />
-                                    <AvatarFallback>{approvers.departmentHead.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                    <AvatarFallback>{(approvers.departmentHead?.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}</AvatarFallback>
                                   </Avatar>
                                 </div>
                                 <div className="flex-1">

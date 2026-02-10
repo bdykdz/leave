@@ -223,7 +223,7 @@ export default function DepartmentHolidayViewPage() {
                       const roleA = ROLE_ORDER[a.user.role as keyof typeof ROLE_ORDER] || 5
                       const roleB = ROLE_ORDER[b.user.role as keyof typeof ROLE_ORDER] || 5
                       if (roleA !== roleB) return roleA - roleB
-                      return `${a.user.lastName} ${a.user.firstName}`.localeCompare(`${b.user.lastName} ${b.user.firstName}`)
+                      return `${a.user?.lastName || ''} ${a.user?.firstName || ''}`.localeCompare(`${b.user?.lastName || ''} ${b.user?.firstName || ''}`)
                     })
                     .map((plan) => (
                       <div key={plan.id} className="border rounded-lg p-4">
@@ -232,10 +232,10 @@ export default function DepartmentHolidayViewPage() {
                             <span className="text-lg">{getRoleIcon(plan.user.role)}</span>
                             <div>
                               <h4 className="font-medium">
-                                {plan.user.firstName} {plan.user.lastName}
+                                {plan.user?.firstName || ''} {plan.user?.lastName || ''}
                               </h4>
                               <p className="text-sm text-gray-600">
-                                {plan.user.position} • {plan.user.employeeId}
+                                {plan.user?.position || ''} • {plan.user?.employeeId || ''}
                               </p>
                             </div>
                           </div>
@@ -253,7 +253,7 @@ export default function DepartmentHolidayViewPage() {
                               <DialogContent className="max-w-2xl">
                                 <DialogHeader>
                                   <DialogTitle>
-                                    {plan.user.firstName} {plan.user.lastName}'s Holiday Plan
+                                    {plan.user?.firstName || ''} {plan.user?.lastName || ''}'s Holiday Plan
                                   </DialogTitle>
                                   <DialogDescription>
                                     Holiday planning for {planningYear}

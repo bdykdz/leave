@@ -431,10 +431,10 @@ export function HRAuditLogViewer() {
                         <TableCell>
                           <div>
                             <p className="font-medium text-sm">
-                              {log.user.firstName} {log.user.lastName}
+                              {log.user?.firstName || ''} {log.user?.lastName || ''}
                             </p>
-                            <p className="text-xs text-gray-500">{log.user.email}</p>
-                            <p className="text-xs text-gray-400">{log.user.department}</p>
+                            <p className="text-xs text-gray-500">{log.user?.email || ''}</p>
+                            <p className="text-xs text-gray-400">{log.user?.department || ''}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -554,11 +554,11 @@ export function HRAuditLogViewer() {
                   <Label className="text-sm font-medium">Performed By</Label>
                   <div className="mt-1 p-3 border rounded-lg">
                     <p className="font-medium">
-                      {selectedLog.user.firstName} {selectedLog.user.lastName}
+                      {selectedLog?.user?.firstName || ''} {selectedLog?.user?.lastName || ''}
                     </p>
-                    <p className="text-sm text-gray-600">{selectedLog.user.email}</p>
+                    <p className="text-sm text-gray-600">{selectedLog?.user?.email || ''}</p>
                     <p className="text-sm text-gray-500">
-                      {selectedLog.user.department} • {selectedLog.user.role}
+                      {selectedLog?.user?.department || ''} • {selectedLog?.user?.role || ''}
                     </p>
                   </div>
                 </div>

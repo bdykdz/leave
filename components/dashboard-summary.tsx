@@ -164,7 +164,7 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={person.avatar} />
                         <AvatarFallback>
-                          {person.name.split(' ').map(n => n[0]).join('')}
+                          {(person.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
@@ -193,7 +193,7 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={person.avatar} />
                         <AvatarFallback>
-                          {person.name.split(' ').map(n => n[0]).join('')}
+                          {(person.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
@@ -223,7 +223,7 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={person.avatar} />
                         <AvatarFallback>
-                          {person.name.split(' ').map(n => n[0]).join('')}
+                          {(person.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
@@ -254,7 +254,7 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={request.avatar} />
                         <AvatarFallback>
-                          {request.requesterName.split(' ').map(n => n[0]).join('')}
+                          {(request.requesterName || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">

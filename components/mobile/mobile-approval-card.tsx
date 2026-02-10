@@ -236,7 +236,7 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
               <span className="text-gray-600 text-sm">Substitute</span>
             </div>
             <p className="text-sm font-medium">
-              {request.substituteUser.firstName} {request.substituteUser.lastName}
+              {request.substituteUser?.firstName || ''} {request.substituteUser?.lastName || ''}
             </p>
           </div>
         )}

@@ -462,7 +462,7 @@ export function EmployeeArchiveManager() {
                     <div className="mt-2 p-4 border rounded-lg space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">
-                          {employeeDetails.employee.firstName} {employeeDetails.employee.lastName}
+                          {employeeDetails?.employee?.firstName || ''} {employeeDetails?.employee?.lastName || ''}
                         </span>
                         <Badge variant={employeeDetails.employee.isActive ? "default" : "secondary"}>
                           {employeeDetails.employee.isActive ? "Active" : "Archived"}

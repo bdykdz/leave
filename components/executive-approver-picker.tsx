@@ -92,7 +92,7 @@ export function ExecutiveApproverPicker({
               <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
                   <AvatarFallback className="text-xs">
-                    {selectedExecutive.name.split(' ').map(n => n[0]).join('')}
+                    {(selectedExecutive.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                   </AvatarFallback>
                 </Avatar>
                 <span>{selectedExecutive.name}</span>
@@ -127,7 +127,7 @@ export function ExecutiveApproverPicker({
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="text-xs">
-                      {executive.name.split(' ').map(n => n[0]).join('')}
+                      {(executive.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">

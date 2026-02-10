@@ -249,7 +249,7 @@ export default function ExecutiveDashboard() {
       action: "approve",
       request: {
         id: request.id,
-        employeeName: request.employee.name,
+        employeeName: request.employee?.name || 'Unknown',
         type: request.type,
         dates: request.dates,
         days: request.days,
@@ -257,13 +257,13 @@ export default function ExecutiveDashboard() {
     })
     setShowApprovalDialog(true)
   }
-  
+
   const handleDenyRequest = (request: any) => {
     setApprovalDetails({
       action: "deny",
       request: {
         id: request.id,
-        employeeName: request.employee.name,
+        employeeName: request.employee?.name || 'Unknown',
         type: request.type,
         dates: request.dates,
         days: request.days,
@@ -873,19 +873,19 @@ export default function ExecutiveDashboard() {
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3">
                               <Avatar className="h-10 w-10">
-                                <AvatarImage src={request.employee.avatar} />
+                                <AvatarImage src={request.employee?.avatar} />
                                 <AvatarFallback>
-                                  {request.employee.name.split(' ').map((n: string) => n[0]).join('')}
+                                  {(request.employee?.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-semibold">{request.employee.name}</h4>
+                                  <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
                                   <Badge variant="outline" className="text-xs">
-                                    {request.employee.department}
+                                    {request.employee?.department || 'N/A'}
                                   </Badge>
                                   <Badge variant="outline" className="text-xs">
-                                    {request.employee.position}
+                                    {request.employee?.position || 'N/A'}
                                   </Badge>
                                   {request.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
                                 </div>

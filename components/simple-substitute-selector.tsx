@@ -207,7 +207,7 @@ export function SimpleSubstituteSelector({
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={substitute.profileImage || undefined} />
                         <AvatarFallback className="text-xs">
-                          {substitute.firstName[0]}{substitute.lastName[0]}
+                          {(substitute.firstName || 'U')[0]}{(substitute.lastName || '')[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
@@ -247,7 +247,7 @@ export function SimpleSubstituteSelector({
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={substitute.profileImage || undefined} />
                         <AvatarFallback className="text-xs">
-                          {substitute.firstName[0]}{substitute.lastName[0]}
+                          {(substitute.firstName || 'U')[0]}{(substitute.lastName || '')[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">

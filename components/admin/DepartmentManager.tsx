@@ -581,7 +581,7 @@ export function DepartmentManager() {
                           />
                         </TableCell>
                         <TableCell>
-                          {user.firstName} {user.lastName}
+                          {user?.firstName || ''} {user?.lastName || ''}
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
