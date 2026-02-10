@@ -506,7 +506,7 @@ export default function ManagerDashboard() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">{t.common.loading}</p>
         </div>
       </div>
     )
@@ -936,7 +936,7 @@ export default function ManagerDashboard() {
                                 <p className="text-sm text-gray-600">
                                   {formatDateRange(request?.startDate, request?.endDate)}
                                 </p>
-                                <p className="text-xs text-gray-500">To: {request?.approver?.name || t.labels.pendingAssignment}</p>
+                                <p className="text-xs text-gray-500">{t.labels.to}: {request?.approver?.name || t.labels.pendingAssignment}</p>
                               </div>
                             </div>
                           </div>

@@ -131,19 +131,19 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
     e.preventDefault()
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for your work from home request.")
+      showError(t.errors.noDatesSelected, t.errors.selectDateForWFHRequest)
       return
     }
 
     const finalLocation = location === "Other" ? otherLocation : location
 
     if (!finalLocation.trim()) {
-      showError("Location Required", "Please provide a location for your work from home request.")
+      showError(t.errors.locationRequired, t.errors.provideWFHLocation)
       return
     }
 
     if (!signature || !isValidSignature) {
-      showError("Invalid Signature", "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.")
+      showError(t.errors.invalidSignature, t.errors.signatureValidationMessage)
       return
     }
 
@@ -321,12 +321,12 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Dates:</span>
+                      <span className="text-sm font-medium">{t.labels.dates}:</span>
                       <p className="text-sm text-gray-600">{formatDateGroups(groupConsecutiveDates(selectedDates))}</p>
                     </div>
 
                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                      <span className="text-sm font-medium">Individual Days:</span>
+                      <span className="text-sm font-medium">{t.labels.individualDays}:</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedDates.map((date, index) => (
                           <Badge
@@ -358,7 +358,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                     <Label htmlFor="location">{t.remoteForm.wfhLocation}</Label>
                     <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a location" />
+                        <SelectValue placeholder={t.placeholders.selectLocation} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="home">Home</SelectItem>
@@ -388,7 +388,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                     <Label>Manager</Label>
                     <div className="p-3 bg-gray-50 rounded-md">
                       {loadingManager ? (
-                        <p className="text-sm text-gray-500">Loading manager information...</p>
+                        <p className="text-sm text-gray-500">{t.loading.loadingManagerInfo}</p>
                       ) : managerInfo ? (
                         <>
                           <p className="font-medium">{managerInfo.name}</p>
@@ -396,8 +396,8 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                         </>
                       ) : (
                         <>
-                          <p className="font-medium text-gray-500">No Manager Assigned</p>
-                          <p className="text-sm text-gray-600">Please contact HR to assign a manager</p>
+                          <p className="font-medium text-gray-500">{t.labels.noManagerAssigned}</p>
+                          <p className="text-sm text-gray-600">{t.labels.contactHrForManager}</p>
                         </>
                       )}
                     </div>

@@ -250,15 +250,15 @@ export default function TeamCalendarPage() {
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span className="text-sm">Essential</span>
+                  <span className="text-sm">{t.planning.essential}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  <span className="text-sm">Preferred</span>
+                  <span className="text-sm">{t.planning.preferred}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span className="text-sm">Nice to Have</span>
+                  <span className="text-sm">{t.planning.niceToHave}</span>
                 </div>
                 <hr />
                 <div className="space-y-2">

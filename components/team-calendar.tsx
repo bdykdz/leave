@@ -161,7 +161,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Team Status - {format(date, "EEEE, MMMM d, yyyy")}</span>
+            <span>{t.calendarDetail.teamStatus} - {format(date, "EEEE, MMMM d, yyyy")}</span>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -175,7 +175,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
               <h3 className="font-semibold text-amber-800 mb-1">{holidayForDate.nameEn}</h3>
               <p className="text-sm text-amber-600">{holidayForDate.nameRo}</p>
               {holidayForDate.isBlocked && (
-                <p className="text-xs text-amber-700 mt-1">Work from home not allowed on this day</p>
+                <p className="text-xs text-amber-700 mt-1">{t.calendarDetail.wfhNotAllowed}</p>
               )}
             </div>
           )}
@@ -183,7 +183,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
           {/* Team Members Away */}
           {actualLeave.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-red-600">Team Members Away ({actualLeave.length})</h3>
+              <h3 className="text-lg font-semibold mb-4 text-red-600">{t.calendarDetail.teamMembersAway} ({actualLeave.length})</h3>
               <div className="space-y-3">
                 {actualLeave.map((event) => (
                   <div key={event.id} className="flex items-start gap-4 p-4 border rounded-lg">
@@ -201,7 +201,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                         <span className="font-medium">{event.leaveType}</span> • {formatEventDates(event)}
                       </p>
                       {event.reason && <p className="text-sm text-gray-500 mt-1">"{event.reason}"</p>}
-                      {event.substitute && <p className="text-sm text-blue-600 mt-1">Substitute: {event.substitute}</p>}
+                      {event.substitute && <p className="text-sm text-blue-600 mt-1">{t.calendarDetail.substitute}: {event.substitute}</p>}
                     </div>
                   </div>
                 ))}
@@ -214,7 +214,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
             <div>
               <h3 className="text-lg font-semibold mb-4 text-blue-600 flex items-center gap-2">
                 <Home className="h-5 w-5" />
-                Working From Home ({wfhRequests.length})
+                {t.calendarDetail.workingFromHomeCount} ({wfhRequests.length})
               </h3>
               <div className="space-y-3">
                 {wfhRequests.map((event) => (
@@ -231,13 +231,13 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                         <h4 className="font-semibold">{event.userName}</h4>
                         <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
                         <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                          WFH
+                          {t.common.wfh}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{event.department}</p>
-                      {event.location && <p className="text-sm text-gray-600 mb-1">Location: {event.location}</p>}
+                      {event.location && <p className="text-sm text-gray-600 mb-1">{t.calendarDetail.location}: {event.location}</p>}
                       <p className="text-sm">
-                        <span className="font-medium">Work From Home</span> • {formatEventDates(event)}
+                        <span className="font-medium">{t.common.workFromHome}</span> • {formatEventDates(event)}
                       </p>
                     </div>
                   </div>
@@ -249,21 +249,21 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
           {/* Summary Box */}
           {(actualLeave.length > 0 || wfhRequests.length > 0) && (
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-semibold mb-2">Day Summary</h4>
+              <h4 className="font-semibold mb-2">{t.calendarDetail.daySummary}</h4>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <div className="text-xl font-bold text-red-600">{actualLeave.length}</div>
-                  <div className="text-xs text-gray-600">Away</div>
+                  <div className="text-xs text-gray-600">{t.calendarLegend.away}</div>
                 </div>
                 <div>
                   <div className="text-xl font-bold text-blue-600">{wfhRequests.length}</div>
-                  <div className="text-xs text-gray-600">WFH</div>
+                  <div className="text-xs text-gray-600">{t.common.wfh}</div>
                 </div>
                 <div>
                   <div className="text-xl font-bold text-green-600">
                     {Math.max(0, 10 - actualLeave.length - wfhRequests.length)}
                   </div>
-                  <div className="text-xs text-gray-600">In Office</div>
+                  <div className="text-xs text-gray-600">{t.calendarDetail.inOffice}</div>
                 </div>
               </div>
             </div>
@@ -272,7 +272,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
           {/* No events */}
           {actualLeave.length === 0 && wfhRequests.length === 0 && !holidayForDate && (
             <div className="text-center py-8 text-gray-500">
-              <p>No team members away or working from home on this date</p>
+              <p>{t.calendarDetail.noTeamMembersAway}</p>
             </div>
           )}
         </div>
@@ -514,7 +514,7 @@ export function TeamCalendar() {
                   {wfhCount > 0 && (
                     <div className="flex items-center gap-1">
                       <Home className="h-3 w-3 text-blue-500" />
-                      <span className="text-xs text-blue-600">{wfhCount} WFH</span>
+                      <span className="text-xs text-blue-600">{wfhCount} {t.common.wfh}</span>
                     </div>
                   )}
                 </div>

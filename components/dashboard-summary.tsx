@@ -147,7 +147,7 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
       <CardContent>
         {!hasAnyData ? (
           <p className="text-gray-500 text-center py-4">
-            {t.dashboard.summary.noActivity}
+            {t.labels.noActivityToday}
           </p>
         ) : (
           <div className="space-y-6">

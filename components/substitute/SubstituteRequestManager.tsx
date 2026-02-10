@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
+import { useTranslations } from "@/components/language-provider"
 
 interface SubstituteRequest {
   id: string
@@ -60,6 +61,7 @@ interface SubstituteRequest {
 }
 
 export function SubstituteRequestManager() {
+  const t = useTranslations()
   const [requests, setRequests] = useState<{
     pending: SubstituteRequest[]
     accepted: SubstituteRequest[]
@@ -167,36 +169,36 @@ export function SubstituteRequestManager() {
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-gray-600">Leave Type:</span>
+            <span className="text-gray-600">{t.labels.leaveType}:</span>
             <p className="font-medium">{request.leaveRequest.leaveType.name}</p>
           </div>
           <div>
-            <span className="text-gray-600">Request #:</span>
+            <span className="text-gray-600">{t.labels.requestNumber}:</span>
             <p className="font-medium">{request.leaveRequest.requestNumber}</p>
           </div>
           <div>
-            <span className="text-gray-600">Period:</span>
+            <span className="text-gray-600">{t.labels.period}:</span>
             <p className="font-medium">
               {format(new Date(request.leaveRequest.startDate), 'MMM d, yyyy')} - 
               {format(new Date(request.leaveRequest.endDate), 'MMM d, yyyy')}
             </p>
           </div>
           <div>
-            <span className="text-gray-600">Duration:</span>
+            <span className="text-gray-600">{t.labels.duration}:</span>
             <p className="font-medium">{request.leaveRequest.totalDays} days</p>
           </div>
         </div>
 
         {request.leaveRequest.reason && (
           <div className="text-sm">
-            <span className="text-gray-600">Reason:</span>
+            <span className="text-gray-600">{t.labels.reason}:</span>
             <p className="mt-1 p-2 bg-gray-50 rounded">{request.leaveRequest.reason}</p>
           </div>
         )}
 
         {request.responseReason && (
           <div className="text-sm">
-            <span className="text-gray-600">Your Response:</span>
+            <span className="text-gray-600">{t.labels.yourResponse}:</span>
             <p className="mt-1 p-2 bg-gray-50 rounded">{request.responseReason}</p>
           </div>
         )}
@@ -239,7 +241,7 @@ export function SubstituteRequestManager() {
     return (
       <Card>
         <CardContent className="p-8">
-          <div className="text-center">Loading substitute requests...</div>
+          <div className="text-center">{t.loading.loadingSubstituteRequests}</div>
         </CardContent>
       </Card>
     )

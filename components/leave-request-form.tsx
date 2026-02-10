@@ -82,11 +82,11 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   // Handle conflict check button click
   const handleCheckConflicts = () => {
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select dates first to check for team conflicts.")
+      showError(t.errors.noDatesSelected, t.errors.selectDatesForConflictCheck)
       return
     }
     if (!approvers.manager?.id) {
-      showError("Manager Not Available", "Your manager information is not available. Please contact HR.")
+      showError(t.errors.managerNotAvailable, t.errors.managerInfoUnavailable)
       return
     }
     setShowConflictWizard(true)
@@ -246,12 +246,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
     e.preventDefault()
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for your leave request.")
+      showError(t.errors.noDatesSelected, t.errors.selectDateForLeaveRequest)
       return
     }
 
     if (!leaveType) {
-      showError("Leave Type Required", "Please select a leave type for your request.")
+      showError(t.errors.leaveTypeRequired, t.errors.selectLeaveType)
       return
     }
 
@@ -259,20 +259,20 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
 
     if (selectedSubstitutes.length === 0) {
       showError(
-        "Coverage Assignment Required",
-        "Please select a team member to cover your responsibilities.",
+        t.errors.coverageRequired,
+        t.errors.selectTeamMemberForCoverage,
       )
       return
     }
 
     if (!signature || !isValidSignature) {
-      showError("Invalid Signature", "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.")
+      showError(t.errors.invalidSignature, t.errors.signatureValidationMessage)
       return
     }
 
     // Validate medical certificate for sick leave
     if (isSickLeave && supportingDocuments.length === 0) {
-      showError("Medical Certificate Required", "Please upload a medical certificate or doctor's note for sick leave requests.")
+      showError(t.errors.medicalCertificateRequired, t.errors.uploadMedicalCertificate)
       return
     }
 
@@ -281,7 +281,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
     try {
       // Check if we have valid dates
       if (!startDate || !endDate) {
-        showError("Invalid Dates", "Please select valid dates for your leave request.")
+        showError(t.errors.invalidDates, t.errors.selectValidDates)
         return
       }
 
@@ -505,12 +505,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Dates:</span>
+                      <span className="text-sm font-medium">{t.labels.dates}:</span>
                       <p className="text-sm text-gray-600">{formatDateGroups(groupConsecutiveDates(selectedDates))}</p>
                     </div>
 
                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                      <span className="text-sm font-medium">Individual Days:</span>
+                      <span className="text-sm font-medium">{t.labels.individualDays}:</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedDates.map((date, index) => (
                           <Badge
@@ -573,7 +573,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                             <div className="space-y-2">
                               <div className="flex items-center gap-1 text-amber-600">
                                 <AlertCircle className="h-3 w-3" />
-                                <span className="text-xs">Supporting document required</span>
+                                <span className="text-xs">{t.labels.supportingDocumentRequired}</span>
                               </div>
                               
                               {/* File upload for sick leave only */}
@@ -643,7 +643,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                           {selected.maxDaysPerRequest && selectedDates.length > selected.maxDaysPerRequest && (
                             <div className="flex items-center gap-1 text-red-600">
                               <AlertCircle className="h-3 w-3" />
-                              <span className="text-xs">Maximum {selected.maxDaysPerRequest} days per request</span>
+                              <span className="text-xs">{t.labels.maximumDaysPerRequest} {selected.maxDaysPerRequest}</span>
                             </div>
                           )}
                         </div>
@@ -670,7 +670,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                       </Label>
                       <div className="p-3 bg-gray-50 rounded-md border space-y-3">
                         {loadingApprovers ? (
-                          <p className="text-sm text-gray-500">Loading approvers...</p>
+                          <p className="text-sm text-gray-500">{t.loading.loadingApprovers}</p>
                         ) : (
                           <>
                             {/* Manager */}
@@ -689,7 +689,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-medium">
-                                  {t.leaveForm.manager}: {approvers.manager ? approvers.manager.name : <span className="text-red-600">Not Assigned</span>}
+                                  {t.leaveForm.manager}: {approvers.manager ? approvers.manager.name : <span className="text-red-600">{t.labels.notAssigned}</span>}
                                 </p>
                               </div>
                               <Badge variant={approvers.manager ? "secondary" : "destructive"} className="text-xs">
@@ -767,7 +767,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                         className="w-full flex items-center gap-2"
                       >
                         <AlertCircle className="h-4 w-4" />
-                        Check Team Conflicts & Get Smart Suggestions
+                        {t.buttons.checkConflicts}
                       </Button>
                     )}
                     
@@ -783,7 +783,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                       }
                       className="w-full"
                     >
-                      {isSubmitting ? "Submitting..." : `Submit Request (${getTotalDays()} days)`}
+                      {isSubmitting ? t.common.submitting : `Submit Request (${getTotalDays()} days)`}
                     </Button>
                     <Button type="button" variant="outline" onClick={onBack} className="w-full">
                       Cancel

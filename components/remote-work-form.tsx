@@ -64,27 +64,27 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
     e.preventDefault()
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for your remote work request.")
+      showError(t.errors.noDatesSelected, t.errors.selectDateForRemoteWork)
       return
     }
 
     if (!location) {
-      showError("Location Required", "Please select where you'll be working remotely from.")
+      showError(t.errors.locationRequired, t.errors.selectWorkLocation)
       return
     }
 
     if (location === "other" && !customLocation.trim()) {
-      showError("Custom Location Required", "Please specify your remote work location.")
+      showError(t.errors.customLocationRequired, t.errors.specifyLocation)
       return
     }
 
     if (!reason.trim()) {
-      showError("Reason Required", "Please provide a reason for your remote work request.")
+      showError(t.errors.reasonRequired, t.errors.provideReason)
       return
     }
 
     if (!signature || !isValidSignature) {
-      showError("Invalid Signature", "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.")
+      showError(t.errors.invalidSignature, t.errors.signatureValidationMessage)
       return
     }
 
@@ -182,7 +182,7 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
             </Button>
             <div className="flex items-center gap-2">
               <MapPin className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Request Remote Work</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.buttons.requestRemoteWork}</h1>
             </div>
           </div>
         </div>
@@ -229,19 +229,19 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Days:</span>
+                      <span className="text-sm font-medium">{t.labels.totalDays}:</span>
                       <Badge variant="secondary" className="text-lg px-3 py-1 bg-blue-100 text-blue-800">
                         {getTotalDays()}
                       </Badge>
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Dates:</span>
+                      <span className="text-sm font-medium">{t.labels.dates}:</span>
                       <p className="text-sm text-gray-600">{formatDateGroups(groupConsecutiveDates(selectedDates))}</p>
                     </div>
 
                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                      <span className="text-sm font-medium">Individual Days:</span>
+                      <span className="text-sm font-medium">{t.labels.individualDays}:</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedDates.map((date, index) => (
                           <Badge
@@ -272,7 +272,7 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
                     <Label htmlFor="location">Remote Work Location *</Label>
                     <Select value={location} onValueChange={setLocation} required>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select where you'll be working from" />
+                        <SelectValue placeholder={t.placeholders.selectWorkLocation} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="home">🏠 Home</SelectItem>
@@ -284,7 +284,7 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
                     </Select>
                     {location === "other" && (
                       <InputComponent
-                        placeholder="Please specify your remote work location"
+                        placeholder={t.placeholders.specifyWorkLocation}
                         value={customLocation}
                         onChange={(e) => setCustomLocation(e.target.value)}
                         className="mt-2"
@@ -296,7 +296,7 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
                     <Label htmlFor="reason">Reason for Remote Work *</Label>
                     <Textarea
                       id="reason"
-                      placeholder="Please provide a reason for your remote work request (e.g., client meeting, focus time, home repairs, etc.)"
+                      placeholder={t.placeholders.remoteWorkReason}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={4}
@@ -311,12 +311,12 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
                     <Label>Manager</Label>
                     <div className="p-3 bg-gray-50 rounded-md">
                       <p className="font-medium">Michael Chen</p>
-                      <p className="text-sm text-gray-600">Your request will be sent for approval</p>
+                      <p className="text-sm text-gray-600">{t.remoteForm.yourRequestWillBeSent}</p>
                     </div>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Remote Work Guidelines</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">{t.labels.remoteWorkGuidelines}</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• Ensure you have reliable internet connection</li>
                       <li>• Be available during core business hours</li>

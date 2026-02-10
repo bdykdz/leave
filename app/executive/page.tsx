@@ -342,7 +342,7 @@ export default function ExecutiveDashboard() {
   }
 
   if (status === "loading") {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return <div className="flex items-center justify-center min-h-screen">{t.common.loading}</div>
   }
 
   if (!session || session.user.role !== "EXECUTIVE") {
@@ -468,7 +468,7 @@ export default function ExecutiveDashboard() {
         {activeTab === "dashboard" && (
           <div className="text-center py-4">
             <h2 className="text-2xl font-bold text-gray-900">{t.dashboard.welcomeBack}, {session?.user?.firstName || session?.user?.name}</h2>
-            <p className="text-gray-600 mt-1">Executive - {session?.user?.department}</p>
+            <p className="text-gray-600 mt-1">{t.roles.executive} - {session?.user?.department}</p>
           </div>
         )}
 

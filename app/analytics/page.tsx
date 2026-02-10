@@ -28,6 +28,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { useTranslations } from "@/components/language-provider"
 
 interface DashboardMetrics {
   totalEmployees: number
@@ -114,6 +115,7 @@ const chartConfig = {
 export default function AnalyticsPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
 
@@ -215,8 +217,8 @@ export default function AnalyticsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-4">Please log in to view analytics</p>
+          <h1 className="text-2xl font-bold mb-4">{t.errors.accessDenied}</h1>
+          <p className="text-gray-600 mb-4">{t.errors.loginRequired}</p>
           <Button onClick={() => router.push('/login')}>Go to Login</Button>
         </div>
       </div>
@@ -229,7 +231,7 @@ export default function AnalyticsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.nav.analytics} {t.dashboard.title}</h1>
               <p className="text-gray-600">Comprehensive insights into leave management and team dynamics</p>
             </div>
             <Button variant="outline" onClick={() => router.back()}>
@@ -260,7 +262,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <Users className="h-5 w-5 text-blue-500" />
-                        <p className="text-sm font-medium text-gray-600">Total Employees</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.totalEmployees}</p>
                       </div>
                       <p className="text-2xl font-bold">{metrics.totalEmployees}</p>
                     </CardContent>
@@ -270,7 +272,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <Activity className="h-5 w-5 text-orange-500" />
-                        <p className="text-sm font-medium text-gray-600">Active Requests</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.activeRequests}</p>
                       </div>
                       <p className="text-2xl font-bold text-orange-600">{metrics.activeRequests}</p>
                     </CardContent>
@@ -280,7 +282,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <Clock className="h-5 w-5 text-purple-500" />
-                        <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.pendingApprovals}</p>
                       </div>
                       <p className="text-2xl font-bold text-purple-600">{metrics.approvalsPending}</p>
                     </CardContent>
@@ -290,7 +292,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <Calendar className="h-5 w-5 text-green-500" />
-                        <p className="text-sm font-medium text-gray-600">Days Requested</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.daysRequested}</p>
                       </div>
                       <p className="text-2xl font-bold text-green-600">{metrics.totalDaysRequested}</p>
                     </CardContent>
@@ -300,7 +302,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="h-5 w-5 text-indigo-500" />
-                        <p className="text-sm font-medium text-gray-600">Avg Processing</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.averageProcessing}</p>
                       </div>
                       <p className="text-2xl font-bold text-indigo-600">{metrics.averageProcessingTime}d</p>
                     </CardContent>
@@ -397,19 +399,19 @@ export default function AnalyticsPage() {
                           <h4 className="font-medium text-lg">{dept.department}</h4>
                           <div className="mt-2 space-y-1 text-sm">
                             <div className="flex justify-between">
-                              <span>Employees:</span>
+                              <span>{t.labels.employees}:</span>
                               <span className="font-medium">{dept.totalEmployees}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Total Leave:</span>
-                              <span className="font-medium">{dept.totalLeave} days</span>
+                              <span>{t.labels.totalLeave}:</span>
+                              <span className="font-medium">{dept.totalLeave} {t.common.days}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Utilization:</span>
+                              <span>{t.labels.utilization}:</span>
                               <span className="font-medium">{dept.utilizationRate.toFixed(1)}%</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Pending:</span>
+                              <span>{t.labels.pending}:</span>
                               <Badge variant={dept.pendingRequests > 0 ? "destructive" : "secondary"}>
                                 {dept.pendingRequests}
                               </Badge>
@@ -433,7 +435,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <Clock className="h-5 w-5 text-blue-500" />
-                        <p className="text-sm font-medium text-gray-600">Avg Approval Time</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.averageApprovalTime}</p>
                       </div>
                       <p className="text-2xl font-bold">{approvals.averageApprovalTime} days</p>
                     </CardContent>
@@ -443,7 +445,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <CheckCircle className="h-5 w-5 text-green-500" />
-                        <p className="text-sm font-medium text-gray-600">Approval Rate</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.approvalRate}</p>
                       </div>
                       <p className="text-2xl font-bold text-green-600">{approvals.approvalRate}%</p>
                     </CardContent>
@@ -453,7 +455,7 @@ export default function AnalyticsPage() {
                     <CardContent className="p-6">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle className="h-5 w-5 text-orange-500" />
-                        <p className="text-sm font-medium text-gray-600">Escalation Rate</p>
+                        <p className="text-sm font-medium text-gray-600">{t.metrics.escalationRate}</p>
                       </div>
                       <p className="text-2xl font-bold text-orange-600">{approvals.escalationRate}%</p>
                     </CardContent>
@@ -574,7 +576,7 @@ export default function AnalyticsPage() {
                     </ChartContainer>
                     
                     <div className="mt-6">
-                      <h4 className="font-medium mb-4">Critical Coverage Periods</h4>
+                      <h4 className="font-medium mb-4">{t.metrics.criticalCoveragePeriods}</h4>
                       <div className="space-y-2">
                         {coverage.filter(c => c.criticalCoverage).slice(0, 5).map((day, index) => (
                           <div key={index} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -586,7 +588,7 @@ export default function AnalyticsPage() {
                           </div>
                         ))}
                         {coverage.filter(c => c.criticalCoverage).length === 0 && (
-                          <p className="text-gray-500 text-center py-4">No critical coverage periods in the next 30 days</p>
+                          <p className="text-gray-500 text-center py-4">{t.metrics.noCriticalCoveragePeriods}</p>
                         )}
                       </div>
                     </div>

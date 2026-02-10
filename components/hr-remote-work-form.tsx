@@ -72,17 +72,17 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
     }
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for the remote work request.")
+      showError(t.errors.noDatesSelected, t.errors.selectDateForRemoteWork)
       return
     }
 
     if (!location) {
-      showError("Location Required", "Please select where the employee will be working remotely from.")
+      showError(t.errors.locationRequired, t.errors.selectEmployeeLocation)
       return
     }
 
     if (location === "other" && !customLocation.trim()) {
-      showError("Custom Location Required", "Please specify the remote work location.")
+      showError(t.errors.customLocationRequired, t.errors.specifyRemoteWorkLocation)
       return
     }
 
@@ -316,7 +316,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     <Label htmlFor="location">Remote Work Location *</Label>
                     <Select value={location} onValueChange={setLocation} required>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select where employee will work from" />
+                        <SelectValue placeholder={t.placeholders.selectEmployeeWorkLocation} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="home">🏠 Home</SelectItem>
@@ -328,7 +328,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     </Select>
                     {location === "other" && (
                       <Input
-                        placeholder="Please specify the remote work location"
+                        placeholder={t.placeholders.specifyRemoteWorkLocation}
                         value={customLocation}
                         onChange={(e) => setCustomLocation(e.target.value)}
                         className="mt-2"
@@ -340,7 +340,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     <Label htmlFor="reason">Reason for Remote Work</Label>
                     <Textarea
                       id="reason"
-                      placeholder="Provide reason for the remote work request (e.g., client meeting, office maintenance, focus time, etc.)"
+                      placeholder={t.placeholders.remoteWorkReason}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={4}
@@ -351,7 +351,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     <Label htmlFor="hr-notes">HR Notes (Internal)</Label>
                     <Textarea
                       id="hr-notes"
-                      placeholder="Internal HR notes (not visible to employee)..."
+                      placeholder={t.placeholders.hrNotes}
                       value={hrNotes}
                       onChange={(e) => setHrNotes(e.target.value)}
                       rows={2}

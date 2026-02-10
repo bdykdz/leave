@@ -46,7 +46,7 @@ export default function HRDashboard() {
   }, [session, status, router])
 
   if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center">{t.common.loading}</div>
   }
 
   const isHREmployee = session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr")

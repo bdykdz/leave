@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useTranslations } from '@/components/language-provider'
 
 interface User {
   id: string
@@ -24,6 +25,7 @@ interface User {
 function LoginContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
+  const t = useTranslations()
   const [devEmail, setDevEmail] = useState('dev@company.com')
   const [devRole, setDevRole] = useState('EMPLOYEE')
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -142,7 +144,7 @@ function LoginContent() {
               <div className="space-y-4 border rounded-lg p-4 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
                 <div className="flex items-center gap-2 text-sm text-orange-800 dark:text-orange-300">
                   <Code2 className="h-4 w-4" />
-                  <span className="font-medium">Development Login</span>
+                  <span className="font-medium">{t.login.developmentLogin}</span>
                 </div>
                 
                 <Tabs defaultValue="user" className="w-full">
@@ -180,8 +182,8 @@ function LoginContent() {
                           const user = users.find(u => u.id === selectedUserId)
                           return user ? (
                             <div className="space-y-1">
-                              <p>Email: {user.email}</p>
-                              <p>Department: {user.department}</p>
+                              <p>{t.labels.email}: {user.email}</p>
+                              <p>{t.labels.department}: {user.department}</p>
                             </div>
                           ) : null
                         })()}
@@ -203,14 +205,14 @@ function LoginContent() {
                     <div className="space-y-2">
                       <Input
                         type="email"
-                        placeholder="Email"
+                        placeholder={t.placeholders.email}
                         value={devEmail}
                         onChange={(e) => setDevEmail(e.target.value)}
                       />
                       
                       <Select value={devRole} onValueChange={setDevRole}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
+                          <SelectValue placeholder={t.placeholders.selectRole} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="EMPLOYEE">Employee</SelectItem>
@@ -238,8 +240,8 @@ function LoginContent() {
         </CardContent>
         <CardFooter>
           <div className="text-sm text-center text-muted-foreground w-full">
-            <p className="mb-2">Only authorized company accounts can access this system.</p>
-            <p className="text-xs">Contact your HR department if you need access.</p>
+            <p className="mb-2">{t.login.onlyAuthorizedAccounts}</p>
+            <p className="text-xs">{t.login.contactHRForAccess}</p>
           </div>
         </CardFooter>
       </Card>
@@ -250,8 +252,9 @@ function LoginContent() {
 export const dynamic = 'force-dynamic'
 
 export default function LoginPage() {
+  const t = useTranslations()
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div>{t.common.loading}</div>}>
       <LoginContent />
     </Suspense>
   )

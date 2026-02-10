@@ -290,7 +290,7 @@ export default function EmployeeDashboard() {
   // Now we can have conditional returns
 
   if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center">{t.common.loading}</div>
   }
 
   if (!session) {

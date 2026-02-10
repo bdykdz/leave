@@ -74,12 +74,12 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
               )}
             </div>
             <h3 className={`text-xl font-semibold mb-2 ${isApproval ? "text-green-900" : "text-red-900"}`}>
-              Request {isApproval ? "Approved" : "Denied"}
+              {isApproval ? t.approval.requestApproved : t.approval.requestDenied}
             </h3>
             
             <p className="text-gray-600 mb-4">
-              {request.employeeName}'s {request.type.toLowerCase()} request has been{" "}
-              {isApproval ? "approved" : "denied"}.
+              {request.employeeName}&apos;s {request.type.toLowerCase()} request has been{" "}
+              {isApproval ? t.status.approved.toLowerCase() : t.status.rejected.toLowerCase()}.
             </p>
 
             <div className="bg-gray-50 rounded-lg p-4 space-y-3 text-left mb-4">
@@ -95,7 +95,7 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
                   <Calendar className="h-4 w-4 text-blue-600" />
                 )}
                 <span className="text-gray-600">
-                  {request.type} - {request.days} day{request.days > 1 ? "s" : ""}
+                  {request.type} - {request.days} {request.days > 1 ? t.common.days : t.common.day}
                 </span>
               </div>
 
@@ -103,10 +103,10 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
                 <Clock className="h-4 w-4 text-gray-500" />
                 <span className="text-gray-600">{request.dates}</span>
               </div>
-              
+
               {isApproval && (
                 <div className="border-t pt-2 mt-2">
-                  <p className="text-xs text-green-600 font-medium">✓ Digitally signed and approved</p>
+                  <p className="text-xs text-green-600 font-medium">✓ {t.approval.digitallySigned}</p>
                   <p className="text-xs text-gray-500">
                     {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
                   </p>
@@ -115,7 +115,7 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
             </div>
 
             <p className="text-sm text-gray-500">
-              {request.employeeName} will receive an email notification about this decision.
+              {request.employeeName} {t.approval.emailNotification}
             </p>
           </div>
         </DialogContent>
@@ -131,38 +131,38 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
             {isApproval ? (
               <>
                 <CheckCircle className="h-5 w-5 text-green-600" />
-                Approve Leave Request
+                {t.approval.approveLeaveRequest}
               </>
             ) : (
               <>
                 <XCircle className="h-5 w-5 text-red-600" />
-                Deny Leave Request
+                {t.approval.denyLeaveRequest}
               </>
             )}
           </DialogTitle>
           <DialogDescription>
-            Review and {isApproval ? 'approve' : 'deny'} the leave request from {request.employeeName}
+            {t.approval.reviewDescription} {request.employeeName}
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <p className="text-sm">
-              <span className="font-medium">Employee:</span> {request.employeeName}
+              <span className="font-medium">{t.labels.employee}:</span> {request.employeeName}
             </p>
             <p className="text-sm">
-              <span className="font-medium">Type:</span> {request.type}
+              <span className="font-medium">{t.labels.type}:</span> {request.type}
             </p>
             <p className="text-sm">
-              <span className="font-medium">Duration:</span> {request.dates} ({request.days} day{request.days > 1 ? 's' : ''})
+              <span className="font-medium">{t.labels.duration}:</span> {request.dates} ({request.days} {request.days > 1 ? t.common.days : t.common.day})
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="comment">Comment (Optional)</Label>
+            <Label htmlFor="comment">{t.approval.commentOptional}</Label>
             <Textarea
               id="comment"
-              placeholder={isApproval ? "Add any approval notes..." : "Reason for denial (recommended)"}
+              placeholder={isApproval ? t.approval.approvalNotesPlaceholder : t.approval.denialReasonPlaceholder}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
@@ -186,19 +186,19 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
                 <p className="text-sm text-red-500">{error}</p>
               )}
               <p className="text-xs text-gray-500">
-                By signing above, you are electronically approving this request
+                {t.approval.signingNotice}
               </p>
             </div>
           )}
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose}>{t.common.cancel}</Button>
           <Button
             onClick={handleSubmit}
             className={isApproval ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
           >
-            {isApproval ? "Approve Request" : "Deny Request"}
+            {isApproval ? t.buttons.approveRequest : t.buttons.denyRequest}
           </Button>
         </DialogFooter>
       </DialogContent>

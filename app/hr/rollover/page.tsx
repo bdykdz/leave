@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ArrowLeft, Calendar, TrendingUp, Users, AlertTriangle, CheckCircle } from "lucide-react"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { useTranslations } from "@/components/language-provider"
 
 interface RolloverSummary {
   totalUsers: number
@@ -41,6 +42,7 @@ interface RolloverData {
 export default function RolloverManagementPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [rolloverData, setRolloverData] = useState<RolloverData | null>(null)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(false)
@@ -117,8 +119,8 @@ export default function RolloverManagementPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-4">Please log in to access rollover management</p>
+          <h1 className="text-2xl font-bold mb-4">{t.errors.accessDenied}</h1>
+          <p className="text-gray-600 mb-4">{t.errors.loginRequired}</p>
           <Button onClick={() => router.push('/login')}>Go to Login</Button>
         </div>
       </div>
@@ -131,8 +133,8 @@ export default function RolloverManagementPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Leave Rollover Management</h1>
-              <p className="text-gray-600">Manage year-end leave rollover for all employees</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t.rollover.title}</h1>
+              <p className="text-gray-600">{t.rollover.description}</p>
             </div>
             <Button variant="outline" onClick={() => router.back()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -171,7 +173,7 @@ export default function RolloverManagementPage() {
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p>Loading rollover data...</p>
+              <p>{t.loading.loadingRolloverData}</p>
             </div>
           </div>
         ) : rolloverData ? (
@@ -201,7 +203,7 @@ export default function RolloverManagementPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="h-5 w-5 text-blue-500" />
-                    <p className="text-sm font-medium text-gray-600">Total Users</p>
+                    <p className="text-sm font-medium text-gray-600">{t.metrics.totalUsers}</p>
                   </div>
                   <p className="text-2xl font-bold">{rolloverData.summary.totalUsers}</p>
                 </CardContent>
@@ -211,7 +213,7 @@ export default function RolloverManagementPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="h-5 w-5 text-green-500" />
-                    <p className="text-sm font-medium text-gray-600">Days Carried Forward</p>
+                    <p className="text-sm font-medium text-gray-600">{t.metrics.daysCarriedForward}</p>
                   </div>
                   <p className="text-2xl font-bold text-green-600">{rolloverData.summary.totalDaysCarriedForward}</p>
                 </CardContent>
@@ -221,7 +223,7 @@ export default function RolloverManagementPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertTriangle className="h-5 w-5 text-red-500" />
-                    <p className="text-sm font-medium text-gray-600">Days Lost</p>
+                    <p className="text-sm font-medium text-gray-600">{t.metrics.daysLost}</p>
                   </div>
                   <p className="text-2xl font-bold text-red-600">{rolloverData.summary.totalDaysLost}</p>
                 </CardContent>
@@ -231,7 +233,7 @@ export default function RolloverManagementPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="h-5 w-5 text-purple-500" />
-                    <p className="text-sm font-medium text-gray-600">Avg Carry Forward</p>
+                    <p className="text-sm font-medium text-gray-600">{t.metrics.averageCarryForward}</p>
                   </div>
                   <p className="text-2xl font-bold text-purple-600">{rolloverData.summary.avgCarryForward}</p>
                 </CardContent>
@@ -270,7 +272,7 @@ export default function RolloverManagementPage() {
               <CardContent>
                 <div className="space-y-4">
                   {rolloverData.details.length === 0 ? (
-                    <p className="text-gray-500 text-center py-6">No leave balances found for rollover</p>
+                    <p className="text-gray-500 text-center py-6">{t.common.noResults}</p>
                   ) : (
                     rolloverData.details.map((detail, index) => (
                       <div key={index} className="border rounded-lg p-4">
@@ -278,8 +280,8 @@ export default function RolloverManagementPage() {
                           <div className="flex items-center gap-3">
                             <div className={`w-3 h-3 rounded-full ${getStatusColor(detail.lost)}`}></div>
                             <div>
-                              <p className="font-medium">User ID: {detail.userId}</p>
-                              <p className="text-sm text-gray-600">Leave Type: {detail.leaveTypeId}</p>
+                              <p className="font-medium">{t.labels.userId}: {detail.userId}</p>
+                              <p className="text-sm text-gray-600">{t.labels.leaveType}: {detail.leaveTypeId}</p>
                             </div>
                           </div>
                           <div className="text-right">
@@ -291,23 +293,23 @@ export default function RolloverManagementPage() {
                         
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-600">Entitled:</span>
+                            <span className="text-gray-600">{t.leaveForm.entitled}:</span>
                             <span className="font-medium ml-1">{detail.entitled}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Used:</span>
+                            <span className="text-gray-600">{t.leaveForm.used}:</span>
                             <span className="font-medium ml-1">{detail.used}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Unused:</span>
+                            <span className="text-gray-600">{t.labels.unused}:</span>
                             <span className="font-medium ml-1">{detail.unused}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Carried Forward:</span>
+                            <span className="text-gray-600">{t.labels.carriedForward}:</span>
                             <span className="font-medium ml-1 text-green-600">{detail.carriedForward}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Lost:</span>
+                            <span className="text-gray-600">{t.labels.lost}:</span>
                             <span className="font-medium ml-1 text-red-600">{detail.lost}</span>
                           </div>
                         </div>

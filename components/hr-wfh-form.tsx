@@ -70,7 +70,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
     }
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for the Remote Work request.")
+      showError(t.errors.noDatesSelected, t.errors.selectDateForRemoteWork)
       return
     }
 
@@ -172,7 +172,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
             </Button>
             <div className="flex items-center gap-2">
               <Shield className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Add Remote Work (HR)</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.buttons.addRemoteWorkHR}</h1>
             </div>
           </div>
         </div>
@@ -218,19 +218,19 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Days:</span>
+                      <span className="text-sm font-medium">{t.labels.totalDays}:</span>
                       <Badge variant="secondary" className="text-lg px-3 py-1 bg-blue-100 text-blue-800">
                         {getTotalDays()}
                       </Badge>
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Dates:</span>
+                      <span className="text-sm font-medium">{t.labels.dates}:</span>
                       <p className="text-sm text-gray-600">{formatDateGroups(groupConsecutiveDates(selectedDates))}</p>
                     </div>
 
                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                      <span className="text-sm font-medium">Individual Days:</span>
+                      <span className="text-sm font-medium">{t.labels.individualDays}:</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedDates.map((date, index) => (
                           <Badge
@@ -279,7 +279,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                             <p className="text-xs text-gray-600">
                               {selectedEmployeeData.role} • {selectedEmployeeData.department}
                             </p>
-                            <p className="text-xs text-gray-500">Manager: {selectedEmployeeData.manager}</p>
+                            <p className="text-xs text-gray-500">{t.labels.managerInfo}: {selectedEmployeeData.manager}</p>
                           </div>
                         </div>
                       </div>
@@ -290,7 +290,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     <Label htmlFor="reason">Reason for Remote Work</Label>
                     <Textarea
                       id="reason"
-                      placeholder="Provide reason for the remote work request (e.g., office maintenance, team event, focus time, etc.)"
+                      placeholder={t.placeholders.remoteWorkReason}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={4}
@@ -301,7 +301,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     <Label>Location</Label>
                     <Select onValueChange={setLocation}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a location" />
+                        <SelectValue placeholder={t.placeholders.selectLocation} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="home">Home</SelectItem>
@@ -314,7 +314,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                     <Label htmlFor="hr-notes">HR Notes (Internal)</Label>
                     <Textarea
                       id="hr-notes"
-                      placeholder="Internal HR notes (not visible to employee)..."
+                      placeholder={t.placeholders.hrNotes}
                       value={hrNotes}
                       onChange={(e) => setHrNotes(e.target.value)}
                       rows={2}
@@ -342,7 +342,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Remote Work Guidelines</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">{t.labels.remoteWorkGuidelines}</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• Ensure employee has reliable internet connection</li>
                       <li>• Employee should be available during core business hours</li>

@@ -739,18 +739,18 @@ export default function ExecutiveDashboard() {
                   <div className="space-y-4">
                     <div className="p-3 border rounded-lg bg-blue-50">
                       <h4 className="font-medium text-blue-800">{t.analytics.peakSeason}</h4>
-                      <p className="text-sm text-blue-600">July shows highest leave usage (312 days)</p>
-                      <p className="text-xs text-blue-500 mt-1">Plan coverage for summer months</p>
+                      <p className="text-sm text-blue-600">{t.insights.julyHighestUsage}</p>
+                      <p className="text-xs text-blue-500 mt-1">{t.insights.planSummerCoverage}</p>
                     </div>
                     <div className="p-3 border rounded-lg bg-green-50">
                       <h4 className="font-medium text-green-800">{t.analytics.highUtilization}</h4>
-                      <p className="text-sm text-green-600">Product team using 73% of allocated leave</p>
-                      <p className="text-xs text-green-500 mt-1">Good work-life balance indicator</p>
+                      <p className="text-sm text-green-600">{t.insights.productTeamUsage}</p>
+                      <p className="text-xs text-green-500 mt-1">{t.insights.goodWorkLifeBalance}</p>
                     </div>
                     <div className="p-3 border rounded-lg bg-yellow-50">
                       <h4 className="font-medium text-yellow-800">{t.analytics.lowUtilization}</h4>
                       <p className="text-sm text-yellow-600">HR team only using 61% of leave</p>
-                      <p className="text-xs text-yellow-500 mt-1">May indicate burnout risk</p>
+                      <p className="text-xs text-yellow-500 mt-1">{t.insights.burnoutRisk}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -897,7 +897,7 @@ export default function ExecutiveDashboard() {
                                 </p>
                                 {request.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
                                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                                  <span>Submitted: {new Date(request.submittedDate).toLocaleDateString()}</span>
+                                  <span>{t.labels.submitted}: {new Date(request.submittedDate).toLocaleDateString()}</span>
                                   {request.managerApproved && (
                                     <span className="text-green-600">
                                       ✓ Manager approved on {new Date(request.managerApprovalDate).toLocaleDateString()}

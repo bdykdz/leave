@@ -161,6 +161,15 @@ export interface Translations {
   // Buttons
   buttons: {
     review: string
+    checkConflicts: string
+    requestRemoteWork: string
+    addLeaveHR: string
+    addingLeave: string
+    addRemoteWorkHR: string
+    approveRequest: string
+    denyRequest: string
+    executiveLeaveRequest: string
+    executiveLeaveDescription: string
   }
 
   // Leave Request Form
@@ -359,6 +368,39 @@ export interface Translations {
     remote: string
     pendingRequestsLabel: string
     hrDepartment: string
+    dates: string
+    individualDays: string
+    supportingDocumentRequired: string
+    maximumDaysPerRequest: string
+    notAssigned: string
+    employee: string
+    type: string
+    to: string
+    reportsTo: string
+    managerInfo: string
+    email: string
+    department: string
+    userId: string
+    leaveType: string
+    requestNumber: string
+    period: string
+    reason: string
+    duration: string
+    yourResponse: string
+    unused: string
+    carriedForward: string
+    lost: string
+    employees: string
+    totalLeave: string
+    utilization: string
+    pending: string
+    remoteWorkGuidelines: string
+    noActivityToday: string
+    importedUsers: string
+    selectedAdministrator: string
+    databaseConnection: string
+    noManagerAssigned: string
+    contactHrForManager: string
   }
 
   // Messages
@@ -393,6 +435,8 @@ export interface Translations {
     generatingReport: string
     failedToLoadApprovedRequests: string
     failedToLoadDeniedRequests: string
+    onlyAuthorizedAccounts: string
+    contactHRForAccess: string
   }
 
   // Tabs
@@ -571,6 +615,143 @@ export interface Translations {
     hrDashboard: string
     hrDashboardDescription: string
   }
+
+  // Errors (toast messages)
+  errors: {
+    noDatesSelected: string
+    selectDatesForConflictCheck: string
+    managerNotAvailable: string
+    managerInfoUnavailable: string
+    selectDateForLeaveRequest: string
+    leaveTypeRequired: string
+    selectLeaveType: string
+    coverageRequired: string
+    selectTeamMemberForCoverage: string
+    invalidSignature: string
+    signatureValidationMessage: string
+    medicalCertificateRequired: string
+    uploadMedicalCertificate: string
+    invalidDates: string
+    selectValidDates: string
+    selectDateForWFHRequest: string
+    provideWFHLocation: string
+    locationRequired: string
+    selectWorkLocation: string
+    customLocationRequired: string
+    specifyLocation: string
+    reasonRequired: string
+    provideReason: string
+    selectDateForRemoteWork: string
+    selectEmployeeLocation: string
+    specifyRemoteWorkLocation: string
+    accessDenied: string
+    loginRequired: string
+  }
+
+  // Approval dialog
+  approval: {
+    requestApproved: string
+    requestDenied: string
+    digitallySigned: string
+    emailNotification: string
+    approveLeaveRequest: string
+    denyLeaveRequest: string
+    reviewDescription: string
+    signingNotice: string
+    commentOptional: string
+    approvalNotesPlaceholder: string
+    denialReasonPlaceholder: string
+  }
+
+  // Loading states
+  loading: {
+    loading: string
+    loadingApprovers: string
+    loadingSubstituteRequests: string
+    loadingRolloverData: string
+    loadingTeamHolidayPlans: string
+    loadingCoverageAnalysis: string
+    loadingManagerInfo: string
+  }
+
+  // Placeholders
+  placeholders: {
+    selectEmployee: string
+    selectLeaveType: string
+    selectLocation: string
+    selectWorkLocation: string
+    specifyWorkLocation: string
+    specifyRemoteWorkLocation: string
+    leaveDetails: string
+    hrNotes: string
+    remoteWorkReason: string
+    selectEmployeeWorkLocation: string
+    email: string
+    selectRole: string
+  }
+
+  // Calendar detail modal (team-calendar day view)
+  calendarDetail: {
+    teamStatus: string
+    wfhNotAllowed: string
+    teamMembersAway: string
+    workingFromHomeCount: string
+    substitute: string
+    location: string
+    daySummary: string
+    inOffice: string
+    noTeamMembersAway: string
+  }
+
+  // Metrics
+  metrics: {
+    totalEmployees: string
+    activeRequests: string
+    pendingApprovals: string
+    daysRequested: string
+    averageProcessing: string
+    averageApprovalTime: string
+    approvalRate: string
+    escalationRate: string
+    totalUsers: string
+    daysCarriedForward: string
+    daysLost: string
+    averageCarryForward: string
+    totalTeamMembers: string
+    criticalCoveragePeriods: string
+    noCriticalCoveragePeriods: string
+  }
+
+  // Insights (analytics)
+  insights: {
+    julyHighestUsage: string
+    planSummerCoverage: string
+    productTeamUsage: string
+    goodWorkLifeBalance: string
+    burnoutRisk: string
+  }
+
+  // Rollover
+  rollover: {
+    title: string
+    description: string
+  }
+
+  // Holiday planning (manager view)
+  holidayPlanningManager: {
+    title: string
+    description: string
+    noPlansYet: string
+    noPlansDescription: string
+    noConflicts: string
+  }
+
+  // Login page
+  login: {
+    developmentLogin: string
+    onlyAuthorizedAccounts: string
+    contactHRForAccess: string
+  }
 }
 
 export const translations: Record<Language, Translations> = {
@@ -727,7 +908,16 @@ export const translations: Record<Language, Translations> = {
       teamRemoteWorkUsage: "Team Remote Work Usage",
     },
     buttons: {
-      review: "Review"
+      review: "Review",
+      checkConflicts: "Check Team Conflicts & Get Smart Suggestions",
+      requestRemoteWork: "Request Remote Work",
+      addLeaveHR: "Add Leave (HR)",
+      addingLeave: "Adding Leave...",
+      addRemoteWorkHR: "Add Remote Work (HR)",
+      approveRequest: "Approve Request",
+      denyRequest: "Deny Request",
+      executiveLeaveRequest: "Executive Leave Request",
+      executiveLeaveDescription: "Submit a leave request for executive approval",
     },
     leaveForm: {
       title: "New Leave Request",
@@ -911,6 +1101,39 @@ export const translations: Record<Language, Translations> = {
       remote: "Remote",
       pendingRequestsLabel: "Pending Requests",
       hrDepartment: "HR Department",
+      dates: "Dates",
+      individualDays: "Individual Days",
+      supportingDocumentRequired: "Supporting document required",
+      maximumDaysPerRequest: "days per request",
+      notAssigned: "Not Assigned",
+      employee: "Employee",
+      type: "Type",
+      to: "To",
+      reportsTo: "Reports to",
+      managerInfo: "Manager",
+      email: "Email",
+      department: "Department",
+      userId: "User ID",
+      leaveType: "Leave Type",
+      requestNumber: "Request #",
+      period: "Period",
+      reason: "Reason",
+      duration: "Duration",
+      yourResponse: "Your Response",
+      unused: "Unused",
+      carriedForward: "Carried Forward",
+      lost: "Lost",
+      employees: "Employees",
+      totalLeave: "Total Leave",
+      utilization: "Utilization",
+      pending: "Pending",
+      remoteWorkGuidelines: "Remote Work Guidelines",
+      noActivityToday: "No activity today",
+      importedUsers: "Imported Users",
+      selectedAdministrator: "Selected Administrator",
+      databaseConnection: "Database Connection",
+      noManagerAssigned: "No Manager Assigned",
+      contactHrForManager: "Contact HR to assign a reporting manager",
     },
     messages: {
       requestApprovedSuccess: "Request approved successfully",
@@ -943,6 +1166,8 @@ export const translations: Record<Language, Translations> = {
       generatingReport: "Generating report...",
       failedToLoadApprovedRequests: "Failed to load approved requests",
       failedToLoadDeniedRequests: "Failed to load denied requests",
+      onlyAuthorizedAccounts: "Only authorized company accounts can access this system.",
+      contactHRForAccess: "Contact your HR department if you need access.",
     },
     tabs: {
       pending: "Pending",
@@ -1105,6 +1330,123 @@ export const translations: Record<Language, Translations> = {
       hrDashboard: "HR Dashboard",
       hrDashboardDescription: "Manage employees, review leave requests, and generate reports",
     },
+    errors: {
+      noDatesSelected: "No Dates Selected",
+      selectDatesForConflictCheck: "Please select dates first to check for team conflicts.",
+      managerNotAvailable: "Manager Not Available",
+      managerInfoUnavailable: "Your manager information is not available. Please contact HR.",
+      selectDateForLeaveRequest: "Please select at least one date for your leave request.",
+      leaveTypeRequired: "Leave Type Required",
+      selectLeaveType: "Please select a leave type for your request.",
+      coverageRequired: "Coverage Assignment Required",
+      selectTeamMemberForCoverage: "Please select a team member to cover your responsibilities.",
+      invalidSignature: "Invalid Signature",
+      signatureValidationMessage: "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing.",
+      medicalCertificateRequired: "Medical Certificate Required",
+      uploadMedicalCertificate: "Please upload a medical certificate or doctor's note for sick leave requests.",
+      invalidDates: "Invalid Dates",
+      selectValidDates: "Please select valid dates for your leave request.",
+      selectDateForWFHRequest: "Please select at least one date for your work from home request.",
+      provideWFHLocation: "Please provide a location for your work from home request.",
+      locationRequired: "Location Required",
+      selectWorkLocation: "Please select where you'll be working remotely from.",
+      customLocationRequired: "Custom Location Required",
+      specifyLocation: "Please specify your remote work location.",
+      reasonRequired: "Reason Required",
+      provideReason: "Please provide a reason for your remote work request.",
+      selectDateForRemoteWork: "Please select at least one date for the remote work request.",
+      selectEmployeeLocation: "Please select where the employee will be working remotely from.",
+      specifyRemoteWorkLocation: "Please specify the remote work location.",
+      accessDenied: "Access Denied",
+      loginRequired: "Please log in to access this page.",
+    },
+    approval: {
+      requestApproved: "Request Approved",
+      requestDenied: "Request Denied",
+      digitallySigned: "Digitally signed and approved",
+      emailNotification: "will receive an email notification about this decision.",
+      approveLeaveRequest: "Approve Leave Request",
+      denyLeaveRequest: "Deny Leave Request",
+      reviewDescription: "Review and approve/deny the leave request from",
+      signingNotice: "By signing above, you are electronically approving this request",
+      commentOptional: "Comment (Optional)",
+      approvalNotesPlaceholder: "Add any approval notes...",
+      denialReasonPlaceholder: "Reason for denial (recommended)",
+    },
+    loading: {
+      loading: "Loading...",
+      loadingApprovers: "Loading approvers...",
+      loadingSubstituteRequests: "Loading substitute requests...",
+      loadingRolloverData: "Loading rollover data...",
+      loadingTeamHolidayPlans: "Loading team holiday plans...",
+      loadingCoverageAnalysis: "Loading coverage analysis...",
+      loadingManagerInfo: "Loading manager information...",
+    },
+    placeholders: {
+      selectEmployee: "Select an employee...",
+      selectLeaveType: "Select a leave type",
+      selectLocation: "Select a location",
+      selectWorkLocation: "Select where you'll be working from",
+      specifyWorkLocation: "Please specify your remote work location",
+      specifyRemoteWorkLocation: "Please specify the remote work location",
+      leaveDetails: "Provide details about the leave request...",
+      hrNotes: "Internal HR notes (not visible to employee)...",
+      remoteWorkReason: "Provide reason for the remote work request (e.g., office maintenance, team event, focus time, etc.)",
+      selectEmployeeWorkLocation: "Select where employee will work from",
+      email: "Email",
+      selectRole: "Select a role",
+    },
+    calendarDetail: {
+      teamStatus: "Team Status",
+      wfhNotAllowed: "Work from home not allowed on this day",
+      teamMembersAway: "Team Members Away",
+      workingFromHomeCount: "Working From Home",
+      substitute: "Substitute",
+      location: "Location",
+      daySummary: "Day Summary",
+      inOffice: "In Office",
+      noTeamMembersAway: "No team members away or working from home on this date",
+    },
+    metrics: {
+      totalEmployees: "Total Employees",
+      activeRequests: "Active Requests",
+      pendingApprovals: "Pending Approvals",
+      daysRequested: "Days Requested",
+      averageProcessing: "Avg Processing",
+      averageApprovalTime: "Avg Approval Time",
+      approvalRate: "Approval Rate",
+      escalationRate: "Escalation Rate",
+      totalUsers: "Total Users",
+      daysCarriedForward: "Days Carried Forward",
+      daysLost: "Days Lost",
+      averageCarryForward: "Avg Carry Forward",
+      totalTeamMembers: "Total Team Members",
+      criticalCoveragePeriods: "Critical Coverage Periods",
+      noCriticalCoveragePeriods: "No critical coverage periods in the next 30 days",
+    },
+    insights: {
+      julyHighestUsage: "July shows highest leave usage (312 days)",
+      planSummerCoverage: "Plan coverage for summer months",
+      productTeamUsage: "Product team using 73% of allocated leave",
+      goodWorkLifeBalance: "Good work-life balance indicator",
+      burnoutRisk: "May indicate burnout risk",
+    },
+    rollover: {
+      title: "Leave Rollover Management",
+      description: "Manage year-end leave rollover for all employees",
+    },
+    holidayPlanningManager: {
+      title: "Team Holiday Plans",
+      description: "Review and approve your team's holiday planning requests",
+      noPlansYet: "No Holiday Plans Yet",
+      noPlansDescription: "Your team members haven't submitted any holiday plans for",
+      noConflicts: "Great! No holiday conflicts found in your team's plans.",
+    },
+    login: {
+      developmentLogin: "Development Login",
+      onlyAuthorizedAccounts: "Only authorized company accounts can access this system.",
+      contactHRForAccess: "Contact your HR department if you need access.",
+    },
   },
   ro: {
     common: {
@@ -1259,7 +1601,16 @@ export const translations: Record<Language, Translations> = {
       teamRemoteWorkUsage: "Utilizare lucru la distanță echipă",
     },
     buttons: {
-      review: "Revizuire"
+      review: "Revizuire",
+      checkConflicts: "Verifică conflicte echipă și obține sugestii",
+      requestRemoteWork: "Solicită lucru la distanță",
+      addLeaveHR: "Adaugă concediu (HR)",
+      addingLeave: "Se adaugă concediul...",
+      addRemoteWorkHR: "Adaugă lucru la distanță (HR)",
+      approveRequest: "Aprobă cererea",
+      denyRequest: "Respinge cererea",
+      executiveLeaveRequest: "Cerere concediu executiv",
+      executiveLeaveDescription: "Trimite o cerere de concediu pentru aprobare executivă",
     },
     leaveForm: {
       title: "Cerere nouă de concediu",
@@ -1443,6 +1794,39 @@ export const translations: Record<Language, Translations> = {
       remote: "La distanță",
       pendingRequestsLabel: "Cereri în așteptare",
       hrDepartment: "Departament HR",
+      dates: "Date",
+      individualDays: "Zile individuale",
+      supportingDocumentRequired: "Document justificativ necesar",
+      maximumDaysPerRequest: "zile per cerere",
+      notAssigned: "Nealocat",
+      employee: "Angajat",
+      type: "Tip",
+      to: "Către",
+      reportsTo: "Raportează la",
+      managerInfo: "Manager",
+      email: "Email",
+      department: "Departament",
+      userId: "ID utilizator",
+      leaveType: "Tip concediu",
+      requestNumber: "Cererea #",
+      period: "Perioadă",
+      reason: "Motiv",
+      duration: "Durată",
+      yourResponse: "Răspunsul tău",
+      unused: "Nefolosit",
+      carriedForward: "Reportat",
+      lost: "Pierdut",
+      employees: "Angajați",
+      totalLeave: "Total concediu",
+      utilization: "Utilizare",
+      pending: "În așteptare",
+      remoteWorkGuidelines: "Reguli lucru la distanță",
+      noActivityToday: "Nicio activitate astăzi",
+      importedUsers: "Utilizatori importați",
+      selectedAdministrator: "Administrator selectat",
+      databaseConnection: "Conexiune bază de date",
+      noManagerAssigned: "Niciun manager alocat",
+      contactHrForManager: "Contactați HR pentru a aloca un manager direct",
     },
     messages: {
       requestApprovedSuccess: "Cererea a fost aprobată cu succes",
@@ -1475,6 +1859,8 @@ export const translations: Record<Language, Translations> = {
       generatingReport: "Se generează raportul...",
       failedToLoadApprovedRequests: "Nu s-au putut încărca cererile aprobate",
       failedToLoadDeniedRequests: "Nu s-au putut încărca cererile respinse",
+      onlyAuthorizedAccounts: "Doar conturile autorizate ale companiei pot accesa acest sistem.",
+      contactHRForAccess: "Contactați departamentul HR dacă aveți nevoie de acces.",
     },
     tabs: {
       pending: "În așteptare",
@@ -1636,6 +2022,123 @@ export const translations: Record<Language, Translations> = {
     hr: {
       hrDashboard: "Panou HR",
       hrDashboardDescription: "Gestionează angajații, revizuiește cererile de concediu și generează rapoarte",
+    },
+    errors: {
+      noDatesSelected: "Nicio dată selectată",
+      selectDatesForConflictCheck: "Selectați mai întâi datele pentru a verifica conflictele echipei.",
+      managerNotAvailable: "Manager indisponibil",
+      managerInfoUnavailable: "Informațiile managerului dvs. nu sunt disponibile. Contactați HR.",
+      selectDateForLeaveRequest: "Selectați cel puțin o dată pentru cererea de concediu.",
+      leaveTypeRequired: "Tip concediu necesar",
+      selectLeaveType: "Selectați un tip de concediu pentru cerere.",
+      coverageRequired: "Alocare înlocuitor necesară",
+      selectTeamMemberForCoverage: "Selectați un coleg de echipă pentru a vă acoperi responsabilitățile.",
+      invalidSignature: "Semnătură invalidă",
+      signatureValidationMessage: "Furnizați o semnătură validă cu cel puțin 2 linii și 25 pixeli de desen.",
+      medicalCertificateRequired: "Certificat medical necesar",
+      uploadMedicalCertificate: "Încărcați un certificat medical sau o adeverință de la medic pentru cererile de concediu medical.",
+      invalidDates: "Date invalide",
+      selectValidDates: "Selectați date valide pentru cererea de concediu.",
+      selectDateForWFHRequest: "Selectați cel puțin o dată pentru cererea de lucru de acasă.",
+      provideWFHLocation: "Furnizați o locație pentru cererea de lucru de acasă.",
+      locationRequired: "Locație necesară",
+      selectWorkLocation: "Selectați de unde veți lucra la distanță.",
+      customLocationRequired: "Locație personalizată necesară",
+      specifyLocation: "Specificați locația de lucru la distanță.",
+      reasonRequired: "Motiv necesar",
+      provideReason: "Furnizați un motiv pentru cererea de lucru la distanță.",
+      selectDateForRemoteWork: "Selectați cel puțin o dată pentru cererea de lucru la distanță.",
+      selectEmployeeLocation: "Selectați de unde va lucra angajatul la distanță.",
+      specifyRemoteWorkLocation: "Specificați locația de lucru la distanță.",
+      accessDenied: "Acces interzis",
+      loginRequired: "Autentificați-vă pentru a accesa această pagină.",
+    },
+    approval: {
+      requestApproved: "Cerere aprobată",
+      requestDenied: "Cerere respinsă",
+      digitallySigned: "Semnat digital și aprobat",
+      emailNotification: "va primi o notificare prin email despre această decizie.",
+      approveLeaveRequest: "Aprobă cererea de concediu",
+      denyLeaveRequest: "Respinge cererea de concediu",
+      reviewDescription: "Revizuiește și aprobă/respinge cererea de concediu de la",
+      signingNotice: "Prin semnarea de mai sus, aprobați electronic această cerere",
+      commentOptional: "Comentariu (Opțional)",
+      approvalNotesPlaceholder: "Adăugați note de aprobare...",
+      denialReasonPlaceholder: "Motivul respingerii (recomandat)",
+    },
+    loading: {
+      loading: "Se încarcă...",
+      loadingApprovers: "Se încarcă aprobatorii...",
+      loadingSubstituteRequests: "Se încarcă cererile de înlocuire...",
+      loadingRolloverData: "Se încarcă datele de reportare...",
+      loadingTeamHolidayPlans: "Se încarcă planurile de vacanță ale echipei...",
+      loadingCoverageAnalysis: "Se încarcă analiza acoperirii...",
+      loadingManagerInfo: "Se încarcă informațiile managerului...",
+    },
+    placeholders: {
+      selectEmployee: "Selectează un angajat...",
+      selectLeaveType: "Selectează un tip de concediu",
+      selectLocation: "Selectează o locație",
+      selectWorkLocation: "Selectează de unde vei lucra",
+      specifyWorkLocation: "Specificați locația de lucru la distanță",
+      specifyRemoteWorkLocation: "Specificați locația de lucru la distanță",
+      leaveDetails: "Furnizați detalii despre cererea de concediu...",
+      hrNotes: "Note interne HR (invizibile pentru angajat)...",
+      remoteWorkReason: "Furnizați motivul cererii de lucru la distanță (ex: mentenanță birou, eveniment echipă, timp de concentrare, etc.)",
+      selectEmployeeWorkLocation: "Selectați de unde va lucra angajatul",
+      email: "Email",
+      selectRole: "Selectează un rol",
+    },
+    calendarDetail: {
+      teamStatus: "Stare echipă",
+      wfhNotAllowed: "Lucrul de acasă nu este permis în această zi",
+      teamMembersAway: "Membri echipă absenți",
+      workingFromHomeCount: "Lucru de acasă",
+      substitute: "Înlocuitor",
+      location: "Locație",
+      daySummary: "Rezumatul zilei",
+      inOffice: "La birou",
+      noTeamMembersAway: "Niciun membru al echipei absent sau lucrând de acasă în această dată",
+    },
+    metrics: {
+      totalEmployees: "Total angajați",
+      activeRequests: "Cereri active",
+      pendingApprovals: "Aprobări în așteptare",
+      daysRequested: "Zile solicitate",
+      averageProcessing: "Procesare medie",
+      averageApprovalTime: "Timp mediu aprobare",
+      approvalRate: "Rată aprobare",
+      escalationRate: "Rată escaladare",
+      totalUsers: "Total utilizatori",
+      daysCarriedForward: "Zile reportate",
+      daysLost: "Zile pierdute",
+      averageCarryForward: "Reportare medie",
+      totalTeamMembers: "Total membri echipă",
+      criticalCoveragePeriods: "Perioade critice de acoperire",
+      noCriticalCoveragePeriods: "Nicio perioadă critică de acoperire în următoarele 30 de zile",
+    },
+    insights: {
+      julyHighestUsage: "Iulie arată cea mai mare utilizare a concediului (312 zile)",
+      planSummerCoverage: "Planificați acoperirea pentru lunile de vară",
+      productTeamUsage: "Echipa de produs utilizează 73% din concediul alocat",
+      goodWorkLifeBalance: "Indicator bun de echilibru muncă-viață",
+      burnoutRisk: "Poate indica risc de epuizare",
+    },
+    rollover: {
+      title: "Gestionare reportare concediu",
+      description: "Gestionează reportarea concediului de la sfârșit de an pentru toți angajații",
+    },
+    holidayPlanningManager: {
+      title: "Planuri vacanță echipă",
+      description: "Revizuiește și aprobă cererile de planificare a vacanțelor echipei tale",
+      noPlansYet: "Niciun plan de vacanță încă",
+      noPlansDescription: "Membrii echipei tale nu au trimis planuri de vacanță pentru",
+      noConflicts: "Excelent! Nu s-au găsit conflicte de vacanță în planurile echipei.",
+    },
+    login: {
+      developmentLogin: "Autentificare dezvoltare",
+      onlyAuthorizedAccounts: "Doar conturile autorizate ale companiei pot accesa acest sistem.",
+      contactHRForAccess: "Contactați departamentul HR dacă aveți nevoie de acces.",
     },
   }
 }

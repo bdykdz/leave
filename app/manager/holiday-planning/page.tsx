@@ -10,6 +10,7 @@ import { Calendar, Eye, Check, X, MessageCircle, ArrowLeft, AlertTriangle, Users
 import { format, parseISO } from "date-fns"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import { useTranslations } from "@/components/language-provider"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -116,6 +117,7 @@ const parseDateLocal = (dateString: string): Date => {
 export default function ManagerHolidayPlanningPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [holidayPlans, setHolidayPlans] = useState<HolidayPlan[]>([])
   const [overlapAnalysis, setOverlapAnalysis] = useState<OverlapAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
@@ -244,8 +246,8 @@ export default function ManagerHolidayPlanningPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-4">Please log in to access holiday planning management</p>
+          <h1 className="text-2xl font-bold mb-4">{t.errors.accessDenied}</h1>
+          <p className="text-gray-600 mb-4">{t.errors.loginRequired}</p>
           <Button onClick={() => router.push('/login')}>Go to Login</Button>
         </div>
       </div>
@@ -257,7 +259,7 @@ export default function ManagerHolidayPlanningPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading team holiday plans...</p>
+          <p>{t.loading.loadingTeamHolidayPlans}</p>
         </div>
       </div>
     )
@@ -269,8 +271,8 @@ export default function ManagerHolidayPlanningPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Team Holiday Plans {planningYear}</h1>
-              <p className="text-gray-600">Review and approve your team's holiday planning requests</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t.holidayPlanningManager.title} {planningYear}</h1>
+              <p className="text-gray-600">{t.holidayPlanningManager.description}</p>
             </div>
             <Button variant="outline" onClick={() => router.push('/manager')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -291,8 +293,8 @@ export default function ManagerHolidayPlanningPage() {
             {holidayPlans.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Holiday Plans Yet</h3>
-                <p className="text-gray-600">Your team members haven't submitted any holiday plans for {planningYear}.</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t.holidayPlanningManager.noPlansYet}</h3>
+                <p className="text-gray-600">{t.holidayPlanningManager.noPlansDescription} {planningYear}.</p>
               </div>
             ) : (
           <div className="grid grid-cols-1 gap-6">
@@ -323,17 +325,17 @@ export default function ManagerHolidayPlanningPage() {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div>
-                      <p className="text-sm text-gray-600">Total Days</p>
+                      <p className="text-sm text-gray-600">{t.labels.totalDays}</p>
                       <p className="text-lg font-semibold">{plan.dates.length}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Essential Days</p>
+                      <p className="text-sm text-gray-600">{t.labels.essentialDays}</p>
                       <p className="text-lg font-semibold">
                         {plan.dates.filter(d => d.priority === 'ESSENTIAL').length}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">First Holiday</p>
+                      <p className="text-sm text-gray-600">{t.labels.firstHoliday}</p>
                       <p className="text-lg font-semibold">
                         {plan.dates.length > 0 
                           ? format(parseDateLocal(plan.dates[0].date), 'MMM d')
@@ -371,7 +373,7 @@ export default function ManagerHolidayPlanningPage() {
                         
                         <div className="space-y-4">
                           {plan.dates.length === 0 ? (
-                            <p className="text-gray-600">No dates selected</p>
+                            <p className="text-gray-600">{t.leaveForm.noDaysSelected}</p>
                           ) : (
                             <div className="space-y-3">
                               {plan.dates
@@ -541,7 +543,7 @@ export default function ManagerHolidayPlanningPage() {
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p>Loading coverage analysis...</p>
+                  <p>{t.loading.loadingCoverageAnalysis}</p>
                 </div>
               </div>
             ) : (
@@ -559,15 +561,15 @@ export default function ManagerHolidayPlanningPage() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center">
                           <p className="text-2xl font-bold text-blue-600">{overlapAnalysis.teamSize}</p>
-                          <p className="text-sm text-gray-600">Total Team Members</p>
+                          <p className="text-sm text-gray-600">{t.metrics.totalTeamMembers}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-bold text-green-600">{overlapAnalysis.membersWithPlans}</p>
-                          <p className="text-sm text-gray-600">Plans Submitted</p>
+                          <p className="text-sm text-gray-600">{t.labels.plansSubmitted}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-bold text-purple-600">{overlapAnalysis.planningCoverage.toFixed(0)}%</p>
-                          <p className="text-sm text-gray-600">Planning Coverage</p>
+                          <p className="text-sm text-gray-600">{t.labels.planningCoverage}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -651,7 +653,7 @@ export default function ManagerHolidayPlanningPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-600">Great! No holiday conflicts found in your team's plans.</p>
+                      <p className="text-gray-600">{t.holidayPlanningManager.noConflicts}</p>
                     </CardContent>
                   </Card>
                 )}

@@ -94,7 +94,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
     // Validation
     if (selectedDates.length === 0) {
       showError(
-        "No Dates Selected",
+        t.errors.noDatesSelected,
         "Please select at least one date for your leave request."
       )
       return
@@ -102,7 +102,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
 
     if (!leaveType) {
       showError(
-        "Leave Type Required",
+        t.errors.leaveTypeRequired,
         "Please select the type of leave you're requesting."
       )
       return
@@ -118,7 +118,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
 
     if (!signature || !isValidSignature) {
       showError(
-        "Invalid Signature",
+        t.errors.invalidSignature,
         "Please provide a valid signature with at least 2 strokes and 25 pixels of drawing."
       )
       return
@@ -230,8 +230,8 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
           <div className="flex items-center gap-3">
             <Shield className="h-8 w-8 text-purple-600" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Executive Leave Request</h1>
-              <p className="text-gray-600">Submit a leave request for executive approval</p>
+              <h1 className="text-3xl font-bold text-gray-900">{t.buttons.executiveLeaveRequest}</h1>
+              <p className="text-gray-600">{t.buttons.executiveLeaveDescription}</p>
             </div>
           </div>
         </div>
@@ -278,7 +278,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
                   </Label>
                   <Select value={leaveType} onValueChange={setLeaveType}>
                     <SelectTrigger id="leave-type">
-                      <SelectValue placeholder={loadingLeaveTypes ? "Loading..." : t.leaveForm.selectLeaveType} />
+                      <SelectValue placeholder={loadingLeaveTypes ? t.loading.loading : t.placeholders.selectLeaveType} />
                     </SelectTrigger>
                     <SelectContent>
                       {leaveTypes.map((type) => (

@@ -8,6 +8,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { useTranslations } from "@/components/language-provider"
 
 interface Employee {
   id: string
@@ -25,6 +26,7 @@ interface EmployeePickerProps {
 }
 
 export function EmployeePicker({ selectedEmployee, onEmployeeChange }: EmployeePickerProps) {
+  const t = useTranslations()
   const [open, setOpen] = useState(false)
 
   // Mock employee data
@@ -159,7 +161,7 @@ export function EmployeePicker({ selectedEmployee, onEmployeeChange }: EmployeeP
                 </Badge>
               </>
             ) : (
-              <span className="text-gray-500 text-sm">Select an employee...</span>
+              <span className="text-gray-500 text-sm">{t.placeholders.selectEmployee}</span>
             )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -191,7 +193,7 @@ export function EmployeePicker({ selectedEmployee, onEmployeeChange }: EmployeeP
                       <div className="text-xs text-gray-500 truncate">
                         {employee.role} • {employee.department}
                       </div>
-                      <div className="text-xs text-gray-400 truncate">Reports to: {employee.manager}</div>
+                      <div className="text-xs text-gray-400 truncate">{t.labels.reportsTo}: {employee.manager}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge className={`text-xs ${getStatusColor(employee.status)}`}>

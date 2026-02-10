@@ -79,12 +79,12 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
     }
 
     if (selectedDates.length === 0) {
-      showError("No Dates Selected", "Please select at least one date for the leave request.")
+      showError(t.errors.noDatesSelected, t.errors.selectDateForLeaveRequest)
       return
     }
 
     if (!leaveType) {
-      showError("Leave Type Required", "Please select a leave type for the request.")
+      showError(t.errors.leaveTypeRequired, t.errors.selectLeaveType)
       return
     }
 
@@ -216,7 +216,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
             </Button>
             <div className="flex items-center gap-2">
               <Shield className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Add Leave (HR)</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.buttons.addLeaveHR}</h1>
             </div>
           </div>
         </div>
@@ -262,19 +262,19 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Days:</span>
+                      <span className="text-sm font-medium">{t.labels.totalDays}:</span>
                       <Badge variant="secondary" className="text-lg px-3 py-1">
                         {getTotalDays()}
                       </Badge>
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Dates:</span>
+                      <span className="text-sm font-medium">{t.labels.dates}:</span>
                       <p className="text-sm text-gray-600">{formatDateGroups(groupConsecutiveDates(selectedDates))}</p>
                     </div>
 
                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                      <span className="text-sm font-medium">Individual Days:</span>
+                      <span className="text-sm font-medium">{t.labels.individualDays}:</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedDates.map((date, index) => (
                           <Badge
@@ -323,7 +323,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                             <p className="text-xs text-gray-600">
                               {selectedEmployeeData.role} • {selectedEmployeeData.department}
                             </p>
-                            <p className="text-xs text-gray-500">Manager: {selectedEmployeeData.manager}</p>
+                            <p className="text-xs text-gray-500">{t.labels.managerInfo}: {selectedEmployeeData.manager}</p>
                           </div>
                         </div>
                       </div>
@@ -334,7 +334,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                     <Label htmlFor="leave-type">Leave Type *</Label>
                     <Select value={leaveType} onValueChange={setLeaveType} required>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select leave type" />
+                        <SelectValue placeholder={t.placeholders.selectLeaveType} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="vacation">Vacation</SelectItem>
@@ -358,7 +358,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                     <Label htmlFor="reason">Reason</Label>
                     <Textarea
                       id="reason"
-                      placeholder="Provide details about the leave request..."
+                      placeholder={t.placeholders.leaveDetails}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={3}
@@ -369,7 +369,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                     <Label htmlFor="hr-notes">HR Notes (Internal)</Label>
                     <Textarea
                       id="hr-notes"
-                      placeholder="Internal HR notes (not visible to employee)..."
+                      placeholder={t.placeholders.hrNotes}
                       value={hrNotes}
                       onChange={(e) => setHrNotes(e.target.value)}
                       rows={2}
@@ -412,7 +412,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                       disabled={isSubmitting || selectedDates.length === 0 || !selectedEmployee || !leaveType}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
-                      {isSubmitting ? "Adding Leave..." : `Add Leave (${getTotalDays()} days)`}
+                      {isSubmitting ? t.buttons.addingLeave : `Add Leave (${getTotalDays()} days)`}
                     </Button>
                     <Button type="button" variant="outline" onClick={onBack} className="w-full">
                       Cancel
