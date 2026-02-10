@@ -389,7 +389,16 @@ export default function EmployeeDashboard() {
   }
 
   const formatStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+    const statusMap: Record<string, string> = {
+      'PENDING': t.status.pending,
+      'APPROVED': t.status.approved,
+      'REJECTED': t.status.rejected,
+      'CANCELLED': t.status.cancelled,
+      'DRAFT': t.status.draft,
+      'PARTIALLY_APPROVED': t.status.partiallyApproved,
+      'ACTIVE': t.status.active,
+    }
+    return statusMap[status.toUpperCase()] || status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
   }
 
   // WFH month navigation
@@ -725,7 +734,7 @@ export default function EmployeeDashboard() {
                                   {request.requestType === 'wfh' && (
                                     <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
                                   )}
-                                  <span className="text-xs text-gray-500">• {request.totalDays} day{request.totalDays > 1 ? "s" : ""}</span>
+                                  <span className="text-xs text-gray-500">• {request.totalDays} {request.totalDays > 1 ? t.common.days : t.common.day}</span>
                                 </div>
                                 <p className="text-sm text-gray-600">{formatRequestDates(request)}</p>
                                 <p className="text-xs text-gray-500">

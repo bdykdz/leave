@@ -101,9 +101,9 @@ export default function DepartmentHolidayViewPage() {
 
   const formatStatus = (status: string) => {
     switch (status) {
-      case 'SUBMITTED': return 'Pending Review'
-      case 'REVIEWED': return 'Approved'
-      case 'FINALIZED': return 'Finalized'
+      case 'SUBMITTED': return t.departmentView.pendingReview
+      case 'REVIEWED': return t.status.approved
+      case 'FINALIZED': return t.departmentView.finalized
       default: return status
     }
   }
@@ -284,7 +284,11 @@ export default function DepartmentHolidayViewPage() {
                                                   )}
                                                 </div>
                                               </div>
-                                              <Badge variant="secondary">{priority?.label}</Badge>
+                                              <Badge variant="secondary">
+                                                {priority?.value === 'ESSENTIAL' ? t.planning.essential :
+                                                 priority?.value === 'PREFERRED' ? t.planning.preferred :
+                                                 priority?.value === 'NICE_TO_HAVE' ? t.planning.niceToHave : priority?.label}
+                                              </Badge>
                                             </div>
                                           )
                                         })}
