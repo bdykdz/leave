@@ -134,22 +134,13 @@ export function MobileManagerDashboard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/team-calendar')}
+              onClick={() => router.push('/holiday-planning')}
               className="text-xs"
             >
               <Calendar className="h-4 w-4 mr-1" />
-              Team Calendar
+              Planning
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/manager/holiday-planning')}
-            className="w-full text-xs"
-          >
-            <Users className="h-4 w-4 mr-1" />
-            Holiday Planning
-          </Button>
         </CardContent>
       </Card>
 

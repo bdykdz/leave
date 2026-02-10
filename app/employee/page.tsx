@@ -20,6 +20,7 @@ import {
   Shield,
   TrendingUp,
   Building,
+  ChevronDown,
 } from "lucide-react"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
@@ -536,30 +537,29 @@ export default function EmployeeDashboard() {
           <Button variant={activeTab === "calendar" ? "default" : "outline"} onClick={() => setActiveTab("calendar")}>
             {t.dashboard.teamCalendar}
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/holiday-planning')}
-            className="flex items-center gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            My Holiday Planning
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/team-calendar')}
-            className="flex items-center gap-2"
-          >
-            <Users className="h-4 w-4" />
-            Team Calendar
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/department-holiday-view')}
-            className="flex items-center gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            Department Plans
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Planning
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => router.push('/holiday-planning')}>
+                <Calendar className="h-4 w-4 mr-2" />
+                My Holiday Planning
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/team-calendar')}>
+                <Users className="h-4 w-4 mr-2" />
+                Team Calendar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/department-holiday-view')}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Department Plans
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {activeTab === "dashboard" && (

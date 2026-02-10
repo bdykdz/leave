@@ -141,7 +141,7 @@ export default function HRDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="employees">Employees</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -149,7 +149,6 @@ export default function HRDashboard() {
             <Shield className="h-3 w-3" />
             Verification
           </TabsTrigger>
-          <TabsTrigger value="planning">Planning</TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-1">
             <FolderOpen className="h-3 w-3" />
             Documents
@@ -173,91 +172,6 @@ export default function HRDashboard() {
 
         <TabsContent value="verification" className="space-y-4">
           <DocumentVerification />
-        </TabsContent>
-
-        <TabsContent value="planning" className="space-y-4">
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold">Holiday Planning</h2>
-                <p className="text-gray-600">Manage employee holiday planning for next year</p>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => router.push('/holiday-planning')} 
-                  variant="outline"
-                >
-                  My Plan
-                </Button>
-                <Button 
-                  onClick={() => {
-                    // TODO: Create coverage analysis page
-                    toast.info('Coverage analysis coming soon')
-                  }}
-                >
-                  Coverage Analysis
-                </Button>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border rounded-lg p-6">
-                <h3 className="font-semibold mb-4">Planning Timeline</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>October - December:</span>
-                    <span className="text-gray-600">Planning window OPEN</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>• Create & edit plans</span>
-                    <span className="text-gray-600">Anytime during period</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>• Submit for review</span>
-                    <span className="text-gray-600">Anytime during period</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>• Manager review</span>
-                    <span className="text-gray-600">Anytime during period</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>January - September:</span>
-                    <span className="text-gray-600">Planning window CLOSED</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border rounded-lg p-6">
-                <h3 className="font-semibold mb-4">Quick Actions</h3>
-                <div className="space-y-3">
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => router.push('/holiday-planning')}
-                  >
-                    View/Edit Your Holiday Plan
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={() => {
-                      // TODO: Create department coverage page
-                      toast.info('Department coverage analysis coming soon')
-                    }}
-                  >
-                    Department Coverage Analysis
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    disabled
-                  >
-                    Generate Planning Report (Coming Soon)
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">

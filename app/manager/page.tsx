@@ -25,6 +25,7 @@ import {
   CalendarDays,
   Building,
   BarChart3,
+  ChevronDown,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
@@ -724,26 +725,30 @@ export default function ManagerDashboard() {
           >
             Delegation
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/holiday-planning')}
-            size="sm"
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">My Holiday Planning</span>
-            <span className="sm:hidden">My Plans</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/manager/holiday-planning')}
-            size="sm"
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Team Holiday Plans</span>
-            <span className="sm:hidden">Team Plans</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-2 whitespace-nowrap">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Planning</span>
+                <span className="sm:hidden">Plans</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => router.push('/holiday-planning')}>
+                <Calendar className="h-4 w-4 mr-2" />
+                My Holiday Planning
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/manager/holiday-planning')}>
+                <Users className="h-4 w-4 mr-2" />
+                Team Holiday Plans
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/department-holiday-view')}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Department Plans
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button 
             variant="outline" 
             onClick={() => router.push('/analytics')}

@@ -39,7 +39,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
   const userName = session.user?.name || 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase()
 
-  const navigationItems = [
+  const mainNavItems = [
     {
       label: "Dashboard",
       icon: Home,
@@ -50,18 +50,6 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
       label: "My Leave",
       icon: Calendar,
       href: "/employee",
-      show: true
-    },
-    {
-      label: "Holiday Planning", 
-      icon: Calendar,
-      href: "/holiday-planning",
-      show: true
-    },
-    {
-      label: "Team Calendar",
-      icon: Users,
-      href: "/team-calendar",
       show: true
     },
     {
@@ -83,6 +71,21 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
       href: "/analytics",
       show: ['MANAGER', 'DIRECTOR', 'HR', 'EXECUTIVE'].includes(userRole)
     }
+  ]
+
+  const planningNavItems = [
+    {
+      label: "Holiday Planning",
+      icon: Calendar,
+      href: "/holiday-planning",
+      show: true
+    },
+    {
+      label: "Team Calendar",
+      icon: Users,
+      href: "/team-calendar",
+      show: true
+    },
   ]
 
   function getDashboardRoute() {
@@ -134,18 +137,18 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
 
         {/* Navigation Items */}
         <nav className="mt-6 space-y-2">
-          {navigationItems.filter(item => item.show).map((item) => {
+          {mainNavItems.filter(item => item.show).map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
-            
+
             return (
               <button
                 key={item.href}
                 onClick={() => handleNavigation(item.href)}
                 className={`
                   w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors
-                  ${isActive 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                  ${isActive
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
                     : 'hover:bg-gray-50 text-gray-700 hover:text-gray-900'
                   }
                 `}
@@ -162,6 +165,32 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
               </button>
             )
           })}
+
+          {/* Planning Section */}
+          <div className="pt-2 mt-2 border-t">
+            <p className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Planning</p>
+            {planningNavItems.filter(item => item.show).map((item) => {
+              const isActive = pathname === item.href
+              const Icon = item.icon
+
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => handleNavigation(item.href)}
+                  className={`
+                    w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors
+                    ${isActive
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'hover:bg-gray-50 text-gray-700 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </nav>
 
         {/* Quick Actions */}
