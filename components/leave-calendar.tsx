@@ -17,6 +17,7 @@ import { startOfDay } from "date-fns/startOfDay"
 import { startOfWeek } from "date-fns/startOfWeek"
 import { addWeeks } from "date-fns/addWeeks"
 import { cn } from "@/lib/utils"
+import { useTranslations } from "@/components/language-provider"
 
 interface LeaveCalendarProps {
   selectedDates: Date[]
@@ -34,6 +35,7 @@ interface LeaveCalendarProps {
 }
 
 export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false, existingLeaveRequests = [] }: LeaveCalendarProps) {
+  const t = useTranslations()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [companyHolidays, setCompanyHolidays] = useState<Date[]>([])
   const [blockedHolidays, setBlockedHolidays] = useState<Date[]>([]) // Holidays where WFH is blocked
@@ -284,17 +286,17 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-blue-600 rounded"></div>
-            <span>Selected</span>
+            <span>{t.calendarLegend.selected}</span>
           </div>
           {isWFHCalendar ? (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-200 border border-gray-300 rounded"></div>
-              <span>Current Week (Not Allowed)</span>
+              <span>{t.remoteForm.currentWeekNotAllowed}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-purple-100 border border-purple-200 rounded"></div>
-              <span>Company Holiday</span>
+              <span>{t.calendarLegend.companyHoliday}</span>
             </div>
           )}
         </div>
@@ -303,40 +305,40 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
             <>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-200 border-2 border-red-400 rounded"></div>
-                <span>Approved Leave (Conflict)</span>
+                <span>{t.remoteForm.approvedLeaveConflict}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-400 rounded"></div>
-                <span>Pending Leave (Conflict)</span>
+                <span>{t.remoteForm.pendingLeaveConflict}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
-                <span>Blocked Holiday</span>
+                <span>{t.remoteForm.blockedHoliday}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-purple-100 border border-purple-200 rounded"></div>
-                <span>Company Holiday</span>
+                <span>{t.calendarLegend.companyHoliday}</span>
               </div>
             </>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
-                <span>Approved Leave</span>
+                <span>{t.calendarLegend.approvedLeave}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded"></div>
-                <span>Pending Leave</span>
+                <span>{t.calendarLegend.pendingLeave}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div>
-                <span>Team Member Away</span>
+                <span>{t.calendarLegend.teamMemberAway}</span>
               </div>
             </>
           )}
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
-            <span>Weekend</span>
+            <span>{t.calendarLegend.weekend}</span>
           </div>
         </div>
       </div>

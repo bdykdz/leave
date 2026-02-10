@@ -13,6 +13,7 @@ import {
   Loader2,
   Info
 } from "lucide-react"
+import { useTranslations } from "@/components/language-provider"
 
 interface SimpleSubstitute {
   id: string
@@ -44,6 +45,7 @@ export function SimpleSubstituteSelector({
   onSubstitutesChange,
   disabled = false
 }: SimpleSubstituteSelectorProps) {
+  const t = useTranslations()
   const [substitutes, setSubstitutes] = useState<SimpleSubstitute[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,14 +134,14 @@ export function SimpleSubstituteSelector({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4" />
-            Select Department Colleague as Substitute
+            {t.substitute.selectColleague}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Please select your leave dates first to see available department colleagues.
+              {t.substitute.selectDatesFirst}
             </AlertDescription>
           </Alert>
         </CardContent>

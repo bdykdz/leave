@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { SignaturePadSimple } from "@/components/signature-pad-simple"
+import { useTranslations } from "@/components/language-provider"
 
 interface ApprovalDialogProps {
   isOpen: boolean
@@ -22,6 +23,7 @@ interface ApprovalDialogProps {
 }
 
 export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }: ApprovalDialogProps) {
+  const t = useTranslations()
   const isApproval = action === "approve"
   const [signature, setSignature] = useState("")
   const [comment, setComment] = useState("")
@@ -171,7 +173,7 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <PenTool className="h-4 w-4" />
-                Digital Signature <span className="text-red-500">*</span>
+                {t.signature.digitalSignature} <span className="text-red-500">*</span>
               </Label>
               <SignaturePadSimple 
                 signature={signature}

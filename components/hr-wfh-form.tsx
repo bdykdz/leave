@@ -17,12 +17,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EmployeePicker } from "@/components/employee-picker"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTranslations } from "@/components/language-provider"
 
 interface HRRemoteWorkFormProps {
   onBack: () => void
 }
 
 export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
+  const t = useTranslations()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState("")
   const [reason, setReason] = useState("")
@@ -212,7 +214,7 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No days selected</p>
+                  <p className="text-gray-500 text-center py-4">{t.leaveForm.noDaysSelected}</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">

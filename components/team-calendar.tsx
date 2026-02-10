@@ -21,6 +21,7 @@ import { addDays } from "date-fns/addDays"
 import { isWithinInterval } from "date-fns/isWithinInterval"
 import { parseISO } from "date-fns/parseISO"
 import { cn } from "@/lib/utils"
+import { useTranslations } from "@/components/language-provider"
 
 interface CalendarEvent {
   id: string
@@ -64,6 +65,7 @@ interface DayDetailsModalProps {
 }
 
 function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetailsModalProps) {
+  const t = useTranslations()
   if (!date) return null
 
   // Helper function to format event dates properly
@@ -280,6 +282,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
 }
 
 export function TeamCalendar() {
+  const t = useTranslations()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [viewMode, setViewMode] = useState<"month" | "week">("month")
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -430,7 +433,7 @@ export function TeamCalendar() {
           <CardContent className="p-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-600">{summary.totalMembers}</div>
-              <div className="text-sm text-gray-600">Total Team</div>
+              <div className="text-sm text-gray-600">{t.calendarLegend.totalTeam}</div>
             </div>
           </CardContent>
         </Card>
@@ -438,7 +441,7 @@ export function TeamCalendar() {
           <CardContent className="p-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{summary.workingFromHome}</div>
-              <div className="text-sm text-gray-600">Working From Home</div>
+              <div className="text-sm text-gray-600">{t.calendarLegend.workingFromHome}</div>
             </div>
           </CardContent>
         </Card>
@@ -446,7 +449,7 @@ export function TeamCalendar() {
           <CardContent className="p-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{summary.onLeave}</div>
-              <div className="text-sm text-gray-600">On Leave</div>
+              <div className="text-sm text-gray-600">{t.calendarLegend.onLeave}</div>
             </div>
           </CardContent>
         </Card>
@@ -454,7 +457,7 @@ export function TeamCalendar() {
           <CardContent className="p-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">{summary.pending}</div>
-              <div className="text-sm text-gray-600">Pending Requests</div>
+              <div className="text-sm text-gray-600">{t.calendarLegend.pendingRequests}</div>
             </div>
           </CardContent>
         </Card>
@@ -504,7 +507,7 @@ export function TeamCalendar() {
                   {leaveCount > 0 && (
                     <div className="flex items-center gap-1 mb-1">
                       <div className="h-1.5 w-1.5 bg-red-500 rounded-full" />
-                      <span className="text-xs text-red-600">{leaveCount} away</span>
+                      <span className="text-xs text-red-600">{leaveCount} {t.calendarLegend.away}</span>
                     </div>
                   )}
 

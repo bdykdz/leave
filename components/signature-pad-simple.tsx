@@ -4,6 +4,7 @@ import type React from "react"
 import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { RotateCcw, PenTool, Check } from "lucide-react"
+import { useTranslations } from "@/components/language-provider"
 
 interface SignaturePadSimpleProps {
   onSignatureChange: (signature: string) => void
@@ -11,6 +12,7 @@ interface SignaturePadSimpleProps {
 }
 
 export function SignaturePadSimple({ onSignatureChange, signature }: SignaturePadSimpleProps) {
+  const t = useTranslations()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [isEmpty, setIsEmpty] = useState(true)
@@ -132,7 +134,7 @@ export function SignaturePadSimple({ onSignatureChange, signature }: SignaturePa
 
         <div className="flex items-center justify-between mt-3">
           <span className="text-xs text-gray-500">
-            {isEmpty ? "Please sign above" : "Signature captured"}
+            {isEmpty ? t.signature.pleaseSignAbove : "Signature captured"}
           </span>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={clearSignature} disabled={isEmpty}>

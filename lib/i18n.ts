@@ -193,6 +193,15 @@ export interface Translations {
     selectDates: string
     duration: string
     totalDays: string
+    approvalWorkflow: string
+    additionalApprovers: string
+    selectDatesCalendar: string
+    selectDatesDescription: string
+    noDaysSelected: string
+    details: string
+    level: string
+    manager: string
+    departmentHead: string
   }
 
   // Remote Work Form
@@ -205,6 +214,44 @@ export interface Translations {
     submitRequest: string
     requestSubmitted: string
     requestSubmittedSuccess: string
+    wfhLocation: string
+    wfhGuidelines: string
+    wfhGuidelinesItems: string[]
+    selectDatesDescription: string
+    yourRequestWillBeSent: string
+    currentWeekNotAllowed: string
+    approvedLeaveConflict: string
+    pendingLeaveConflict: string
+    blockedHoliday: string
+  }
+
+  // Signature
+  signature: {
+    digitalSignature: string
+    pleaseSignAbove: string
+    signingConfirmation: string
+  }
+
+  // Substitute selector
+  substitute: {
+    selectColleague: string
+    selectDatesFirst: string
+    availableColleagues: string
+  }
+
+  // Calendar legend
+  calendarLegend: {
+    selected: string
+    companyHoliday: string
+    approvedLeave: string
+    pendingLeave: string
+    teamMemberAway: string
+    weekend: string
+    away: string
+    totalTeam: string
+    workingFromHome: string
+    onLeave: string
+    pendingRequests: string
   }
 
   // Leave Types
@@ -710,7 +757,16 @@ export const translations: Record<Language, Translations> = {
       maxDaysPerRequest: "Max days per request",
       selectDates: "Select dates on the calendar",
       duration: "Duration",
-      totalDays: "Total Days"
+      totalDays: "Total Days",
+      approvalWorkflow: "Approval Workflow",
+      additionalApprovers: "Additional approvers may be added based on leave type and duration.",
+      selectDatesCalendar: "Select dates on the calendar",
+      selectDatesDescription: "You can select multiple individual days or consecutive periods.",
+      noDaysSelected: "No days selected",
+      details: "Details",
+      level: "Level",
+      manager: "Manager",
+      departmentHead: "Department Head",
     },
     remoteForm: {
       title: "New Remote Work Request",
@@ -720,7 +776,44 @@ export const translations: Record<Language, Translations> = {
       reasonPlaceholder: "Please provide a reason for working remotely...",
       submitRequest: "Submit Request",
       requestSubmitted: "Request Submitted",
-      requestSubmittedSuccess: "Your remote work request has been submitted successfully and is pending approval."
+      requestSubmittedSuccess: "Your remote work request has been submitted successfully and is pending approval.",
+      wfhLocation: "Work From Home Location",
+      wfhGuidelines: "Work From Home Guidelines",
+      wfhGuidelinesItems: [
+        "Work from home requests must be for next week or later",
+        "Ensure you have reliable internet connection",
+        "Be available during core business hours",
+        "Maintain regular communication with your team"
+      ],
+      selectDatesDescription: "You can select multiple individual days or consecutive periods.",
+      yourRequestWillBeSent: "Your request will be sent for approval",
+      currentWeekNotAllowed: "Current Week (Not Allowed)",
+      approvedLeaveConflict: "Approved Leave (Conflict)",
+      pendingLeaveConflict: "Pending Leave (Conflict)",
+      blockedHoliday: "Blocked Holiday",
+    },
+    signature: {
+      digitalSignature: "Digital Signature",
+      pleaseSignAbove: "Please sign above using your mouse or finger",
+      signingConfirmation: "By signing above, you are digitally signing this request and confirming all information is accurate.",
+    },
+    substitute: {
+      selectColleague: "Select Department Colleague as Substitute",
+      selectDatesFirst: "Please select your leave dates first to see available colleagues.",
+      availableColleagues: "Available Colleagues",
+    },
+    calendarLegend: {
+      selected: "Selected",
+      companyHoliday: "Company Holiday",
+      approvedLeave: "Approved Leave",
+      pendingLeave: "Pending Leave",
+      teamMemberAway: "Team Member Away",
+      weekend: "Weekend",
+      away: "away",
+      totalTeam: "Total Team",
+      workingFromHome: "Working From Home",
+      onLeave: "On Leave",
+      pendingRequests: "Pending Requests",
     },
     leaveTypes: {
       annual: "Annual Leave",
@@ -1196,7 +1289,16 @@ export const translations: Record<Language, Translations> = {
       maxDaysPerRequest: "Maxim zile per cerere",
       selectDates: "Selectează datele pe calendar",
       duration: "Durata",
-      totalDays: "Total zile"
+      totalDays: "Total zile",
+      approvalWorkflow: "Flux de aprobare",
+      additionalApprovers: "Aprobatori suplimentari pot fi adăugați în funcție de tipul și durata concediului.",
+      selectDatesCalendar: "Selectează datele pe calendar",
+      selectDatesDescription: "Puteți selecta mai multe zile individuale sau perioade consecutive.",
+      noDaysSelected: "Nicio zi selectată",
+      details: "Detalii",
+      level: "Nivel",
+      manager: "Manager",
+      departmentHead: "Șef departament",
     },
     remoteForm: {
       title: "Cerere nouă de lucru la distanță",
@@ -1206,7 +1308,44 @@ export const translations: Record<Language, Translations> = {
       reasonPlaceholder: "Vă rugăm să oferiți un motiv pentru lucrul la distanță...",
       submitRequest: "Trimite cererea",
       requestSubmitted: "Cerere trimisă",
-      requestSubmittedSuccess: "Cererea dvs. de lucru la distanță a fost trimisă cu succes și este în așteptarea aprobării."
+      requestSubmittedSuccess: "Cererea dvs. de lucru la distanță a fost trimisă cu succes și este în așteptarea aprobării.",
+      wfhLocation: "Locația de lucru de acasă",
+      wfhGuidelines: "Reguli pentru lucrul de acasă",
+      wfhGuidelinesItems: [
+        "Cererile de lucru de acasă trebuie să fie pentru săptămâna viitoare sau mai târziu",
+        "Asigurați-vă că aveți o conexiune de internet fiabilă",
+        "Fiți disponibil în orele de program",
+        "Mențineți comunicarea regulată cu echipa"
+      ],
+      selectDatesDescription: "Puteți selecta mai multe zile individuale sau perioade consecutive.",
+      yourRequestWillBeSent: "Cererea dvs. va fi trimisă pentru aprobare",
+      currentWeekNotAllowed: "Săptămâna curentă (Nu este permis)",
+      approvedLeaveConflict: "Concediu aprobat (Conflict)",
+      pendingLeaveConflict: "Concediu în așteptare (Conflict)",
+      blockedHoliday: "Sărbătoare blocată",
+    },
+    signature: {
+      digitalSignature: "Semnătură digitală",
+      pleaseSignAbove: "Vă rugăm să semnați mai sus folosind mouse-ul sau degetul",
+      signingConfirmation: "Prin semnarea de mai sus, semnați digital această cerere și confirmați că toate informațiile sunt corecte.",
+    },
+    substitute: {
+      selectColleague: "Selectează coleg din departament ca înlocuitor",
+      selectDatesFirst: "Vă rugăm să selectați mai întâi datele de concediu pentru a vedea colegii disponibili.",
+      availableColleagues: "Colegi disponibili",
+    },
+    calendarLegend: {
+      selected: "Selectat",
+      companyHoliday: "Sărbătoare legală",
+      approvedLeave: "Concediu aprobat",
+      pendingLeave: "Concediu în așteptare",
+      teamMemberAway: "Coleg absent",
+      weekend: "Weekend",
+      away: "absent",
+      totalTeam: "Total echipă",
+      workingFromHome: "Lucru de acasă",
+      onLeave: "În concediu",
+      pendingRequests: "Cereri în așteptare",
     },
     leaveTypes: {
       annual: "Concediu de odihnă",

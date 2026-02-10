@@ -280,7 +280,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   {t.leaveForm.selectDates}
                 </CardTitle>
                 <CardDescription>
-                  {t.leaveForm.selectDates} when you'd like to work remote. You can select multiple individual days or consecutive periods.
+                  {t.leaveForm.selectDates}. {t.remoteForm.selectDatesDescription}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -310,7 +310,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No {t.leaveForm.days} selected</p>
+                  <p className="text-gray-500 text-center py-4">{t.leaveForm.noDaysSelected}</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -349,13 +349,13 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
             {/* Work Remote Request Form */}
             <Card>
               <CardHeader>
-                <CardTitle>{t.remoteForm.title} Details</CardTitle>
+                <CardTitle>{t.remoteForm.title} {t.leaveForm.details}</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
 
                   <div className="space-y-2">
-                    <Label htmlFor="location">Work From Home Location</Label>
+                    <Label htmlFor="location">{t.remoteForm.wfhLocation}</Label>
                     <Select value={location} onValueChange={setLocation}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a location" />
@@ -392,7 +392,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                       ) : managerInfo ? (
                         <>
                           <p className="font-medium">{managerInfo.name}</p>
-                          <p className="text-sm text-gray-600">Your request will be sent for approval</p>
+                          <p className="text-sm text-gray-600">{t.remoteForm.yourRequestWillBeSent}</p>
                         </>
                       ) : (
                         <>
@@ -404,12 +404,11 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">Work From Home Guidelines</h4>
+                    <h4 className="font-medium text-blue-900 mb-2">{t.remoteForm.wfhGuidelines}</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• Work from home requests must be for next week or later</li>
-                      <li>• Ensure you have reliable internet connection</li>
-                      <li>• Be available during core business hours</li>
-                      <li>• Maintain regular communication with your team</li>
+                      {t.remoteForm.wfhGuidelinesItems.map((item, index) => (
+                        <li key={index}>• {item}</li>
+                      ))}
                     </ul>
                   </div>
 

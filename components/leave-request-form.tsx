@@ -464,7 +464,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                   {t.leaveForm.selectDates}
                 </CardTitle>
                 <CardDescription>
-                  {t.leaveForm.selectDates}. You can select multiple individual days or consecutive periods.
+                  {t.leaveForm.selectDates}. {t.leaveForm.selectDatesDescription}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -494,7 +494,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No {t.leaveForm.days} selected</p>
+                  <p className="text-gray-500 text-center py-4">{t.leaveForm.noDaysSelected}</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -533,7 +533,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
             {/* Leave Request Form */}
             <Card>
               <CardHeader>
-                <CardTitle>{t.leaveForm.title} Details</CardTitle>
+                <CardTitle>{t.leaveForm.title} {t.leaveForm.details}</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -666,7 +666,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <User className="h-4 w-4" />
-                        Approval Workflow
+                        {t.leaveForm.approvalWorkflow}
                       </Label>
                       <div className="p-3 bg-gray-50 rounded-md border space-y-3">
                         {loadingApprovers ? (
@@ -689,11 +689,11 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-medium">
-                                  Manager: {approvers.manager ? approvers.manager.name : <span className="text-red-600">Not Assigned</span>}
+                                  {t.leaveForm.manager}: {approvers.manager ? approvers.manager.name : <span className="text-red-600">Not Assigned</span>}
                                 </p>
                               </div>
                               <Badge variant={approvers.manager ? "secondary" : "destructive"} className="text-xs">
-                                Level 1
+                                {t.leaveForm.level} 1
                               </Badge>
                             </div>
 
@@ -708,11 +708,11 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                                 </div>
                                 <div className="flex-1">
                                   <p className="text-sm font-medium">
-                                    Department Head: {approvers.departmentHead.name}
+                                    {t.leaveForm.departmentHead}: {approvers.departmentHead.name}
                                   </p>
                                 </div>
                                 <Badge variant="secondary" className="text-xs">
-                                  Level 2
+                                  {t.leaveForm.level} 2
                                 </Badge>
                               </div>
                             )}
@@ -729,7 +729,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                         )}
                         
                         <p className="text-xs text-gray-500 pt-2 border-t">
-                          Additional approvers may be added based on leave type and duration.
+                          {t.leaveForm.additionalApprovers}
                         </p>
                       </div>
                     </div>

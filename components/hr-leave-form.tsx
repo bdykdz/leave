@@ -17,6 +17,7 @@ import { format, isSameDay } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EmployeePicker } from "@/components/employee-picker"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useTranslations } from "@/components/language-provider"
 
 interface HRLeaveFormProps {
   onBack: () => void
@@ -24,6 +25,7 @@ interface HRLeaveFormProps {
 }
 
 export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormProps) {
+  const t = useTranslations()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState(preSelectedEmployee)
   const [leaveType, setLeaveType] = useState("")
@@ -231,8 +233,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                   Select Leave Days
                 </CardTitle>
                 <CardDescription>
-                  Click on individual days to select them. You can select multiple individual days or consecutive
-                  periods.
+                  {t.leaveForm.selectDatesDescription}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -257,7 +258,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No days selected</p>
+                  <p className="text-gray-500 text-center py-4">{t.leaveForm.noDaysSelected}</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">

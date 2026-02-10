@@ -16,12 +16,14 @@ import { SuccessDialog } from "@/components/success-dialog"
 import { ErrorDialog } from "@/components/error-dialog"
 import { format, isSameDay } from "date-fns"
 import { Input as InputComponent } from "@/components/ui/input"
+import { useTranslations } from "@/components/language-provider"
 
 interface RemoteWorkFormProps {
   onBack: () => void
 }
 
 export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
+  const t = useTranslations()
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [location, setLocation] = useState("")
   const [customLocation, setCustomLocation] = useState("")
@@ -223,7 +225,7 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
               </CardHeader>
               <CardContent>
                 {selectedDates.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No days selected</p>
+                  <p className="text-gray-500 text-center py-4">{t.leaveForm.noDaysSelected}</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">

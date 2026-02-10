@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Users, Loader2, Info } from "lucide-react"
+import { useTranslations } from "@/components/language-provider"
 
 interface Colleague {
   id: string
@@ -29,6 +30,7 @@ export function BasicSubstitutePicker({
   selectedSubstitutes,
   onSubstitutesChange
 }: BasicSubstitutePickerProps) {
+  const t = useTranslations()
   const [colleagues, setColleagues] = useState<Colleague[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -93,14 +95,14 @@ export function BasicSubstitutePicker({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4" />
-            Select Department Colleague as Substitute
+            {t.substitute.selectColleague}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Please select your leave dates first to see available colleagues.
+              {t.substitute.selectDatesFirst}
             </AlertDescription>
           </Alert>
         </CardContent>
