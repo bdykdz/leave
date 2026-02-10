@@ -12,6 +12,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import { useTranslations } from "@/components/language-provider"
 
 interface HolidayPlanDate {
   id: string
@@ -40,6 +41,7 @@ const PRIORITY_OPTIONS = [
 export default function HolidayPlanningPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [plan, setPlan] = useState<HolidayPlan | null>(null)
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [currentPriority, setCurrentPriority] = useState<'ESSENTIAL' | 'PREFERRED' | 'NICE_TO_HAVE'>('PREFERRED')
@@ -96,7 +98,7 @@ export default function HolidayPlanningPage() {
       }
     } catch (error) {
       console.error('Error loading plan:', error)
-      toast.error('Failed to load holiday plan')
+      toast.error(t.messages.failedToLoadPlan)
     } finally {
       setLoading(false)
     }
@@ -173,14 +175,14 @@ export default function HolidayPlanningPage() {
       
       // Show warning if some dates were filtered out
       if (validDates.length !== dates.length) {
-        toast.error('Weekends and holidays cannot be selected for holiday planning')
+        toast.error(t.messages.weekendsHolidaysBlocked)
       }
     }
   }
 
   const addSelectedDates = () => {
     if (selectedDates.length === 0) {
-      toast.error('Please select at least one date')
+      toast.error(t.messages.selectAtLeastOneDate)
       return
     }
 
@@ -230,7 +232,7 @@ export default function HolidayPlanningPage() {
     if (newDates.length > 0) {
       toast.success(`Added ${newDates.length} new date(s) to your plan`)
     } else {
-      toast.info('All selected dates were already in your plan')
+      toast.info(t.messages.allDatesAlreadyInPlan)
     }
   }
 
@@ -242,7 +244,7 @@ export default function HolidayPlanningPage() {
       dates: plan.dates.filter(d => d.date !== dateToRemove)
     }
     setPlan(updatedPlan)
-    toast.success('Date removed from plan')
+    toast.success(t.messages.dateRemoved)
   }
 
   const savePlan = async () => {
@@ -269,14 +271,14 @@ export default function HolidayPlanningPage() {
       if (response.ok) {
         const updatedPlan = await response.json()
         setPlan(updatedPlan)
-        toast.success('Holiday plan saved successfully')
+        toast.success(t.messages.planSaved)
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to save plan')
+        toast.error(error.error || t.messages.failedToSavePlan)
       }
     } catch (error) {
       console.error('Error saving plan:', error)
-      toast.error('Failed to save plan')
+      toast.error(t.messages.failedToSavePlan)
     } finally {
       setSaving(false)
     }
@@ -302,14 +304,14 @@ export default function HolidayPlanningPage() {
       if (response.ok) {
         const updatedPlan = await response.json()
         setPlan(updatedPlan)
-        toast.success('Holiday plan submitted for review! You can continue to make changes if needed.')
+        toast.success(t.messages.planSubmitted)
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to submit plan')
+        toast.error(error.error || t.messages.failedToSubmitPlan)
       }
     } catch (error) {
       console.error('Error submitting plan:', error)
-      toast.error('Failed to submit plan')
+      toast.error(t.messages.failedToSubmitPlan)
     } finally {
       setSubmitting(false)
     }
@@ -319,9 +321,9 @@ export default function HolidayPlanningPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-4">Please log in to access holiday planning</p>
-          <Button onClick={() => router.push('/login')}>Go to Login</Button>
+          <h1 className="text-2xl font-bold mb-4">{t.planning.accessDenied}</h1>
+          <p className="text-gray-600 mb-4">{t.planning.pleaseLogIn}</p>
+          <Button onClick={() => router.push('/login')}>{t.planning.goToLogin}</Button>
         </div>
       </div>
     )
@@ -332,7 +334,7 @@ export default function HolidayPlanningPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading holiday planning...</p>
+          <p>{t.planning.loadingHolidayPlanning}</p>
         </div>
       </div>
     )
@@ -354,11 +356,11 @@ export default function HolidayPlanningPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Holiday Planning {planningYear}</h1>
-              <p className="text-gray-600">Plan your holidays for next year</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t.planning.holidayPlanning} {planningYear}</h1>
+              <p className="text-gray-600">{t.planning.planYourHolidays}</p>
             </div>
             <Button variant="outline" onClick={() => router.push('/employee')}>
-              Back to Dashboard
+              {t.planning.backToDashboard}
             </Button>
           </div>
         </div>
@@ -372,30 +374,30 @@ export default function HolidayPlanningPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Planning Status
+                  {t.planning.planningStatus}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Planning Window</p>
+                    <p className="text-sm text-gray-600">{t.planning.planningWindow}</p>
                     <Badge variant={windowIsOpen ? 'default' : 'secondary'}>
-                      {windowIsOpen ? 'OPEN' : 'CLOSED'}
+                      {windowIsOpen ? t.planning.open : t.planning.closed}
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Plan Status</p>
+                    <p className="text-sm text-gray-600">{t.planning.planStatus}</p>
                     <Badge variant={plan?.status === 'DRAFT' ? 'default' : 'secondary'}>
-                      {plan?.status || 'NOT_CREATED'}
+                      {plan?.status || t.planning.notCreated}
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Holiday Days</p>
+                    <p className="text-sm text-gray-600">{t.planning.holidayDays}</p>
                     <p className={`text-lg font-semibold ${(plan?.dates?.length || 0) > 30 ? 'text-red-600' : (plan?.dates?.length || 0) > 25 ? 'text-yellow-600' : 'text-green-600'}`}>
                       {plan?.dates?.length || 0} / 30
                     </p>
                     {(plan?.dates?.length || 0) > 30 && (
-                      <p className="text-xs text-red-600">Exceeds maximum limit</p>
+                      <p className="text-xs text-red-600">{t.planning.exceedsMaximum}</p>
                     )}
                   </div>
                 </div>
@@ -407,12 +409,12 @@ export default function HolidayPlanningPage() {
           {canEdit && (
             <Card>
               <CardHeader>
-                <CardTitle>Add Holiday Dates</CardTitle>
+                <CardTitle>{t.planning.addHolidayDates}</CardTitle>
                 <CardDescription>
-                  Select dates for your {planningYear} holiday plan. Weekends and holidays are automatically blocked.
+                  {t.planning.selectDatesDescription}
                   <br />
                   <span className={`font-medium ${(plan?.dates?.length || 0) > 25 ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {30 - (plan?.dates?.length || 0)} days remaining out of 30 annual limit
+                    {30 - (plan?.dates?.length || 0)} {t.planning.daysRemaining}
                   </span>
                 </CardDescription>
               </CardHeader>
@@ -439,7 +441,7 @@ export default function HolidayPlanningPage() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Priority</label>
+                    <label className="block text-sm font-medium mb-1">{t.planning.priority}</label>
                     <Select value={currentPriority} onValueChange={(value: any) => setCurrentPriority(value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -458,18 +460,18 @@ export default function HolidayPlanningPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">Reason (Optional)</label>
+                    <label className="block text-sm font-medium mb-1">{t.planning.reasonOptional}</label>
                     <Textarea 
                       value={currentReason}
                       onChange={(e) => setCurrentReason(e.target.value)}
-                      placeholder="Family vacation, wedding, etc."
+                      placeholder={t.planning.reasonPlaceholder}
                       rows={2}
                     />
                   </div>
 
 
                   <Button onClick={addSelectedDates} className="w-full">
-                    Add Selected Dates ({selectedDates.length})
+                    {t.planning.addSelectedDates} ({selectedDates.length})
                   </Button>
                 </div>
               </CardContent>
@@ -482,11 +484,11 @@ export default function HolidayPlanningPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Your Holiday Plan {planningYear}</CardTitle>
+                    <CardTitle>{t.planning.yourHolidayPlan} {planningYear}</CardTitle>
                     <CardDescription>
-                      {plan?.dates?.length ? 
-                        `${plan.dates.length} dates selected` : 
-                        'No dates selected yet'
+                      {plan?.dates?.length ?
+                        `${plan.dates.length} ${t.planning.noDatesSelected}` :
+                        t.planning.noDatesYet
                       }
                     </CardDescription>
                   </div>
@@ -514,8 +516,8 @@ export default function HolidayPlanningPage() {
                 {!plan?.dates?.length ? (
                   <div className="text-center py-8">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No holiday dates planned yet</p>
-                    {canEdit && <p className="text-sm text-gray-500">Use the calendar to add dates</p>}
+                    <p className="text-gray-600">{t.planning.noDatesYet}</p>
+                    {canEdit && <p className="text-sm text-gray-500">{t.planning.useCalendar}</p>}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -555,7 +557,7 @@ export default function HolidayPlanningPage() {
                                   size="sm"
                                   onClick={() => removePlanDate(date.date)}
                                 >
-                                  Remove
+                                  {t.common.remove}
                                 </Button>
                               )}
                             </div>
@@ -578,7 +580,7 @@ export default function HolidayPlanningPage() {
                     className="flex items-center gap-2"
                   >
                     <Save className="h-4 w-4" />
-                    {saving ? 'Saving...' : planIsSubmitted ? 'Save Changes' : 'Save Draft'}
+                    {saving ? t.common.saving : planIsSubmitted ? t.common.saveChanges : t.common.saveDraft}
                   </Button>
                   
                   {canSubmit && plan.dates.length > 0 && (
@@ -589,19 +591,19 @@ export default function HolidayPlanningPage() {
                       className="flex items-center gap-2"
                     >
                       <Send className="h-4 w-4" />
-                      {submitting ? 'Submitting...' : 'Submit for Review'}
+                      {submitting ? t.common.submitting : t.planning.submitForReview}
                     </Button>
                   )}
-                  
+
                   {canResubmit && plan.dates.length > 0 && (
-                    <Button 
-                      onClick={submitPlan} 
-                      disabled={submitting} 
+                    <Button
+                      onClick={submitPlan}
+                      disabled={submitting}
                       variant="default"
                       className="flex items-center gap-2"
                     >
                       <Send className="h-4 w-4" />
-                      {submitting ? 'Resubmitting...' : 'Resubmit for Review'}
+                      {submitting ? t.common.submitting : t.planning.resubmitForReview}
                     </Button>
                   )}
                 </div>
@@ -609,8 +611,7 @@ export default function HolidayPlanningPage() {
                 {planIsSubmitted && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Your plan has been submitted.</strong> You can still make changes and save them. 
-                      Your manager will see the latest version when reviewing.
+                      {t.planning.planSubmittedMessage}
                     </p>
                   </div>
                 )}

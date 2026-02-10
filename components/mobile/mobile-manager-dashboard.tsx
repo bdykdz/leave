@@ -20,6 +20,7 @@ import {
   Filter
 } from "lucide-react"
 import { format } from "date-fns"
+import { useTranslations } from "@/components/language-provider"
 
 interface MobileManagerDashboardProps {
   pendingRequests: any[]
@@ -39,6 +40,7 @@ export function MobileManagerDashboard({
 }: MobileManagerDashboardProps) {
   const router = useRouter()
   const [filter, setFilter] = useState<'all' | 'urgent' | 'recent'>('all')
+  const t = useTranslations()
 
   const filteredRequests = pendingRequests.filter(request => {
     if (filter === 'urgent') {
@@ -60,19 +62,19 @@ export function MobileManagerDashboard({
 
   const quickStats = [
     {
-      label: "Team Members",
+      label: t.dashboard.teamMembers,
       value: teamStats.totalMembers,
       icon: Users,
       color: "text-blue-600"
     },
     {
-      label: "On Leave Today", 
+      label: t.labels.onLeaveToday, 
       value: teamStats.onLeaveToday,
       icon: Calendar,
       color: "text-green-600"
     },
     {
-      label: "Pending Approvals",
+      label: t.dashboard.pendingApprovals,
       value: teamStats.pendingRequests,
       icon: Clock,
       color: "text-orange-600",
@@ -118,7 +120,7 @@ export function MobileManagerDashboard({
       {/* Quick Actions */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Quick Actions</CardTitle>
+          <CardTitle className="text-lg">{t.mobile.quickActions}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
@@ -129,7 +131,7 @@ export function MobileManagerDashboard({
               className="text-xs"
             >
               <TrendingUp className="h-4 w-4 mr-1" />
-              View Analytics
+              {t.mobile.viewAnalytics}
             </Button>
             <Button
               variant="outline"
@@ -138,7 +140,7 @@ export function MobileManagerDashboard({
               className="text-xs"
             >
               <Calendar className="h-4 w-4 mr-1" />
-              Planning
+              {t.nav.planning}
             </Button>
           </div>
         </CardContent>
@@ -149,7 +151,7 @@ export function MobileManagerDashboard({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">
-              Pending Approvals
+              {t.dashboard.pendingApprovals}
               {pendingRequests.length > 0 && (
                 <Badge variant="destructive" className="ml-2 text-xs">
                   {pendingRequests.length}
@@ -162,7 +164,7 @@ export function MobileManagerDashboard({
                 size="sm"
                 onClick={() => router.push('/manager?tab=approvals')}
               >
-                View All
+                {t.common.viewAll}
               </Button>
             )}
           </div>
@@ -171,8 +173,8 @@ export function MobileManagerDashboard({
           {pendingRequests.length === 0 ? (
             <div className="text-center py-6">
               <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-              <p className="text-gray-600">All caught up!</p>
-              <p className="text-sm text-gray-500">No pending approvals</p>
+              <p className="text-gray-600">{t.mobile.allCaughtUp}</p>
+              <p className="text-sm text-gray-500">{t.mobile.noPendingApprovals}</p>
             </div>
           ) : (
             <>
@@ -185,7 +187,7 @@ export function MobileManagerDashboard({
                     onClick={() => setFilter('all')}
                     className="text-xs"
                   >
-                    All ({pendingRequests.length})
+                    {t.mobile.filterAll} ({pendingRequests.length})
                   </Button>
                   <Button
                     variant={filter === 'urgent' ? 'default' : 'outline'}
@@ -193,7 +195,7 @@ export function MobileManagerDashboard({
                     onClick={() => setFilter('urgent')}
                     className="text-xs"
                   >
-                    Urgent
+                    {t.mobile.filterUrgent}
                   </Button>
                   <Button
                     variant={filter === 'recent' ? 'default' : 'outline'}
@@ -201,7 +203,7 @@ export function MobileManagerDashboard({
                     onClick={() => setFilter('recent')}
                     className="text-xs"
                   >
-                    Recent
+                    {t.mobile.filterRecent}
                   </Button>
                 </div>
               )}
@@ -223,7 +225,7 @@ export function MobileManagerDashboard({
                     onClick={() => router.push('/manager?tab=approvals')}
                     className="w-full"
                   >
-                    View {filteredRequests.length - 3} More Requests
+                    {t.mobile.viewMoreRequests} ({filteredRequests.length - 3})
                   </Button>
                 )}
               </div>
@@ -235,7 +237,7 @@ export function MobileManagerDashboard({
       {/* Recent Activity */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Recent Activity</CardTitle>
+          <CardTitle className="text-lg">{t.dashboard.recentActivity}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 text-sm">
@@ -271,7 +273,7 @@ export function MobileManagerDashboard({
             <div className="flex items-center space-x-3">
               <AlertTriangle className="h-5 w-5 text-orange-600" />
               <div>
-                <p className="font-medium text-orange-800">Coverage Alert</p>
+                <p className="font-medium text-orange-800">{t.mobile.coverageAlert}</p>
                 <p className="text-sm text-orange-700">
                   {teamStats.onLeaveToday} team members on leave today ({Math.round((teamStats.onLeaveToday / teamStats.totalMembers) * 100)}% of team)
                 </p>

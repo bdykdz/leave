@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Users, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, parseISO } from "date-fns"
+import { useTranslations } from "@/components/language-provider"
 
 interface TeamMemberHoliday {
   id: string
@@ -49,6 +50,7 @@ const PRIORITY_LABELS = {
 export default function TeamCalendarPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [teamHolidays, setTeamHolidays] = useState<TeamMemberHoliday[]>([])
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
@@ -129,9 +131,9 @@ export default function TeamCalendarPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-4">Please log in to view the team calendar</p>
-          <Button onClick={() => router.push('/login')}>Go to Login</Button>
+          <h1 className="text-2xl font-bold mb-4">{t.planning.accessDenied}</h1>
+          <p className="text-gray-600 mb-4">{t.planning.pleaseLogIn}</p>
+          <Button onClick={() => router.push('/login')}>{t.planning.goToLogin}</Button>
         </div>
       </div>
     )
@@ -142,7 +144,7 @@ export default function TeamCalendarPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading team calendar...</p>
+          <p>{t.teamCalendar.loadingTeamCalendar}</p>
         </div>
       </div>
     )
@@ -154,12 +156,12 @@ export default function TeamCalendarPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Team Holiday Calendar {planningYear}</h1>
-              <p className="text-gray-600">Visual overview of your team's planned holidays</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t.teamCalendar.title} {planningYear}</h1>
+              <p className="text-gray-600">{t.teamCalendar.description}</p>
             </div>
             <Button variant="outline" onClick={() => router.back()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              {t.common.back}
             </Button>
           </div>
         </div>
@@ -178,7 +180,7 @@ export default function TeamCalendarPage() {
                       {format(currentMonth, 'MMMM yyyy')}
                     </CardTitle>
                     <CardDescription>
-                      Click on any date to see who's on holiday
+                      {t.teamCalendar.clickDateInstruction}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -194,7 +196,7 @@ export default function TeamCalendarPage() {
               <CardContent>
                 {/* Calendar Grid */}
                 <div className="grid grid-cols-7 gap-1 mb-4">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  {[t.teamCalendar.sun, t.teamCalendar.mon, t.teamCalendar.tue, t.teamCalendar.wed, t.teamCalendar.thu, t.teamCalendar.fri, t.teamCalendar.sat].map(day => (
                     <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
                       {day}
                     </div>
@@ -243,7 +245,7 @@ export default function TeamCalendarPage() {
             {/* Legend */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Legend</CardTitle>
+                <CardTitle className="text-lg">{t.teamCalendar.legend}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -262,15 +264,15 @@ export default function TeamCalendarPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-blue-100 border-2 border-blue-300 rounded"></div>
-                    <span className="text-sm">1 person away</span>
+                    <span className="text-sm">{t.teamCalendar.onePersonAway}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-orange-100 border-2 border-orange-300 rounded"></div>
-                    <span className="text-sm">2-3 people away</span>
+                    <span className="text-sm">{t.teamCalendar.twoThreePeopleAway}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-red-100 border-2 border-red-300 rounded"></div>
-                    <span className="text-sm">4+ people away</span>
+                    <span className="text-sm">{t.teamCalendar.fourPlusPeopleAway}</span>
                   </div>
                 </div>
               </CardContent>
@@ -284,9 +286,9 @@ export default function TeamCalendarPage() {
                     {format(selectedDayInfo.date, 'EEEE, MMMM d')}
                   </CardTitle>
                   <CardDescription>
-                    {selectedDayInfo.holidays.length === 0 ? 'No holidays planned' : 
-                     selectedDayInfo.holidays.length === 1 ? '1 person on holiday' :
-                     `${selectedDayInfo.holidays.length} people on holiday`}
+                    {selectedDayInfo.holidays.length === 0 ? t.teamCalendar.noHolidaysPlanned :
+                     selectedDayInfo.holidays.length === 1 ? t.teamCalendar.onePersonOnHoliday :
+                     `${selectedDayInfo.holidays.length} ${t.teamCalendar.peopleOnHoliday}`}
                   </CardDescription>
                 </CardHeader>
                 {selectedDayInfo.holidays.length > 0 && (
@@ -317,23 +319,23 @@ export default function TeamCalendarPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Team Overview
+                  {t.teamCalendar.teamOverview}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Team Members:</span>
+                    <span className="text-sm text-gray-600">{t.teamCalendar.teamMembersLabel}:</span>
                     <span className="text-sm font-medium">{teamHolidays.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">With Holiday Plans:</span>
+                    <span className="text-sm text-gray-600">{t.teamCalendar.withHolidayPlans}:</span>
                     <span className="text-sm font-medium">
                       {teamHolidays.filter(m => m.holidays.length > 0).length}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Planning Coverage:</span>
+                    <span className="text-sm text-gray-600">{t.teamCalendar.planningCoverage}:</span>
                     <span className="text-sm font-medium">
                       {teamHolidays.length > 0 ? 
                         Math.round((teamHolidays.filter(m => m.holidays.length > 0).length / teamHolidays.length) * 100) : 0}%

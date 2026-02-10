@@ -22,11 +22,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import { NotificationBell } from "@/components/notifications/NotificationBell"
+import { useTranslations } from "@/components/language-provider"
 
 export default function HRDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("employees")
+  const t = useTranslations()
 
   useEffect(() => {
     if (status === "loading") return
@@ -82,13 +84,13 @@ export default function HRDashboard() {
                 variant="ghost"
                 size="icon"
                 onClick={() => router.push(getDashboardRoute())}
-                title="Back to Personal Dashboard"
+                title={t.nav.backToPersonalDashboard}
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">HR Dashboard</h1>
-                <p className="text-gray-600">Manage employees, review leave requests, and generate reports</p>
+                <h1 className="text-2xl font-bold text-gray-900">{t.hr.hrDashboard}</h1>
+                <p className="text-gray-600">{t.hr.hrDashboardDescription}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -98,7 +100,7 @@ export default function HRDashboard() {
                 className="flex items-center gap-2"
               >
                 <Calendar className="h-4 w-4" />
-                My Dashboard
+                {t.nav.myDashboard}
               </Button>
 
               <NotificationBell />
@@ -118,18 +120,18 @@ export default function HRDashboard() {
                     <div className="flex flex-col space-y-1 leading-none">
                       <p className="font-medium">{userName}</p>
                       <p className="w-[200px] truncate text-sm text-muted-foreground">{session.user.email}</p>
-                      <p className="text-xs text-gray-500 mt-1">HR Department</p>
+                      <p className="text-xs text-gray-500 mt-1">{t.labels.hrDepartment}</p>
                     </div>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push(getDashboardRoute())}>
                     <Calendar className="mr-2 h-4 w-4" />
-                    <span>My Dashboard</span>
+                    <span>{t.nav.myDashboard}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>{t.common.logOut}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -142,16 +144,16 @@ export default function HRDashboard() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="employees">Employees</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="employees">{t.tabs.employees}</TabsTrigger>
+          <TabsTrigger value="calendar">{t.tabs.calendar}</TabsTrigger>
+          <TabsTrigger value="analytics">{t.tabs.analytics}</TabsTrigger>
           <TabsTrigger value="verification" className="flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            Verification
+            {t.tabs.verification}
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-1">
             <FolderOpen className="h-3 w-3" />
-            Documents
+            {t.tabs.documents}
           </TabsTrigger>
         </TabsList>
 

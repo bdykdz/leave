@@ -195,7 +195,7 @@ export default function ExecutiveDashboard() {
   }
 
   const handleCancelRequest = async (requestId: string) => {
-    if (!confirm('Are you sure you want to cancel this request?')) {
+    if (!confirm(t.messages.confirmCancelRequest)) {
       return;
     }
 
@@ -218,7 +218,7 @@ export default function ExecutiveDashboard() {
       // Refresh the requests list
       await fetchMyRequests();
       
-      toast.success('Request cancelled successfully');
+      toast.success(t.messages.requestCancelledSuccess);
     } catch (error) {
       console.error('Error cancelling request:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
@@ -235,7 +235,7 @@ export default function ExecutiveDashboard() {
       }
     } catch (error) {
       console.error('Error fetching escalated requests:', error)
-      toast.error('Failed to load escalated requests')
+      toast.error(t.messages.failedToLoadRequests)
     } finally {
       setLoading(false)
     }
@@ -280,7 +280,7 @@ export default function ExecutiveDashboard() {
       })
       
       if (response.ok) {
-        toast.success('Request approved successfully')
+        toast.success(t.messages.requestApprovedSuccess)
         // Force calendar refresh
         setCalendarKey(prev => prev + 1)
         if (isDirectReport) {
@@ -290,11 +290,11 @@ export default function ExecutiveDashboard() {
         }
         setShowApprovalDialog(false)
       } else {
-        toast.error('Failed to approve request')
+        toast.error(t.messages.failedToApprove)
       }
     } catch (error) {
       console.error('Error approving request:', error)
-      toast.error('Error approving request')
+      toast.error(t.messages.failedToApprove)
     }
   }
 
@@ -323,7 +323,7 @@ export default function ExecutiveDashboard() {
       })
       
       if (response.ok) {
-        toast.success('Request denied successfully')
+        toast.success(t.messages.requestDeniedSuccess)
         // Force calendar refresh
         setCalendarKey(prev => prev + 1)
         if (isDirectReport) {
@@ -333,11 +333,11 @@ export default function ExecutiveDashboard() {
         }
         setShowApprovalDialog(false)
       } else {
-        toast.error('Failed to deny request')
+        toast.error(t.messages.failedToDeny)
       }
     } catch (error) {
       console.error('Error denying request:', error)
-      toast.error('Error denying request')
+      toast.error(t.messages.failedToDeny)
     }
   }
 
@@ -365,10 +365,10 @@ export default function ExecutiveDashboard() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Shield className="h-6 w-6 text-purple-600" />
-              <h1 className="text-xl font-semibold">Executive Dashboard</h1>
+              <h1 className="text-xl font-semibold">{t.nav.executiveDashboard}</h1>
             </div>
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-              {escalatedRequests.length} Escalated Approvals
+              {escalatedRequests.length} {t.nav.escalatedApprovals}
             </Badge>
           </div>
 
@@ -376,19 +376,19 @@ export default function ExecutiveDashboard() {
             {/* Navigation Buttons */}
             <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Manager Dashboard
+              {t.nav.managerDashboard}
             </Button>
             <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
               <Building className="h-4 w-4" />
-              HR Dashboard
+              {t.nav.hrDashboard}
             </Button>
             <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
               <UserCog className="h-4 w-4" />
-              Admin Panel
+              {t.nav.adminPanel}
             </Button>
             <Button onClick={() => router.push("/executive/analytics")} variant="outline" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Analytics
+              {t.nav.analytics}
             </Button>
             <LanguageToggle />
             <NotificationBell />
@@ -414,16 +414,16 @@ export default function ExecutiveDashboard() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+                  <span>{t.common.profile}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+                  <span>{t.nav.settings}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut()}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Logout</span>
+                  <span>{t.nav.logout}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -445,7 +445,7 @@ export default function ExecutiveDashboard() {
             >
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                Dashboard
+                {t.nav.dashboard}
               </div>
             </button>
             <button
@@ -458,7 +458,7 @@ export default function ExecutiveDashboard() {
             >
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Company Calendar
+                {t.nav.companyCalendar}
               </div>
             </button>
           </div>
@@ -503,7 +503,7 @@ export default function ExecutiveDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>{t.dashboard.leaveBalance}</CardTitle>
-                <CardDescription>Your personal leave allocation</CardDescription>
+                <CardDescription>{t.dashboard.personalLeaveAllocation}</CardDescription>
               </CardHeader>
               <CardContent>
                 {loadingBalances ? (
@@ -559,8 +559,8 @@ export default function ExecutiveDashboard() {
             {/* My Recent Requests */}
             <Card>
               <CardHeader>
-                <CardTitle>My Recent Requests</CardTitle>
-                <CardDescription>Your latest leave and remote work requests</CardDescription>
+                <CardTitle>{t.dashboard.myRecentRequests}</CardTitle>
+                <CardDescription>{t.dashboard.myRecentRequestsDescription}</CardDescription>
               </CardHeader>
               <CardContent>
                 {loadingMyRequests ? (
@@ -569,7 +569,7 @@ export default function ExecutiveDashboard() {
                     <div className="animate-pulse bg-gray-200 h-16 rounded"></div>
                   </div>
                 ) : myRequests.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No recent requests</p>
+                  <p className="text-gray-500 text-center py-4">{t.dashboard.noRecentRequests}</p>
                 ) : (
                   <div className="space-y-3">
                     {myRequests.slice(0, 3).map((request) => (
@@ -604,7 +604,7 @@ export default function ExecutiveDashboard() {
                                 onClick={() => handleCancelRequest(request.id)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                               >
-                                Cancel
+                                {t.common.cancel}
                               </Button>
                             )}
                           </div>
@@ -624,9 +624,9 @@ export default function ExecutiveDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-500" />
-                  Direct Report Approvals
+                  {t.dashboard.directReportApprovals}
                 </CardTitle>
-                <CardDescription>Requests from your direct team members</CardDescription>
+                <CardDescription>{t.dashboard.directReportApprovalsDescription}</CardDescription>
               </CardHeader>
               <CardContent className="max-h-96 overflow-y-auto">
                 {loadingDirectReports ? (
@@ -637,7 +637,7 @@ export default function ExecutiveDashboard() {
                 ) : directReportRequests.length === 0 ? (
                   <div className="text-center py-8">
                     <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                    <p className="text-gray-500">No pending requests from your team</p>
+                    <p className="text-gray-500">{t.dashboard.noPendingFromTeam}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -687,7 +687,7 @@ export default function ExecutiveDashboard() {
                               }}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
+                              {t.common.approve}
                             </Button>
                             <Button
                               size="sm"
@@ -709,7 +709,7 @@ export default function ExecutiveDashboard() {
                               }}
                             >
                               <XCircle className="h-4 w-4 mr-1" />
-                              Deny
+                              {t.common.deny}
                             </Button>
                           </div>
                         </div>
@@ -730,7 +730,7 @@ export default function ExecutiveDashboard() {
                           disabled={directReportPage === 1}
                         >
                           <ChevronLeft className="h-4 w-4 mr-1" />
-                          Previous
+                          {t.common.previous}
                         </Button>
                         <span className="text-sm text-gray-600">
                           Page {directReportPage} of {totalDirectReportPages}
@@ -745,7 +745,7 @@ export default function ExecutiveDashboard() {
                           }}
                           disabled={directReportPage === totalDirectReportPages}
                         >
-                          Next
+                          {t.common.next}
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                       </div>
@@ -760,9 +760,9 @@ export default function ExecutiveDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-red-500" />
-                  Escalated Requests Requiring Your Approval
+                  {t.dashboard.escalatedRequestsTitle}
                 </CardTitle>
-                <CardDescription>High-level leave requests that need executive approval</CardDescription>
+                <CardDescription>{t.dashboard.escalatedRequestsDescription}</CardDescription>
               </CardHeader>
               <CardContent className="max-h-96 overflow-y-auto">
                 {loading ? (
@@ -773,7 +773,7 @@ export default function ExecutiveDashboard() {
                 ) : escalatedRequests.length === 0 ? (
                   <div className="text-center py-8">
                     <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                    <p className="text-gray-500">No escalated requests pending your approval</p>
+                    <p className="text-gray-500">{t.dashboard.noEscalatedRequests}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -823,7 +823,7 @@ export default function ExecutiveDashboard() {
                               }}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
+                              {t.common.approve}
                             </Button>
                             <Button
                               size="sm"
@@ -843,7 +843,7 @@ export default function ExecutiveDashboard() {
                               }}
                             >
                               <XCircle className="h-4 w-4 mr-1" />
-                              Deny
+                              {t.common.deny}
                             </Button>
                           </div>
                         </div>
@@ -864,7 +864,7 @@ export default function ExecutiveDashboard() {
                           disabled={pendingRequestsPage === 1}
                         >
                           <ChevronLeft className="h-4 w-4 mr-1" />
-                          Previous
+                          {t.common.previous}
                         </Button>
                         <span className="text-sm text-gray-600">
                           Page {pendingRequestsPage} of {totalEscalatedPages}
@@ -879,7 +879,7 @@ export default function ExecutiveDashboard() {
                           }}
                           disabled={pendingRequestsPage === totalEscalatedPages}
                         >
-                          Next
+                          {t.common.next}
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                       </div>

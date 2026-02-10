@@ -196,7 +196,7 @@ export default function ManagerDashboard() {
       }
     } catch (error) {
       console.error('Error fetching leave balance:', error)
-      toast.error('Failed to load leave balance')
+      toast.error(t.messages.failedToLoadBalance)
     }
   }
 
@@ -209,7 +209,7 @@ export default function ManagerDashboard() {
       }
     } catch (error) {
       console.error('Error fetching team stats:', error)
-      toast.error('Failed to load team statistics')
+      toast.error(t.messages.failedToLoadTeamStats)
     }
   }
 
@@ -225,7 +225,7 @@ export default function ManagerDashboard() {
       }
     } catch (error) {
       console.error('Error fetching pending requests:', error)
-      toast.error('Failed to load pending requests')
+      toast.error(t.messages.failedToLoadRequests)
     } finally {
       setLoading(false)
     }
@@ -242,7 +242,7 @@ export default function ManagerDashboard() {
       }
     } catch (error) {
       console.error('Error fetching approved requests:', error)
-      toast.error('Failed to load approved requests')
+      toast.error(t.messages.failedToLoadApprovedRequests)
     } finally {
       setLoading(false)
     }
@@ -274,7 +274,7 @@ export default function ManagerDashboard() {
   }
 
   const handleCancelRequest = async (requestId: string) => {
-    if (!confirm('Are you sure you want to cancel this request?')) {
+    if (!confirm(t.messages.confirmCancelRequest)) {
       return;
     }
 
@@ -297,10 +297,10 @@ export default function ManagerDashboard() {
       // Refresh the requests list
       await fetchManagerOwnRequests();
       
-      toast.success('Request cancelled successfully');
+      toast.success(t.messages.requestCancelledSuccess);
     } catch (error) {
       console.error('Error cancelling request:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
+      toast.error(error instanceof Error ? error.message : t.messages.failedToCancelRequest);
     }
   }
 
@@ -327,7 +327,7 @@ export default function ManagerDashboard() {
       }
     } catch (error) {
       console.error('Error fetching denied requests:', error)
-      toast.error('Failed to load denied requests')
+      toast.error(t.messages.failedToLoadDeniedRequests)
     } finally {
       setLoading(false)
     }
@@ -343,7 +343,7 @@ export default function ManagerDashboard() {
       })
       
       if (response.ok) {
-        toast.success('Request approved successfully')
+        toast.success(t.messages.requestApprovedSuccess)
         // Refresh all data
         await Promise.all([
           fetchPendingRequests(),
@@ -354,11 +354,11 @@ export default function ManagerDashboard() {
       } else {
         const errorData = await response.json()
         console.error('API Error:', errorData)
-        toast.error(errorData.details || 'Failed to approve request')
+        toast.error(errorData.details || t.messages.failedToApprove)
       }
     } catch (error) {
       console.error('Error approving request:', error)
-      toast.error('Failed to approve request')
+      toast.error(t.messages.failedToApprove)
     }
   }
 
@@ -372,7 +372,7 @@ export default function ManagerDashboard() {
       })
       
       if (response.ok) {
-        toast.success('Request denied')
+        toast.success(t.messages.requestDeniedSuccess)
         // Refresh all data
         await Promise.all([
           fetchPendingRequests(),
@@ -381,11 +381,11 @@ export default function ManagerDashboard() {
         ])
         setShowApprovalDialog(false)
       } else {
-        toast.error('Failed to deny request')
+        toast.error(t.messages.failedToDeny)
       }
     } catch (error) {
       console.error('Error denying request:', error)
-      toast.error('Failed to deny request')
+      toast.error(t.messages.failedToDeny)
     }
   }
 
@@ -562,14 +562,14 @@ export default function ManagerDashboard() {
                   variant="ghost"
                   size="icon"
                   onClick={() => router.push(getDashboardRoute())}
-                  title="Back to Personal Dashboard"
+                  title={t.nav.backToPersonalDashboard}
                   className="hidden md:flex"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
               </div>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t.nav.dashboard} - Manager</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">{t.nav.dashboard} - {t.roles.manager}</h1>
                 <p className="text-sm md:text-base text-gray-600">
                   {(session?.user?.firstName && session?.user?.lastName) ? `${session.user.firstName} ${session.user.lastName}` : (session?.user?.name || session?.user?.email || 'User')} - {session?.user?.department || 'Department'} {session?.user?.role === 'MANAGER' ? 'Manager' : session?.user?.role === 'DEPARTMENT_DIRECTOR' ? 'Director' : ''}
                 </p>
@@ -583,7 +583,7 @@ export default function ManagerDashboard() {
                 className="hidden md:flex items-center gap-2"
               >
                 <CalendarDays className="h-4 w-4" />
-                My Dashboard
+                {t.nav.myDashboard}
               </Button>
               
               {/* Mobile-only button - icon only */}
@@ -601,14 +601,14 @@ export default function ManagerDashboard() {
                 <>
                   <Button onClick={() => router.push("/hr")} variant="outline" className="hidden md:flex items-center gap-2">
                     <Building className="h-4 w-4" />
-                    HR Dashboard
+                    {t.nav.hrDashboard}
                   </Button>
-                  <Button 
-                    onClick={() => router.push("/hr")} 
-                    variant="outline" 
+                  <Button
+                    onClick={() => router.push("/hr")}
+                    variant="outline"
                     size="icon"
                     className="md:hidden"
-                    title="HR Dashboard"
+                    title={t.nav.hrDashboard}
                   >
                     <Building className="h-4 w-4" />
                   </Button>
@@ -621,7 +621,7 @@ export default function ManagerDashboard() {
                 className="text-xs md:text-sm bg-red-50 border-red-200 text-red-700 flex items-center gap-1"
               >
                 <AlertTriangle className="h-3 w-3" />
-                <span className="hidden sm:inline">{teamStats.pendingRequests} team approvals pending</span>
+                <span className="hidden sm:inline">{teamStats.pendingRequests} {t.labels.teamApprovalsEnding}</span>
                 <span className="sm:hidden">{teamStats.pendingRequests}</span>
               </Badge>
 
@@ -723,29 +723,29 @@ export default function ManagerDashboard() {
             size="sm"
             className="whitespace-nowrap"
           >
-            Delegation
+            {t.nav.delegation}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="flex items-center gap-2 whitespace-nowrap">
                 <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Planning</span>
-                <span className="sm:hidden">Plans</span>
+                <span className="hidden sm:inline">{t.nav.planning}</span>
+                <span className="sm:hidden">{t.nav.planning}</span>
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={() => router.push('/holiday-planning')}>
                 <Calendar className="h-4 w-4 mr-2" />
-                My Holiday Planning
+                {t.nav.myHolidayPlanning}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/manager/holiday-planning')}>
                 <Users className="h-4 w-4 mr-2" />
-                Team Holiday Plans
+                {t.nav.teamHolidayPlans}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/department-holiday-view')}>
                 <Calendar className="h-4 w-4 mr-2" />
-                Department Plans
+                {t.nav.departmentPlans}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -756,8 +756,8 @@ export default function ManagerDashboard() {
             className="flex items-center gap-2 whitespace-nowrap"
           >
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Analytics</span>
-            <span className="sm:hidden">Stats</span>
+            <span className="hidden sm:inline">{t.nav.analytics}</span>
+            <span className="sm:hidden">{t.nav.analytics}</span>
           </Button>
         </div>
 
@@ -789,7 +789,7 @@ export default function ManagerDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">My Vacation Days</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.vacationDays}</CardTitle>
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -812,19 +812,19 @@ export default function ManagerDashboard() {
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">My Medical Leave</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.medicalLeave}</CardTitle>
                     <Heart className="h-4 w-4 text-red-500" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{managerLeaveBalance.medical.used}</div>
-                    <p className="text-xs text-muted-foreground">Days used this year</p>
-                    <p className="text-xs text-gray-500 mt-2">Managed by HR</p>
+                    <p className="text-xs text-muted-foreground">{t.labels.daysUsedThisYear}</p>
+                    <p className="text-xs text-gray-500 mt-2">{t.labels.managedByHR}</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">My Personal Days</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.personalDays}</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -851,7 +851,7 @@ export default function ManagerDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-sm font-medium">
-                      My Remote Work Usage - {format(managerWfhMonth, "MMMM yyyy")}
+                      {t.dashboard.remoteWorkUsage} - {format(managerWfhMonth, "MMMM yyyy")}
                     </CardTitle>
                     <Home className="h-4 w-4 text-blue-600" />
                   </div>
@@ -865,9 +865,9 @@ export default function ManagerDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{managerWfhStats.daysUsed} days</div>
+                  <div className="text-2xl font-bold text-blue-600">{managerWfhStats.daysUsed} {t.common.days}</div>
                   <p className="text-xs text-muted-foreground">
-                    {managerWfhStats.daysUsed} of {managerWfhStats.workingDaysInMonth} working days this month
+                    {managerWfhStats.daysUsed} of {managerWfhStats.workingDaysInMonth} {t.labels.workingDaysThisMonth}
                   </p>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
@@ -875,7 +875,7 @@ export default function ManagerDashboard() {
                       style={{ width: `${managerWfhStats.percentage}%` }}
                     ></div>
                   </div>
-                  <p className="text-sm font-medium text-blue-600 mt-2">{managerWfhStats.percentage}% WFH this month</p>
+                  <p className="text-sm font-medium text-blue-600 mt-2">{managerWfhStats.percentage}% {t.labels.wfhThisMonth}</p>
                 </CardContent>
               </Card>
 
@@ -884,8 +884,8 @@ export default function ManagerDashboard() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>My Requests</CardTitle>
-                      <CardDescription>Requests submitted to your manager</CardDescription>
+                      <CardTitle>{t.dashboard.myRequests}</CardTitle>
+                      <CardDescription>{t.dashboard.myRequestsDescription}</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">
@@ -936,7 +936,7 @@ export default function ManagerDashboard() {
                                 <p className="text-sm text-gray-600">
                                   {formatDateRange(request?.startDate, request?.endDate)}
                                 </p>
-                                <p className="text-xs text-gray-500">To: {request?.approver?.name || 'Pending assignment'}</p>
+                                <p className="text-xs text-gray-500">To: {request?.approver?.name || t.labels.pendingAssignment}</p>
                               </div>
                             </div>
                           </div>
@@ -954,7 +954,7 @@ export default function ManagerDashboard() {
                                 onClick={() => handleCancelRequest(request?.id || '')}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                               >
-                                Cancel
+                                {t.common.cancel}
                               </Button>
                             )}
                           </div>
@@ -968,8 +968,8 @@ export default function ManagerDashboard() {
               {/* Pending Team Approvals on Dashboard */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Pending Team Approvals</CardTitle>
-                  <CardDescription>Recent requests from your team members</CardDescription>
+                  <CardTitle>{t.dashboard.pendingTeamApprovals}</CardTitle>
+                  <CardDescription>{t.dashboard.pendingTeamApprovalsDescription}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -977,7 +977,7 @@ export default function ManagerDashboard() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                     </div>
                   ) : pendingRequests.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">No pending requests</p>
+                    <p className="text-center text-gray-500 py-8">{t.labels.noPendingRequests}</p>
                   ) : (
                     <div className="space-y-3">
                       {pendingRequests.slice(0, 3).map((request) => (
@@ -1031,7 +1031,7 @@ export default function ManagerDashboard() {
                       className="w-full mt-3" 
                       onClick={() => setActiveTab("team")}
                     >
-                      View All {pendingRequests.length} Requests
+                      {t.common.viewAll} {pendingRequests.length} {t.common.requests}
                     </Button>
                   )}
                 </CardContent>
@@ -1042,36 +1042,36 @@ export default function ManagerDashboard() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Team Quick Stats</CardTitle>
+                  <CardTitle>{t.dashboard.teamQuickStats}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{teamStats.inOffice}</div>
-                      <div className="text-xs text-gray-600">In Office</div>
+                      <div className="text-xs text-gray-600">{t.dashboard.inOffice}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">{teamStats.workingFromHome}</div>
-                      <div className="text-xs text-gray-600">Remote Work</div>
+                      <div className="text-xs text-gray-600">{t.labels.workingRemote}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-red-600">{teamStats.onLeaveToday}</div>
-                      <div className="text-xs text-gray-600">On Leave</div>
+                      <div className="text-xs text-gray-600">{t.dashboard.onLeave}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-yellow-600">{teamStats.pendingRequests}</div>
-                      <div className="text-xs text-gray-600">Pending</div>
+                      <div className="text-xs text-gray-600">{t.tabs.pending}</div>
                     </div>
                   </div>
                   <Button variant="outline" className="w-full mt-4" onClick={() => setActiveTab("team")}>
-                    Manage Team
+                    {t.labels.manageTeam}
                   </Button>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Your Reporting Manager</CardTitle>
+                  <CardTitle>{t.dashboard.reportingManager}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-3">
@@ -1096,14 +1096,14 @@ export default function ManagerDashboard() {
                             {superior.displayTitle || superior.position || superior.role}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {superior.description || 'For leave approvals'}
+                            {superior.description || t.labels.forLeaveApprovals}
                           </p>
                         </>
                       ) : (
                         <>
-                          <h4 className="font-semibold">No Superior Assigned</h4>
+                          <h4 className="font-semibold">{t.labels.noSuperior}</h4>
                           <p className="text-sm text-gray-600">
-                            Please contact HR to assign your reporting manager
+                            {t.labels.contactHrForSuperior}
                           </p>
                         </>
                       )}
@@ -1125,45 +1125,45 @@ export default function ManagerDashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Team Members</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.teamMembers}</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{teamStats.totalMembers}</div>
-                    <p className="text-xs text-muted-foreground">Total team size</p>
+                    <p className="text-xs text-muted-foreground">{t.labels.totalTeamSize}</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">In Office</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.inOffice}</CardTitle>
                     <UserCheck className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-green-600">{teamStats.inOffice}</div>
-                    <p className="text-xs text-muted-foreground">Present today</p>
+                    <p className="text-xs text-muted-foreground">{t.labels.presentToday}</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Working from Home</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.workingFromHome}</CardTitle>
                     <Home className="h-4 w-4 text-blue-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-blue-600">{teamStats.workingFromHome}</div>
-                    <p className="text-xs text-muted-foreground">Remote today</p>
+                    <p className="text-xs text-muted-foreground">{t.labels.remoteToday}</p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">On Leave</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.onLeave}</CardTitle>
                     <UserX className="h-4 w-4 text-red-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-red-600">{teamStats.onLeaveToday}</div>
-                    <p className="text-xs text-muted-foreground">Away today</p>
+                    <p className="text-xs text-muted-foreground">{t.labels.awayToday}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1173,7 +1173,7 @@ export default function ManagerDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-sm font-medium">
-                      Team Remote Work Usage - {format(teamStatsMonth, "MMMM yyyy")}
+                      {t.dashboard.teamRemoteWorkUsage} - {format(teamStatsMonth, "MMMM yyyy")}
                     </CardTitle>
                     <TrendingUp className="h-4 w-4 text-blue-600" />
                   </div>
@@ -1197,7 +1197,7 @@ export default function ManagerDashboard() {
                       style={{ width: `${teamWfhStats.averageWfhPercentage}%` }}
                     ></div>
                   </div>
-                  <p className="text-sm font-medium text-blue-600 mt-2">Average team WFH percentage</p>
+                  <p className="text-sm font-medium text-blue-600 mt-2">{t.labels.avgTeamWfhPercentage}</p>
                 </CardContent>
               </Card>
 
@@ -1206,8 +1206,8 @@ export default function ManagerDashboard() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Team Leave Requests</CardTitle>
-                      <CardDescription>Manage leave requests from your team</CardDescription>
+                      <CardTitle>{t.dashboard.teamLeaveRequests}</CardTitle>
+                      <CardDescription>{t.dashboard.teamLeaveRequestsDescription}</CardDescription>
                     </div>
                   </div>
                   
@@ -1220,7 +1220,7 @@ export default function ManagerDashboard() {
                       className="flex items-center gap-2"
                     >
                       <Clock className="h-3 w-3" />
-                      Pending ({teamStats.pendingRequests})
+                      {t.tabs.pending} ({teamStats.pendingRequests})
                     </Button>
                     <Button
                       variant={teamRequestsTab === 'approved' ? 'default' : 'outline'}
@@ -1229,7 +1229,7 @@ export default function ManagerDashboard() {
                       className="flex items-center gap-2"
                     >
                       <CheckCircle className="h-3 w-3" />
-                      Approved
+                      {t.tabs.approved}
                     </Button>
                     <Button
                       variant={teamRequestsTab === 'denied' ? 'default' : 'outline'}
@@ -1238,7 +1238,7 @@ export default function ManagerDashboard() {
                       className="flex items-center gap-2"
                     >
                       <XCircle className="h-3 w-3" />
-                      Denied
+                      {t.tabs.denied}
                     </Button>
                   </div>
                 </CardHeader>
@@ -1250,7 +1250,7 @@ export default function ManagerDashboard() {
                         <span className="text-sm text-gray-500">
                           {totalPendingPages > 0 
                             ? `Showing ${pendingRequests.length} request${pendingRequests.length !== 1 ? 's' : ''} - Page ${pendingRequestsPage} of ${totalPendingPages}`
-                            : 'No pending requests'}
+                            : t.labels.noPendingRequests}
                         </span>
                         {totalPendingPages > 1 && (
                           <div className="flex items-center gap-2">
@@ -1303,7 +1303,7 @@ export default function ManagerDashboard() {
                       </div>
                       <div className="space-y-4">
                         {pendingRequests.length === 0 ? (
-                          <p className="text-center text-gray-500 py-8">No pending requests</p>
+                          <p className="text-center text-gray-500 py-8">{t.labels.noPendingRequests}</p>
                         ) : (
                           pendingRequests.map((request) => (
                       <div key={request?.id || Math.random()} className="p-4 border rounded-lg">
@@ -1331,13 +1331,13 @@ export default function ManagerDashboard() {
                                 day{(request?.days || 0) > 1 ? "s" : ""})
                               </p>
                               {request?.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
-                              <p className="text-xs text-gray-400 mt-1">Submitted: {request?.submittedDate || 'Unknown'}</p>
+                              <p className="text-xs text-gray-400 mt-1">{t.labels.submitted}: {request?.submittedDate || 'Unknown'}</p>
                             </div>
                           </div>
                           <div className="flex gap-2">
                             <Button size="sm" onClick={() => handleApproveRequest(request)}>
                               <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
+                              {t.common.approve}
                             </Button>
                             <Button
                               size="sm"
@@ -1346,7 +1346,7 @@ export default function ManagerDashboard() {
                               className="text-red-600 hover:text-red-700"
                             >
                               <XCircle className="h-4 w-4 mr-1" />
-                              Deny
+                              {t.common.deny}
                             </Button>
                           </div>
                         </div>
@@ -1365,20 +1365,20 @@ export default function ManagerDashboard() {
                             disabled={pendingRequestsPage === 1}
                           >
                             <ChevronLeft className="h-4 w-4 mr-1" />
-                            Previous
+                            {t.common.previous}
                           </Button>
-                          
+
                           <span className="text-sm text-gray-500 mx-2">
                             Page {pendingRequestsPage} of {totalPendingPages}
                           </span>
-                          
+
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={nextRequestsPage}
                             disabled={pendingRequestsPage === totalPendingPages}
                           >
-                            Next
+                            {t.common.next}
                             <ChevronRight className="h-4 w-4 ml-1" />
                           </Button>
                         </div>
@@ -1393,7 +1393,7 @@ export default function ManagerDashboard() {
                         <span className="text-sm text-gray-500">
                           {totalApprovedPages > 0 
                             ? `Page ${approvedRequestsPage} of ${totalApprovedPages}`
-                            : 'No approved requests'}
+                            : t.labels.noApprovedRequests}
                         </span>
                         {totalApprovedPages > 0 && (
                           <div className="flex gap-1">
@@ -1418,7 +1418,7 @@ export default function ManagerDashboard() {
                       </div>
                       <div className="space-y-4">
                         {approvedRequests.length === 0 ? (
-                          <p className="text-center text-gray-500 py-8">No approved requests</p>
+                          <p className="text-center text-gray-500 py-8">{t.labels.noApprovedRequests}</p>
                         ) : (
                           approvedRequests.map((request) => (
                             <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-green-50 border-green-200">
@@ -1440,15 +1440,15 @@ export default function ManagerDashboard() {
                                       <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
                                       {request?.reason && <p className="text-sm text-gray-500">"{request.reason}"</p>}
                                       <p className="text-xs text-green-600 mt-1">
-                                        Approved on: {request?.approvedDate ? new Date(request.approvedDate).toLocaleDateString() : 'Unknown'}
+                                        {t.labels.approvedOn}: {request?.approvedDate ? new Date(request.approvedDate).toLocaleDateString() : 'Unknown'}
                                       </p>
                                     </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <Badge className="bg-green-100 text-green-800">Approved by You</Badge>
+                                  <Badge className="bg-green-100 text-green-800">{t.labels.approvedByYou}</Badge>
                                   {request?.overallRequestStatus === 'PENDING' && (
-                                    <p className="text-xs text-orange-600 mt-1">Pending Executive</p>
+                                    <p className="text-xs text-orange-600 mt-1">{t.labels.pendingExecutive}</p>
                                   )}
                                 </div>
                               </div>
@@ -1466,7 +1466,7 @@ export default function ManagerDashboard() {
                         <span className="text-sm text-gray-500">
                           {totalDeniedPages > 0 
                             ? `Page ${deniedRequestsPage} of ${totalDeniedPages}`
-                            : 'No denied requests'}
+                            : t.labels.noDeniedRequests}
                         </span>
                         {totalDeniedPages > 0 && (
                           <div className="flex gap-1">
@@ -1491,7 +1491,7 @@ export default function ManagerDashboard() {
                       </div>
                       <div className="space-y-4">
                         {deniedRequests.length === 0 ? (
-                          <p className="text-center text-gray-500 py-8">No denied requests</p>
+                          <p className="text-center text-gray-500 py-8">{t.labels.noDeniedRequests}</p>
                         ) : (
                           deniedRequests.map((request) => (
                             <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-red-50 border-red-200">
@@ -1514,11 +1514,11 @@ export default function ManagerDashboard() {
                                       {request?.reason && <p className="text-sm text-gray-500">Request: "{request.reason}"</p>}
                                       {request?.denialReason && (
                                         <p className="text-sm text-red-600 mt-1">
-                                          Denial reason: "{request.denialReason}"
+                                          {t.labels.denialReason}: "{request.denialReason}"
                                         </p>
                                       )}
                                       <p className="text-xs text-red-600 mt-1">
-                                        Denied on: {request?.deniedDate ? new Date(request.deniedDate).toLocaleDateString() : 'Unknown'}
+                                        {t.labels.deniedOn}: {request?.deniedDate ? new Date(request.deniedDate).toLocaleDateString() : 'Unknown'}
                                       </p>
                                     </div>
                                   </div>
@@ -1539,16 +1539,16 @@ export default function ManagerDashboard() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle>{t.dashboard.quickActions}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button className="w-full" variant="outline">
                     <Clock className="h-4 w-4 mr-2" />
-                    View All Team Requests
+                    {t.labels.viewAllTeamRequests}
                   </Button>
                   <Button className="w-full" variant="outline">
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Generate Team Report
+                    {t.labels.generateTeamReport}
                   </Button>
                 </CardContent>
               </Card>

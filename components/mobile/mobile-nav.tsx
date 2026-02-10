@@ -22,6 +22,7 @@ import {
   UserCheck
 } from "lucide-react"
 import { signOut } from "next-auth/react"
+import { useTranslations } from "@/components/language-provider"
 
 interface MobileNavProps {
   pendingCount?: number
@@ -32,6 +33,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const t = useTranslations()
 
   if (!session) return null
 
@@ -41,32 +43,32 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
 
   const mainNavItems = [
     {
-      label: "Dashboard",
+      label: t.nav.dashboard,
       icon: Home,
       href: getDashboardRoute(),
       show: true
     },
     {
-      label: "My Leave",
+      label: t.nav.myLeave,
       icon: Calendar,
       href: "/employee",
       show: true
     },
     {
-      label: "Manager Dashboard",
+      label: t.nav.managerDashboard,
       icon: UserCheck,
       href: "/manager",
       show: ['MANAGER', 'DIRECTOR', 'EXECUTIVE'].includes(userRole),
       badge: pendingCount > 0 ? pendingCount : undefined
     },
     {
-      label: "HR Dashboard",
+      label: t.nav.hrDashboard,
       icon: Building,
       href: "/hr",
       show: userRole === 'HR' || session.user?.department?.includes('HR')
     },
     {
-      label: "Analytics",
+      label: t.nav.analytics,
       icon: BarChart3,
       href: "/analytics",
       show: ['MANAGER', 'DIRECTOR', 'HR', 'EXECUTIVE'].includes(userRole)
@@ -75,13 +77,13 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
 
   const planningNavItems = [
     {
-      label: "Holiday Planning",
+      label: t.nav.myHolidayPlanning,
       icon: Calendar,
       href: "/holiday-planning",
       show: true
     },
     {
-      label: "Team Calendar",
+      label: t.nav.teamHolidayPlans,
       icon: Users,
       href: "/team-calendar",
       show: true
@@ -117,9 +119,9 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
       </SheetTrigger>
       <SheetContent side="left" className="w-72">
         <SheetHeader>
-          <SheetTitle className="text-left">Navigation</SheetTitle>
+          <SheetTitle className="text-left">{t.nav.navigation}</SheetTitle>
           <SheetDescription className="text-left">
-            Quick access to all features
+            {t.nav.quickAccessToAllFeatures}
           </SheetDescription>
         </SheetHeader>
 
@@ -168,7 +170,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
 
           {/* Planning Section */}
           <div className="pt-2 mt-2 border-t">
-            <p className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">Planning</p>
+            <p className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">{t.nav.planning}</p>
             {planningNavItems.filter(item => item.show).map((item) => {
               const isActive = pathname === item.href
               const Icon = item.icon
@@ -195,7 +197,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
 
         {/* Quick Actions */}
         <div className="mt-8 border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h4>
+          <h4 className="text-sm font-medium text-gray-900 mb-3">{t.mobile.quickActions}</h4>
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
@@ -204,7 +206,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
               className="text-xs"
             >
               <Calendar className="h-3 w-3 mr-1" />
-              Request Leave
+              {t.common.requestLeave}
             </Button>
             <Button
               variant="outline"
@@ -213,7 +215,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
               className="text-xs"
             >
               <Home className="h-3 w-3 mr-1" />
-              Work From Home
+              {t.common.workFromHome}
             </Button>
           </div>
         </div>
@@ -226,7 +228,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
             className="w-full justify-start text-sm"
           >
             <Settings className="h-4 w-4 mr-3" />
-            Settings
+            {t.nav.settings}
           </Button>
           <Button
             variant="ghost"
@@ -234,7 +236,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
             className="w-full justify-start text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
           >
             <LogOut className="h-4 w-4 mr-3" />
-            Sign Out
+            {t.common.signOut}
           </Button>
         </div>
       </SheetContent>

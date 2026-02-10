@@ -195,7 +195,7 @@ export default function EmployeeDashboard() {
   }
 
   const handleCancelRequest = async (requestId: string, requestType: string = 'leave') => {
-    if (!confirm('Are you sure you want to cancel this request?')) {
+    if (!confirm(t.messages.confirmCancelRequest)) {
       return;
     }
 
@@ -229,10 +229,10 @@ export default function EmployeeDashboard() {
       // Refresh the requests list
       await fetchAllRequests();
       
-      toast.success('Request cancelled successfully');
+      toast.success(t.messages.requestCancelledSuccess);
     } catch (error) {
       console.error('Error cancelling request:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to cancel request');
+      toast.error(error instanceof Error ? error.message : t.messages.failedToCancelRequest);
     } finally {
       setCancellingRequestId(null);
     }
@@ -437,31 +437,31 @@ export default function EmployeeDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Leave Management</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t.nav.leaveManagement}</h1>
               <p className="text-gray-600">{t.dashboard.welcomeBack}, {userName}</p>
             </div>
             <div className="flex items-center gap-3">
               {(session.user.role === "ADMIN" || session.user.role === "EXECUTIVE") && (
                 <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
-                  Admin Dashboard
+                  {t.nav.adminDashboard}
                 </Button>
               )}
               {(session.user.role === "HR" || (session.user.role === "EMPLOYEE" && session.user.department?.includes("HR"))) && (
                 <>
                   <Button onClick={() => router.push("/hr")} variant="outline" className="flex items-center gap-2">
                     <Building className="h-4 w-4" />
-                    HR Dashboard
+                    {t.nav.hrDashboard}
                   </Button>
                   {hasDirectReports && (
                     <>
                       <Button onClick={() => router.push("/admin")} variant="outline" className="flex items-center gap-2">
                         <Shield className="h-4 w-4" />
-                        Admin Dashboard
+                        {t.nav.adminDashboard}
                       </Button>
                       <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
                         <Users className="h-4 w-4" />
-                        Manager Dashboard
+                        {t.nav.managerDashboard}
                       </Button>
                     </>
                   )}
@@ -471,12 +471,12 @@ export default function EmployeeDashboard() {
                 <>
                   <Button onClick={() => router.push("/executive")} variant="outline" className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4" />
-                    Executive Dashboard
+                    {t.nav.executiveDashboard}
                   </Button>
                   {hasDirectReports && (
                     <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Manager Dashboard
+                      {t.nav.managerDashboard}
                     </Button>
                   )}
                 </>
@@ -484,7 +484,7 @@ export default function EmployeeDashboard() {
               {session.user.role === "MANAGER" && (
                 <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  Manager Dashboard
+                  {t.nav.managerDashboard}
                 </Button>
               )}
               <Button onClick={() => setShowRemoteForm(true)} variant="outline" className="flex items-center gap-2">
@@ -541,22 +541,22 @@ export default function EmployeeDashboard() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Planning
+                {t.nav.planning}
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={() => router.push('/holiday-planning')}>
                 <Calendar className="h-4 w-4 mr-2" />
-                My Holiday Planning
+                {t.nav.myHolidayPlanning}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/team-calendar')}>
                 <Users className="h-4 w-4 mr-2" />
-                Team Calendar
+                {t.nav.teamHolidayPlans}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/department-holiday-view')}>
                 <Calendar className="h-4 w-4 mr-2" />
-                Department Plans
+                {t.nav.departmentPlans}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -602,8 +602,8 @@ export default function EmployeeDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{sickLeave.used || 0}</div>
-                      <p className="text-xs text-muted-foreground">{t.leaveForm.days} used this year</p>
-                      <p className="text-xs text-gray-500 mt-2">No limit - tracked by HR</p>
+                      <p className="text-xs text-muted-foreground">{t.labels.daysUsedThisYear}</p>
+                      <p className="text-xs text-gray-500 mt-2">{t.labels.noLimitTrackedByHr}</p>
                     </CardContent>
                   </Card>
                 )}
@@ -616,13 +616,13 @@ export default function EmployeeDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{specialLeaves.reduce((sum, leave) => sum + (leave.used || 0), 0)}</div>
-                    <p className="text-xs text-muted-foreground">Total special leave {t.leaveForm.days} used</p>
+                    <p className="text-xs text-muted-foreground">{t.labels.totalSpecialLeave}</p>
                     <div className="text-xs text-gray-500 mt-2 space-y-1">
                       {specialLeaves.filter(leave => leave.used > 0).map(leave => (
                         <div key={leave.leaveTypeId}>{leave.leaveTypeName}: {leave.used} {t.leaveForm.days}</div>
                       ))}
                       {specialLeaves.filter(leave => leave.used > 0).length === 0 && (
-                        <div>No special leave taken</div>
+                        <div>{t.labels.noSpecialLeaveTaken}</div>
                       )}
                     </div>
                   </CardContent>
@@ -659,12 +659,12 @@ export default function EmployeeDashboard() {
                     <>
                       <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} {t.leaveForm.days}</div>
                       <p className="text-xs text-muted-foreground">
-                        {wfhStats.daysUsed} of {wfhStats.workingDaysInMonth} working {t.leaveForm.days} this month
+                        {wfhStats.daysUsed} {t.common.of} {wfhStats.workingDaysInMonth} {t.labels.workingDaysThisMonth}
                       </p>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                         <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${wfhStats.percentage}%` }}></div>
                       </div>
-                      <p className="text-sm font-medium text-blue-600 mt-2">{wfhStats.percentage}% WFH this month</p>
+                      <p className="text-sm font-medium text-blue-600 mt-2">{wfhStats.percentage}% {t.labels.wfhThisMonth}</p>
                     </>
                   )}
                 </CardContent>
@@ -675,12 +675,12 @@ export default function EmployeeDashboard() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>Recent Requests</CardTitle>
-                      <CardDescription>Your latest leave and work from home requests</CardDescription>
+                      <CardTitle>{t.dashboard.recentRequests}</CardTitle>
+                      <CardDescription>{t.dashboard.recentRequestsDescription}</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">
-                        Page {requestsCurrentPage} of {totalPages}
+                        {t.common.page} {requestsCurrentPage} {t.common.of} {totalPages}
                       </span>
                       <div className="flex gap-1">
                         <Button
@@ -706,11 +706,11 @@ export default function EmployeeDashboard() {
                 <CardContent>
                   {loadingRequests ? (
                     <div className="flex items-center justify-center py-8">
-                      <p className="text-gray-500">Loading requests...</p>
+                      <p className="text-gray-500">{t.dashboard.loadingRequests}</p>
                     </div>
                   ) : allRequests.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">No requests found</p>
+                      <p className="text-gray-500">{t.dashboard.noRequestsFound}</p>
                     </div>
                   ) : (
                     <>
@@ -729,7 +729,7 @@ export default function EmployeeDashboard() {
                                 </div>
                                 <p className="text-sm text-gray-600">{formatRequestDates(request)}</p>
                                 <p className="text-xs text-gray-500">
-                                  Requested {format(new Date(request.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                                  {t.labels.requested} {format(new Date(request.createdAt), "MMM d, yyyy 'at' h:mm a")}
                                 </p>
                               </div>
                             </div>
@@ -746,13 +746,13 @@ export default function EmployeeDashboard() {
                                     disabled={cancellingRequestId === request.id}
                                     className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 disabled:opacity-50"
                                   >
-                                    {cancellingRequestId === request.id ? 'Cancelling...' : 'Cancel'}
+                                    {cancellingRequestId === request.id ? t.labels.cancelling : t.common.cancel}
                                   </Button>
                                 )}
                               </div>
                               {request.status === 'PENDING' && request.approvals && request.approvals.length > 0 && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                  Awaiting approval
+                                  {t.labels.awaitingApproval}
                                 </p>
                               )}
                             </div>
@@ -763,7 +763,7 @@ export default function EmployeeDashboard() {
                       {/* Pagination Footer */}
                       <div className="flex items-center justify-between mt-4 pt-4 border-t">
                         <p className="text-sm text-gray-500">
-                          Showing {startIndex + 1}-{Math.min(endIndex, allRequests.length)} of {allRequests.length} requests
+                          {t.common.showing} {startIndex + 1}-{Math.min(endIndex, allRequests.length)} {t.common.of} {allRequests.length} {t.common.requests}
                         </p>
                         <div className="flex gap-2">
                           {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -788,8 +788,8 @@ export default function EmployeeDashboard() {
             {/* Upcoming Company Holidays */}
             <Card>
               <CardHeader>
-                <CardTitle>Upcoming Holidays</CardTitle>
-                <CardDescription>Company-wide holidays</CardDescription>
+                <CardTitle>{t.dashboard.upcomingHolidays}</CardTitle>
+                <CardDescription>{t.dashboard.companyHolidays}</CardDescription>
               </CardHeader>
               <CardContent>
                 <HolidaysList />

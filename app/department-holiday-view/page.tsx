@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Calendar, ArrowLeft, Users, Eye } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useTranslations } from "@/components/language-provider"
 
 interface HolidayPlan {
   id: string
@@ -59,6 +60,7 @@ const ROLE_ORDER = {
 export default function DepartmentHolidayViewPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const t = useTranslations()
   const [holidayPlans, setHolidayPlans] = useState<HolidayPlan[]>([])
   const [summary, setSummary] = useState<DepartmentSummary | null>(null)
   const [department, setDepartment] = useState('')
@@ -119,9 +121,9 @@ export default function DepartmentHolidayViewPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-4">Please log in to view department holiday plans</p>
-          <Button onClick={() => router.push('/login')}>Go to Login</Button>
+          <h1 className="text-2xl font-bold mb-4">{t.planning.accessDenied}</h1>
+          <p className="text-gray-600 mb-4">{t.planning.pleaseLogIn}</p>
+          <Button onClick={() => router.push('/login')}>{t.planning.goToLogin}</Button>
         </div>
       </div>
     )
@@ -132,7 +134,7 @@ export default function DepartmentHolidayViewPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading department holiday plans...</p>
+          <p>{t.departmentView.loadingDepartmentPlans}</p>
         </div>
       </div>
     )
@@ -159,13 +161,13 @@ export default function DepartmentHolidayViewPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {department} Department - Holiday Plans {planningYear}
+                {department} {t.departmentView.title} {planningYear}
               </h1>
-              <p className="text-gray-600">View your colleagues' approved holiday plans</p>
+              <p className="text-gray-600">{t.departmentView.description}</p>
             </div>
             <Button variant="outline" onClick={() => router.back()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              {t.common.back}
             </Button>
           </div>
         </div>
@@ -178,22 +180,22 @@ export default function DepartmentHolidayViewPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Department Overview
+                {t.departmentView.departmentOverview}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-blue-600">{summary.totalMembers}</p>
-                  <p className="text-sm text-gray-600">Total Members</p>
+                  <p className="text-sm text-gray-600">{t.labels.totalMembers}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-600">{summary.membersWithPlans}</p>
-                  <p className="text-sm text-gray-600">Plans Submitted</p>
+                  <p className="text-sm text-gray-600">{t.labels.plansSubmitted}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-600">{summary.planningCoverage.toFixed(0)}%</p>
-                  <p className="text-sm text-gray-600">Planning Coverage</p>
+                  <p className="text-sm text-gray-600">{t.labels.planningCoverage}</p>
                 </div>
               </div>
             </CardContent>
@@ -203,17 +205,17 @@ export default function DepartmentHolidayViewPage() {
         {holidayPlans.length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Holiday Plans Yet</h3>
-            <p className="text-gray-600">No approved holiday plans to display for {planningYear}.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t.departmentView.noHolidayPlans}</h3>
+            <p className="text-gray-600">{t.departmentView.noApprovedPlans} {planningYear}.</p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Team Members Plans */}
             <Card>
               <CardHeader>
-                <CardTitle>Team Holiday Plans</CardTitle>
+                <CardTitle>{t.departmentView.teamHolidayPlans}</CardTitle>
                 <CardDescription>
-                  Approved holiday plans from your department colleagues
+                  {t.departmentView.approvedPlansDescription}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -247,7 +249,7 @@ export default function DepartmentHolidayViewPage() {
                               <DialogTrigger asChild>
                                 <Button variant="outline" size="sm">
                                   <Eye className="h-4 w-4 mr-1" />
-                                  View Details
+                                  {t.common.viewDetails}
                                 </Button>
                               </DialogTrigger>
                               <DialogContent className="max-w-2xl">
@@ -256,13 +258,13 @@ export default function DepartmentHolidayViewPage() {
                                     {plan.user?.firstName || ''} {plan.user?.lastName || ''}'s Holiday Plan
                                   </DialogTitle>
                                   <DialogDescription>
-                                    Holiday planning for {planningYear}
+                                    {t.departmentView.holidayPlanDialog} {planningYear}
                                   </DialogDescription>
                                 </DialogHeader>
                                 
                                 <div className="space-y-4 max-h-96 overflow-y-auto">
                                   {plan.dates.length === 0 ? (
-                                    <p className="text-gray-600">No specific dates planned</p>
+                                    <p className="text-gray-600">{t.departmentView.noDatesPlanned}</p>
                                   ) : (
                                     <div className="space-y-3">
                                       {plan.dates
@@ -296,17 +298,17 @@ export default function DepartmentHolidayViewPage() {
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-600">Total Days:</span>
+                            <span className="text-gray-600">{t.labels.totalDays}:</span>
                             <span className="font-medium ml-1">{plan.dates.length}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Essential Days:</span>
+                            <span className="text-gray-600">{t.labels.essentialDays}:</span>
                             <span className="font-medium ml-1">
                               {plan.dates.filter(d => d.priority === 'ESSENTIAL').length}
                             </span>
                           </div>
                           <div>
-                            <span className="text-gray-600">First Holiday:</span>
+                            <span className="text-gray-600">{t.labels.firstHoliday}:</span>
                             <span className="font-medium ml-1">
                               {plan.dates.length > 0 
                                 ? format(parseISO(plan.dates[0].date), 'MMM d')
