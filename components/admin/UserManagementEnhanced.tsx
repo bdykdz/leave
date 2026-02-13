@@ -49,6 +49,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react"
 import { toast } from "sonner"
+import { UserSearchSelect } from "./UserSearchSelect"
 import { format } from "date-fns"
 
 interface User {
@@ -226,12 +227,12 @@ export function UserManagementEnhanced() {
 
   const handleSaveUser = async () => {
     try {
-      const url = editingUser 
+      const url = editingUser
         ? `/api/admin/users/${editingUser.id}`
         : '/api/admin/users'
-      
+
       const method = editingUser ? 'PATCH' : 'POST'
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -239,8 +240,18 @@ export function UserManagementEnhanced() {
       })
 
       if (response.ok) {
+        const savedUser = await response.json()
         toast.success(editingUser ? 'User updated successfully' : 'User created successfully')
-        fetchUsers()
+        if (editingUser) {
+          // Update user in-place to avoid scroll reset
+          setUsers(prev => prev.map(u => u.id === editingUser.id
+            ? { ...u, ...savedUser }
+            : u
+          ))
+        } else {
+          // New user - append to list
+          setUsers(prev => [...prev, savedUser])
+        }
         setIsEditDialogOpen(false)
         setIsNewUserDialogOpen(false)
       } else {
@@ -264,7 +275,7 @@ export function UserManagementEnhanced() {
 
       if (response.ok) {
         toast.success('User deleted successfully')
-        fetchUsers()
+        setUsers(prev => prev.filter(u => u.id !== userId))
       } else {
         toast.error('Failed to delete user')
       }
@@ -283,7 +294,7 @@ export function UserManagementEnhanced() {
 
       if (response.ok) {
         toast.success(`User ${currentStatus ? 'deactivated' : 'activated'}`)
-        fetchUsers()
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: !currentStatus } : u))
       } else {
         toast.error('Failed to update user status')
       }
@@ -621,35 +632,25 @@ export function UserManagementEnhanced() {
               <div className="space-y-4">
                 <div>
                   <Label>Direct Manager</Label>
-                  <Select value={formData.managerId} onValueChange={(value) => setFormData({...formData, managerId: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Manager</SelectItem>
-                      {managers.filter(m => m.id !== editingUser?.id).map(manager => (
-                        <SelectItem key={manager.id} value={manager.id}>
-                          {manager.firstName} {manager.lastName} ({manager.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <UserSearchSelect
+                    users={managers}
+                    value={formData.managerId}
+                    onValueChange={(value) => setFormData({...formData, managerId: value})}
+                    placeholder="Search for a manager..."
+                    noneLabel="No Manager"
+                    excludeId={editingUser?.id}
+                  />
                 </div>
                 <div>
                   <Label>Department Director</Label>
-                  <Select value={formData.departmentDirectorId} onValueChange={(value) => setFormData({...formData, departmentDirectorId: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select director" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Director</SelectItem>
-                      {directors.filter(d => d.id !== editingUser?.id).map(director => (
-                        <SelectItem key={director.id} value={director.id}>
-                          {director.firstName} {director.lastName} ({director.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <UserSearchSelect
+                    users={directors}
+                    value={formData.departmentDirectorId}
+                    onValueChange={(value) => setFormData({...formData, departmentDirectorId: value})}
+                    placeholder="Search for a director..."
+                    noneLabel="No Director"
+                    excludeId={editingUser?.id}
+                  />
                 </div>
               </div>
             </TabsContent>

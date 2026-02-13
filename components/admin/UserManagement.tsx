@@ -37,8 +37,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { 
-  Users, 
+import {
+  Users,
   Plus,
   Search,
   UserCog,
@@ -51,6 +51,7 @@ import {
   AlertCircle,
   CalendarDays,
 } from "lucide-react"
+import { UserSearchSelect } from "./UserSearchSelect"
 import { toast } from "sonner"
 
 interface SystemUser {
@@ -127,7 +128,7 @@ export function UserManagement() {
 
       if (response.ok) {
         toast.success('User role updated successfully')
-        fetchUsers()
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u))
         setEditDialogOpen(false)
       } else {
         toast.error('Failed to update user role')
@@ -148,7 +149,7 @@ export function UserManagement() {
 
       if (response.ok) {
         toast.success(`User ${isActive ? 'deactivated' : 'activated'} successfully`)
-        fetchUsers()
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: !isActive } : u))
       } else {
         toast.error('Failed to update user status')
       }
@@ -170,7 +171,7 @@ export function UserManagement() {
 
       if (response.ok) {
         toast.success('User deleted successfully')
-        fetchUsers()
+        setUsers(prev => prev.filter(u => u.id !== userId))
       } else {
         const data = await response.json()
         toast.error(data.error || 'Failed to delete user')
@@ -184,19 +185,40 @@ export function UserManagement() {
   const handleManagerUpdate = async () => {
     if (!selectedUser) return
 
+    const newManagerId = selectedManagerId === "none" ? null : selectedManagerId
+    const newDirectorId = selectedDirectorId === "none" ? null : selectedDirectorId
+
     try {
       const response = await fetch(`/api/admin/users/${selectedUser.id}/manager`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          managerId: selectedManagerId === "none" ? null : selectedManagerId,
-          departmentDirectorId: selectedDirectorId === "none" ? null : selectedDirectorId
+          managerId: newManagerId,
+          departmentDirectorId: newDirectorId
         })
       })
 
       if (response.ok) {
         toast.success('Manager assignments updated successfully')
-        fetchUsers()
+        // Update user in-place to avoid scroll reset
+        setUsers(prev => prev.map(u => u.id === selectedUser.id
+          ? {
+              ...u,
+              managerId: newManagerId,
+              departmentDirectorId: newDirectorId,
+              manager: newManagerId ? users.find(m => m.id === newManagerId) ? {
+                id: newManagerId,
+                firstName: users.find(m => m.id === newManagerId)!.firstName,
+                lastName: users.find(m => m.id === newManagerId)!.lastName,
+              } : u.manager : null,
+              departmentDirector: newDirectorId ? users.find(d => d.id === newDirectorId) ? {
+                id: newDirectorId,
+                firstName: users.find(d => d.id === newDirectorId)!.firstName,
+                lastName: users.find(d => d.id === newDirectorId)!.lastName,
+              } : u.departmentDirector : null,
+            }
+          : u
+        ))
         setManagerDialogOpen(false)
         setSelectedManagerId("none")
         setSelectedDirectorId("none")
@@ -565,26 +587,17 @@ export function UserManagement() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Direct Manager</Label>
-                <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a manager" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Manager</SelectItem>
-                    {users
-                      .filter(u => 
-                        u.id !== selectedUser.id && 
-                        ['MANAGER', 'DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(u.role) &&
-                        u.isActive
-                      )
-                      .map(u => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.firstName} {u.lastName} ({u.role})
-                        </SelectItem>
-                      ))
-                    }
-                  </SelectContent>
-                </Select>
+                <UserSearchSelect
+                  users={users.filter(u =>
+                    u.id !== selectedUser.id &&
+                    ['MANAGER', 'DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(u.role) &&
+                    u.isActive
+                  )}
+                  value={selectedManagerId}
+                  onValueChange={setSelectedManagerId}
+                  placeholder="Search for a manager..."
+                  noneLabel="No Manager"
+                />
                 <p className="text-sm text-muted-foreground">
                   The direct manager who approves leave requests
                 </p>
@@ -592,26 +605,17 @@ export function UserManagement() {
 
               <div className="space-y-2">
                 <Label>Department Director</Label>
-                <Select value={selectedDirectorId} onValueChange={setSelectedDirectorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a department director" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Department Director</SelectItem>
-                    {users
-                      .filter(u => 
-                        u.id !== selectedUser.id && 
-                        ['DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(u.role) &&
-                        u.isActive
-                      )
-                      .map(u => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.firstName} {u.lastName} ({u.role})
-                        </SelectItem>
-                      ))
-                    }
-                  </SelectContent>
-                </Select>
+                <UserSearchSelect
+                  users={users.filter(u =>
+                    u.id !== selectedUser.id &&
+                    ['DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(u.role) &&
+                    u.isActive
+                  )}
+                  value={selectedDirectorId}
+                  onValueChange={setSelectedDirectorId}
+                  placeholder="Search for a director..."
+                  noneLabel="No Department Director"
+                />
                 <p className="text-sm text-muted-foreground">
                   The department director who oversees the department
                 </p>
