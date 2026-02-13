@@ -55,6 +55,149 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// PUT: Update existing department
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const adminUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
+
+    if (!adminUser || !['ADMIN', 'HR', 'EXECUTIVE'].includes(adminUser.role)) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
+
+    const data = await request.json();
+
+    if (!data.id) {
+      return NextResponse.json({ error: 'Department ID is required' }, { status: 400 });
+    }
+
+    // Check if department exists
+    const existing = await prisma.department.findUnique({
+      where: { id: data.id }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+    }
+
+    // If name is being changed, check for duplicates
+    if (data.name && data.name !== existing.name) {
+      const duplicate = await prisma.department.findFirst({
+        where: {
+          name: { equals: data.name, mode: 'insensitive' },
+          id: { not: data.id }
+        }
+      });
+
+      if (duplicate) {
+        return NextResponse.json(
+          { error: 'Department with this name already exists' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // If code is being changed, check for duplicates
+    if (data.code && data.code !== existing.code) {
+      const duplicate = await prisma.department.findFirst({
+        where: {
+          code: { equals: data.code, mode: 'insensitive' },
+          id: { not: data.id }
+        }
+      });
+
+      if (duplicate) {
+        return NextResponse.json(
+          { error: 'Department with this code already exists' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const department = await prisma.department.update({
+      where: { id: data.id },
+      data: {
+        name: data.name || undefined,
+        code: data.code || undefined,
+        description: data.description !== undefined ? data.description : undefined,
+        isActive: data.isActive !== undefined ? data.isActive : undefined,
+        order: data.order !== undefined ? data.order : undefined,
+      }
+    });
+
+    return NextResponse.json({
+      message: 'Department updated successfully',
+      department
+    });
+  } catch (error) {
+    console.error('Error updating department:', error);
+    return NextResponse.json(
+      { error: 'Failed to update department' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: Delete department
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const adminUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true }
+    });
+
+    if (!adminUser || !['ADMIN', 'HR', 'EXECUTIVE'].includes(adminUser.role)) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Department ID is required' }, { status: 400 });
+    }
+
+    // Check if any users are in this department
+    const dept = await prisma.department.findUnique({ where: { id } });
+    if (!dept) {
+      return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+    }
+
+    const userCount = await prisma.user.count({
+      where: { department: dept.name }
+    });
+
+    if (userCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete department with ${userCount} users. Reassign them first.` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.department.delete({ where: { id } });
+
+    return NextResponse.json({ message: 'Department deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting department:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete department' },
+      { status: 500 }
+    );
+  }
+}
+
 // POST: Create new department
 export async function POST(request: NextRequest) {
   try {

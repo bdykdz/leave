@@ -23,8 +23,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
-import { Plus, MoreHorizontal, Edit, Trash2, Building, Briefcase } from "lucide-react"
+import { Plus, MoreHorizontal, Edit, Trash2, Building, Briefcase, ChevronDown, ChevronRight, Users } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+
+interface DepartmentMember {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  role: string
+}
 
 interface Department {
   id: string
@@ -33,6 +41,7 @@ interface Department {
   description: string | null
   isActive: boolean
   order: number
+  _count?: { users: number }
 }
 
 interface Position {
@@ -62,6 +71,9 @@ export function DepartmentSettingsDialog({ open, onOpenChange }: DepartmentSetti
   const [posForm, setPosForm] = useState({ name: "", code: "", description: "" })
   const [showDeptForm, setShowDeptForm] = useState(false)
   const [showPosForm, setShowPosForm] = useState(false)
+  const [expandedDept, setExpandedDept] = useState<string | null>(null)
+  const [deptMembers, setDeptMembers] = useState<DepartmentMember[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -113,6 +125,29 @@ export function DepartmentSettingsDialog({ open, onOpenChange }: DepartmentSetti
       }
     } catch (error) {
       toast.error('Failed to fetch positions')
+    }
+  }
+
+  const toggleDeptMembers = async (dept: Department) => {
+    if (expandedDept === dept.id) {
+      setExpandedDept(null)
+      setDeptMembers([])
+      return
+    }
+    setExpandedDept(dept.id)
+    setLoadingMembers(true)
+    try {
+      const response = await fetch(`/api/admin/departments/${dept.id}/members`)
+      if (response.ok) {
+        const data = await response.json()
+        setDeptMembers(data)
+      } else {
+        setDeptMembers([])
+      }
+    } catch {
+      setDeptMembers([])
+    } finally {
+      setLoadingMembers(false)
     }
   }
 
@@ -369,60 +404,105 @@ export function DepartmentSettingsDialog({ open, onOpenChange }: DepartmentSetti
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Code</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead>Members</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {departments.map((dept) => (
-                      <TableRow key={dept.id}>
-                        <TableCell className="font-medium">{dept.name}</TableCell>
-                        <TableCell>{dept.code}</TableCell>
-                        <TableCell className="max-w-xs truncate">{dept.description || '-'}</TableCell>
-                        <TableCell>
-                          <Badge variant={dept.isActive ? "default" : "secondary"}>
-                            {dept.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingDept(dept)
-                                  setDeptForm({
-                                    name: dept.name,
-                                    code: dept.code,
-                                    description: dept.description || ""
-                                  })
-                                  setShowDeptForm(true)
-                                }}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleToggleDepartmentStatus(dept)}>
-                                {dept.isActive ? "Deactivate" : "Activate"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDeleteDepartment(dept.id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow key={dept.id}>
+                          <TableCell className="w-8 pr-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => toggleDeptMembers(dept)}
+                            >
+                              {expandedDept === dept.id
+                                ? <ChevronDown className="h-4 w-4" />
+                                : <ChevronRight className="h-4 w-4" />
+                              }
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium">{dept.name}</TableCell>
+                          <TableCell>{dept.code}</TableCell>
+                          <TableCell>
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <Users className="h-3 w-3" />
+                              {dept._count?.users ?? 0}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={dept.isActive ? "default" : "secondary"}>
+                              {dept.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingDept(dept)
+                                    setDeptForm({
+                                      name: dept.name,
+                                      code: dept.code,
+                                      description: dept.description || ""
+                                    })
+                                    setShowDeptForm(true)
+                                  }}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleToggleDepartmentStatus(dept)}>
+                                  {dept.isActive ? "Deactivate" : "Activate"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteDepartment(dept.id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                        {expandedDept === dept.id && (
+                          <TableRow key={`${dept.id}-members`}>
+                            <TableCell colSpan={6} className="bg-muted/50 p-0">
+                              <div className="px-8 py-3">
+                                {loadingMembers ? (
+                                  <p className="text-sm text-muted-foreground">Loading members...</p>
+                                ) : deptMembers.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">No members in this department</p>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground mb-2">Department Members</p>
+                                    {deptMembers.map(member => (
+                                      <div key={member.id} className="flex items-center gap-3 text-sm py-1">
+                                        <span className="font-medium">{member.firstName} {member.lastName}</span>
+                                        <span className="text-muted-foreground">{member.email}</span>
+                                        <Badge variant="outline" className="text-xs">{member.role}</Badge>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
                   </TableBody>
                 </Table>
