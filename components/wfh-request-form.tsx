@@ -80,17 +80,39 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
       }
 
       try {
-        const response = await fetch('/api/user/leave-requests')
-        if (response.ok) {
-          const data = await response.json()
-          // Filter for pending and approved requests only
-          const activeRequests = (data.requests || []).filter((req: any) => 
+        // Fetch both leave requests and WFH requests in parallel
+        const [leaveRes, wfhRes] = await Promise.all([
+          fetch('/api/user/leave-requests'),
+          fetch('/api/wfh-requests')
+        ])
+
+        const allBlocked: typeof existingLeaveRequests = []
+
+        if (leaveRes.ok) {
+          const data = await leaveRes.json()
+          const activeRequests = (data.requests || []).filter((req: any) =>
             req.status === 'PENDING' || req.status === 'APPROVED'
           )
-          setExistingLeaveRequests(activeRequests)
+          allBlocked.push(...activeRequests)
         }
+
+        if (wfhRes.ok) {
+          const data = await wfhRes.json()
+          const activeWfh = (data.wfhRequests || [])
+            .filter((req: any) => req.status === 'PENDING' || req.status === 'APPROVED')
+            .map((req: any) => ({
+              startDate: req.startDate?.split('T')[0] || '',
+              endDate: req.endDate?.split('T')[0] || '',
+              selectedDates: (req.selectedDates || []).map((d: string) => d.split('T')[0]),
+              status: req.status,
+              leaveType: 'WFH'
+            }))
+          allBlocked.push(...activeWfh)
+        }
+
+        setExistingLeaveRequests(allBlocked)
       } catch (error) {
-        console.error('Failed to fetch existing leave requests:', error)
+        console.error('Failed to fetch existing requests:', error)
       } finally {
         setLoadingLeaveRequests(false)
       }
