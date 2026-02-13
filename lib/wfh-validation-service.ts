@@ -194,12 +194,13 @@ export class WFHValidationService {
         userId,
         startDate,
         endDate,
+        status: { in: ['PENDING', 'APPROVED'] },
         createdAt: {
           gte: new Date(Date.now() - 5 * 60 * 1000), // Within last 5 minutes
         },
       },
     });
-    
+
     return !!recentRequest;
   }
   

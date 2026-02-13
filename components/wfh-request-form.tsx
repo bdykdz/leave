@@ -81,34 +81,45 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
 
       try {
         // Fetch both leave requests and WFH requests in parallel
-        const [leaveRes, wfhRes] = await Promise.all([
+        // Only fetch PENDING and APPROVED - cancelled/rejected should NOT block dates
+        const [leaveRes, pendingWfhRes, approvedWfhRes] = await Promise.all([
           fetch('/api/user/leave-requests'),
-          fetch('/api/wfh-requests')
+          fetch('/api/wfh-requests?status=PENDING'),
+          fetch('/api/wfh-requests?status=APPROVED')
         ])
 
         const allBlocked: typeof existingLeaveRequests = []
 
         if (leaveRes.ok) {
           const data = await leaveRes.json()
+          // API already filters to PENDING/APPROVED, but double-check client-side
           const activeRequests = (data.requests || []).filter((req: any) =>
             req.status === 'PENDING' || req.status === 'APPROVED'
           )
           allBlocked.push(...activeRequests)
         }
 
-        if (wfhRes.ok) {
-          const data = await wfhRes.json()
-          const activeWfh = (data.wfhRequests || [])
-            .filter((req: any) => req.status === 'PENDING' || req.status === 'APPROVED')
-            .map((req: any) => ({
-              startDate: req.startDate?.split('T')[0] || '',
-              endDate: req.endDate?.split('T')[0] || '',
-              selectedDates: (req.selectedDates || []).map((d: string) => d.split('T')[0]),
-              status: req.status,
-              leaveType: 'WFH'
-            }))
-          allBlocked.push(...activeWfh)
+        // Merge pending and approved WFH requests
+        const wfhRequests: any[] = []
+        if (pendingWfhRes.ok) {
+          const data = await pendingWfhRes.json()
+          wfhRequests.push(...(data.wfhRequests || []))
         }
+        if (approvedWfhRes.ok) {
+          const data = await approvedWfhRes.json()
+          wfhRequests.push(...(data.wfhRequests || []))
+        }
+
+        const activeWfh = wfhRequests.map((req: any) => ({
+          startDate: req.startDate?.split('T')[0] || '',
+          endDate: req.endDate?.split('T')[0] || '',
+          selectedDates: (req.selectedDates || []).map((d: string) =>
+            typeof d === 'string' ? d.split('T')[0] : String(d).split('T')[0]
+          ),
+          status: req.status,
+          leaveType: 'WFH'
+        }))
+        allBlocked.push(...activeWfh)
 
         setExistingLeaveRequests(allBlocked)
       } catch (error) {
