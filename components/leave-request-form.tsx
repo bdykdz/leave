@@ -177,11 +177,22 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   useEffect(() => {
     const fetchBlockedDates = async () => {
       try {
-        const response = await fetch('/api/employee/blocked-dates')
+        const response = await fetch('/api/employee/blocked-dates', { cache: 'no-store' })
         if (response.ok) {
           const data = await response.json()
-          setBlockedDates(data.blockedDates)
-          setBlockedDateDetails(data.dateDetails)
+          // Only include PENDING and APPROVED dates - cancelled/rejected should NOT block
+          const filteredDates = (data.blockedDates || []).filter((dateStr: string) => {
+            const detail = data.dateDetails?.[dateStr]
+            return detail && (detail.status === 'PENDING' || detail.status === 'APPROVED')
+          })
+          const filteredDetails: Record<string, { status: string; leaveType: string }> = {}
+          for (const dateStr of filteredDates) {
+            if (data.dateDetails?.[dateStr]) {
+              filteredDetails[dateStr] = data.dateDetails[dateStr]
+            }
+          }
+          setBlockedDates(filteredDates)
+          setBlockedDateDetails(filteredDetails)
         }
       } catch (error) {
         console.error('Failed to fetch blocked dates:', error)

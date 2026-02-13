@@ -82,10 +82,11 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
       try {
         // Fetch both leave requests and WFH requests in parallel
         // Only fetch PENDING and APPROVED - cancelled/rejected should NOT block dates
+        // Use cache: 'no-store' to ensure fresh data after cancellations
         const [leaveRes, pendingWfhRes, approvedWfhRes] = await Promise.all([
-          fetch('/api/user/leave-requests'),
-          fetch('/api/wfh-requests?status=PENDING'),
-          fetch('/api/wfh-requests?status=APPROVED')
+          fetch('/api/user/leave-requests', { cache: 'no-store' }),
+          fetch('/api/wfh-requests?status=PENDING', { cache: 'no-store' }),
+          fetch('/api/wfh-requests?status=APPROVED', { cache: 'no-store' })
         ])
 
         const allBlocked: typeof existingLeaveRequests = []
@@ -110,15 +111,18 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
           wfhRequests.push(...(data.wfhRequests || []))
         }
 
-        const activeWfh = wfhRequests.map((req: any) => ({
-          startDate: req.startDate?.split('T')[0] || '',
-          endDate: req.endDate?.split('T')[0] || '',
-          selectedDates: (req.selectedDates || []).map((d: string) =>
-            typeof d === 'string' ? d.split('T')[0] : String(d).split('T')[0]
-          ),
-          status: req.status,
-          leaveType: 'WFH'
-        }))
+        // Double-check client-side: only include PENDING/APPROVED WFH requests
+        const activeWfh = wfhRequests
+          .filter((req: any) => req.status === 'PENDING' || req.status === 'APPROVED')
+          .map((req: any) => ({
+            startDate: req.startDate?.split('T')[0] || '',
+            endDate: req.endDate?.split('T')[0] || '',
+            selectedDates: (req.selectedDates || []).map((d: string) =>
+              typeof d === 'string' ? d.split('T')[0] : String(d).split('T')[0]
+            ),
+            status: req.status,
+            leaveType: 'WFH'
+          }))
         allBlocked.push(...activeWfh)
 
         setExistingLeaveRequests(allBlocked)

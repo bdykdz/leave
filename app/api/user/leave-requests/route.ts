@@ -48,7 +48,9 @@ export async function GET(request: NextRequest) {
       leaveType: request.leaveType.name
     }))
 
-    return NextResponse.json({ requests: transformedRequests })
+    return NextResponse.json({ requests: transformedRequests }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+    })
   } catch (error) {
     console.error('Error fetching user leave requests:', error)
     return NextResponse.json(

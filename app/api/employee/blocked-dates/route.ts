@@ -129,6 +129,8 @@ export async function GET() {
       blockedDates: [...new Set(blockedDates)], // Remove duplicates
       dateDetails,
       totalBlockedDays: blockedDates.length
+    }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
     })
   } catch (error) {
     console.error('Error fetching blocked dates:', error)

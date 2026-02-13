@@ -128,7 +128,9 @@ export const GET = asyncHandler(async (request: NextRequest) => {
 
   log.info('WFH requests fetched', { count: wfhRequests.length });
 
-  return NextResponse.json({ wfhRequests });
+  return NextResponse.json({ wfhRequests }, {
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+  });
 });
 
 // POST /api/wfh-requests - Create a new WFH request
