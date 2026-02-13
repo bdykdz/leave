@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       id: request.id,
       startDate: request.startDate.toISOString().split('T')[0], // YYYY-MM-DD format
       endDate: request.endDate.toISOString().split('T')[0],
-      selectedDates: request.selectedDates || [],
+      selectedDates: (request.selectedDates || []).map((d: Date) => d instanceof Date ? d.toISOString().split('T')[0] : String(d).split('T')[0]),
       status: request.status,
       leaveType: request.leaveType.name
     }))

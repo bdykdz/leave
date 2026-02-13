@@ -135,15 +135,12 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     for (const request of existingLeaveRequests) {
       // Check if request has selectedDates (non-consecutive days)
       if (request.selectedDates && request.selectedDates.length > 0) {
-        // Only check selectedDates, never fall back to date range
         if (request.selectedDates.includes(dateStr)) {
           return request
         }
       } else {
-        // Only use date range if no selectedDates exist (consecutive days)
-        const requestStart = new Date(request.startDate)
-        const requestEnd = new Date(request.endDate)
-        if (date >= requestStart && date <= requestEnd) {
+        // Use string comparison to avoid timezone issues
+        if (dateStr >= request.startDate && dateStr <= request.endDate) {
           return request
         }
       }
