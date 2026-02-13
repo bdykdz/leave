@@ -126,6 +126,64 @@ export async function POST(
 
     const allApproved = allApprovals.every(a => a.status === 'APPROVED')
 
+    // Add current approver's signature to document immediately (before checking allApproved)
+    try {
+      const approver = await prisma.user.findUnique({
+        where: { id: session.user.id }
+      })
+
+      // This endpoint only allows the direct manager to approve,
+      // so the signature role is always 'manager' regardless of the approver's system role
+      const signatureRole = 'manager'
+
+      // Check if there's already a generated document
+      let existingDoc = await prisma.generatedDocument.findUnique({
+        where: { leaveRequestId: requestId }
+      })
+
+      if (existingDoc) {
+        const generator = new SmartDocumentGenerator()
+        await generator.addSignature(
+          existingDoc.id,
+          session.user.id,
+          signatureRole,
+          signature || `APPROVED_BY_${approver?.role}`
+        )
+        console.log(`${signatureRole} signature added to document:`, existingDoc.id)
+      } else {
+        // Generate document if it doesn't exist
+        const leaveType = await prisma.leaveType.findUnique({
+          where: { id: leaveRequest.leaveTypeId },
+          include: {
+            documentTemplates: {
+              where: { isActive: true },
+              orderBy: { version: 'desc' },
+              take: 1
+            }
+          }
+        })
+
+        if (leaveType?.documentTemplates.length > 0) {
+          const generator = new SmartDocumentGenerator()
+          const template = leaveType.documentTemplates[0]
+          const documentId = await generator.generateDocument(requestId, template.id)
+
+          if (documentId) {
+            await generator.addSignature(
+              documentId,
+              session.user.id,
+              signatureRole,
+              signature || `APPROVED_BY_${approver?.role}`
+            )
+          }
+          console.log('Document generated and signed:', documentId)
+        }
+      }
+    } catch (docError) {
+      console.error("Error handling document signature:", docError)
+      // Don't fail the approval if document handling fails
+    }
+
     // Update leave request status if all approvals are done
     if (allApproved) {
       await prisma.leaveRequest.update({
@@ -153,73 +211,19 @@ export async function POST(
         }
       })
 
-      // Handle document signatures
+      // Regenerate document with all signatures included
       try {
-        // Get the approver's details to determine signature role
-        const approver = await prisma.user.findUnique({
-          where: { id: session.user.id }
-        })
-        
-        // Determine signature role based on approver's role and requester's role
-        let signatureRole = 'manager' // default
-        
-        if (approver?.role === 'EXECUTIVE') {
-          signatureRole = 'executive'
-        } else if (approver?.role === 'DEPARTMENT_DIRECTOR' && leaveRequest.user.role === 'MANAGER') {
-          signatureRole = 'department_manager'
-        } else if (approver?.role === 'MANAGER' && leaveRequest.user.role === 'EMPLOYEE') {
-          signatureRole = 'manager'
-        }
-        
-        // Check if there's already a generated document
         const existingDoc = await prisma.generatedDocument.findUnique({
-          where: { leaveRequestId: requestId }
+          where: { leaveRequestId: requestId },
+          include: { template: true }
         })
-        
-        if (existingDoc) {
-          // Add appropriate signature to existing document
+        if (existingDoc?.template) {
           const generator = new SmartDocumentGenerator()
-          await generator.addSignature(
-            existingDoc.id,
-            session.user.id,
-            signatureRole,
-            signature || `APPROVED_BY_${approver?.role}`
-          )
-          console.log(`${signatureRole} signature added to document:`, existingDoc.id)
-        } else {
-          // Generate document if it doesn't exist (shouldn't happen in normal flow)
-          const leaveType = await prisma.leaveType.findUnique({
-            where: { id: leaveRequest.leaveTypeId },
-            include: {
-              documentTemplates: {
-                where: { isActive: true },
-                orderBy: { version: 'desc' },
-                take: 1
-              }
-            }
-          })
-          
-          if (leaveType?.documentTemplates.length > 0) {
-            const generator = new SmartDocumentGenerator()
-            const template = leaveType.documentTemplates[0]
-            const documentId = await generator.generateDocument(requestId, template.id)
-            
-            // Add appropriate signature
-            if (documentId) {
-              await generator.addSignature(
-                documentId,
-                session.user.id,
-                signatureRole,
-                signature || `APPROVED_BY_${approver?.role}`
-              )
-            }
-            
-            console.log('Document generated and signed:', documentId)
-          }
+          await generator.generateDocument(requestId, existingDoc.template.id)
+          console.log('Document regenerated with all signatures')
         }
       } catch (docError) {
-        console.error("Error handling document signatures:", docError)
-        // Don't fail the approval if document handling fails
+        console.error("Error regenerating document:", docError)
       }
 
       // Send email notification to employee
