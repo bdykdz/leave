@@ -370,6 +370,7 @@ enum NotificationType {
   LEAVE_CANCELLED
   APPROVAL_REQUIRED
   DOCUMENT_READY
+  WFH_CANCELLED
 }
 
 enum DocumentStatus {

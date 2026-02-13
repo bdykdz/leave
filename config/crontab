@@ -1,10 +1,14 @@
 # Leave Management System Cron Jobs
 # Format: minute hour day month weekday command
+# All times in UTC
 
 # Run escalation check daily at midnight
 0 0 * * * /app/scripts/escalation-cron.sh >> /var/log/cron.log 2>&1
 
 # Run escalation check every 6 hours (optional - comment out if not needed)
 # 0 */6 * * * /app/scripts/escalation-cron.sh >> /var/log/cron.log 2>&1
+
+# Auto-cancel pending WFH requests every Monday at 06:00 UTC (~08:00 Bucharest time)
+0 6 * * 1 curl -s -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/wfh-auto-cancel >> /var/log/cron.log 2>&1
 
 # Keep a newline at the end of this file

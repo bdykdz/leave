@@ -118,12 +118,20 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     return date >= weekStart && date < nextWeekStart
   }
 
+  const isNextWeek = (date: Date) => {
+    const today = new Date()
+    const nextWeekStart = startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 })
+    const nextWeekEnd = addWeeks(nextWeekStart, 1) // Monday after next week
+    return date >= nextWeekStart && date < nextWeekEnd
+  }
+
   const isBlockedForWFH = (date: Date) => {
-    // For WFH calendar, block current week and holidays marked as blocked
+    // For WFH calendar, only allow next week's dates
     if (!isWFHCalendar) return false
-    
-    if (isCurrentWeek(date)) return true
-    
+
+    // Block everything that's not next week
+    if (!isNextWeek(date)) return true
+
     return blockedHolidays.some((holiday) => isSameDay(holiday, date))
   }
 
@@ -161,17 +169,12 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       return cn(baseClasses, "text-gray-400 cursor-not-allowed")
     }
 
-    // For WFH calendar, show current week as blocked
-    if (isWFHCalendar && isCurrentWeek(date)) {
+    // For WFH calendar, show dates outside next week as unavailable
+    if (isWFHCalendar && isBlockedForWFH(date)) {
       return cn(baseClasses, "bg-gray-200 text-gray-500 cursor-not-allowed")
     }
 
-    // For WFH calendar, show blocked holidays differently
-    if (isWFHCalendar && isBlockedForWFH(date)) {
-      return cn(baseClasses, "bg-red-100 text-red-600 cursor-not-allowed")
-    }
-
-    // For WFH calendar, show existing leave requests
+    // For WFH calendar, show existing leave/wfh requests
     if (isWFHCalendar) {
       const existingRequest = hasExistingLeaveRequest(date)
       if (existingRequest) {
@@ -219,7 +222,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     
     // WFH-specific restrictions
     if (isWFHCalendar) {
-      if (isCurrentWeek(date) || isBlockedForWFH(date)) {
+      if (isBlockedForWFH(date)) {
         return
       }
       
@@ -288,7 +291,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
           {isWFHCalendar ? (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-200 border border-gray-300 rounded"></div>
-              <span>{t.remoteForm.currentWeekNotAllowed}</span>
+              <span>{t.remoteForm.onlyNextWeek || "Only next week available"}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">
