@@ -6,6 +6,10 @@ import { logDataExport } from '@/lib/utils/audit-log'
 import { format, eachDayOfInterval, isWeekend, getDay } from 'date-fns'
 import * as XLSX from 'xlsx'
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export async function GET(request: NextRequest) {
@@ -349,7 +353,7 @@ export async function GET(request: NextRequest) {
     </div>
     <div style="font-size:11px;color:#6b7280;align-self:flex-end">
       <p style="margin:2px 0">Generated: ${format(new Date(), "MMM dd, yyyy 'at' HH:mm")}</p>
-      <p style="margin:2px 0">By: ${session.user.email}</p>
+      <p style="margin:2px 0">By: ${escapeHtml(session.user.email || '')}</p>
     </div>
   </div>
 </body>

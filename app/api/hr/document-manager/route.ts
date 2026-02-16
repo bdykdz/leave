@@ -83,34 +83,25 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        approvals: {
-          where: {
-            approver: {
-              role: 'HR',
-            },
-          },
-          include: {
-            approver: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-          orderBy: {
-            approvedAt: 'desc',
-          },
-          take: 1,
-        },
       },
       orderBy: {
         createdAt: 'desc',
       },
     })
 
+    // Batch lookup verifier names for documents that have hrVerifiedBy
+    const verifierIds = [...new Set(documents.map(d => d.hrVerifiedBy).filter(Boolean))] as string[]
+    const verifiers = verifierIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: verifierIds } },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : []
+    const verifierMap = new Map(verifiers.map(v => [v.id, v]))
+
     // Transform the data to include HR verifier info
     const transformedDocuments = documents.map(doc => {
-      const hrApproval = doc.approvals?.length > 0 ? doc.approvals[0] : null
+      const verifier = doc.hrVerifiedBy ? verifierMap.get(doc.hrVerifiedBy) : null
       return {
         id: doc.id,
         requestNumber: doc.requestNumber,
@@ -122,9 +113,9 @@ export async function GET(request: NextRequest) {
         status: doc.status,
         supportingDocuments: doc.supportingDocuments as string[] | null,
         hrDocumentVerified: doc.hrDocumentVerified,
-        hrVerifiedBy: doc.hrVerifiedBy ? {
-          firstName: hrApproval?.approver?.firstName || 'HR',
-          lastName: hrApproval?.approver?.lastName || 'User',
+        hrVerifiedBy: verifier ? {
+          firstName: verifier.firstName || 'HR',
+          lastName: verifier.lastName || 'User',
         } : null,
         hrVerifiedAt: doc.hrVerifiedAt,
         hrVerificationNotes: doc.hrVerificationNotes,

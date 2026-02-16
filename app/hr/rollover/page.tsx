@@ -166,7 +166,7 @@ export default function RolloverManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
-              {[2024, 2025, 2026].map(year => (
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
                 <Button
                   key={year}
                   variant={selectedYear === year ? "default" : "outline"}

@@ -147,27 +147,40 @@ export function DocumentFileManager() {
     try {
       // Download supporting documents through our API
       if (documentUrls.length > 0) {
+        let successCount = 0
+        let failCount = 0
         for (let i = 0; i < documentUrls.length; i++) {
           const url = documentUrls[i]
           const fileName = `${requestNumber}_supporting_${i + 1}.pdf`
-          
+
           // Use our API endpoint to fetch the document
           const apiUrl = `/api/hr/documents/supporting?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fileName)}`
-          
-          const response = await fetch(apiUrl)
-          if (response.ok) {
-            const blob = await response.blob()
-            const downloadUrl = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = downloadUrl
-            link.download = fileName
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            window.URL.revokeObjectURL(downloadUrl)
+
+          try {
+            const response = await fetch(apiUrl)
+            if (response.ok) {
+              const blob = await response.blob()
+              const downloadUrl = window.URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.href = downloadUrl
+              link.download = fileName
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              window.URL.revokeObjectURL(downloadUrl)
+              successCount++
+            } else {
+              failCount++
+            }
+          } catch {
+            failCount++
           }
         }
-        toast.success('Documents downloaded successfully')
+        if (failCount > 0) {
+          toast.error(`Failed to download ${failCount} of ${documentUrls.length} documents`)
+        } else {
+          toast.success('Documents downloaded successfully')
+        }
       }
     } catch (error) {
       console.error('Error downloading documents:', error)
@@ -251,7 +264,7 @@ export function DocumentFileManager() {
 
     const csv = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n')
 
     const blob = new Blob([csv], { type: 'text/csv' })
