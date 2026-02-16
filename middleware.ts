@@ -189,9 +189,14 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Admin routes
+    // Admin routes - allow HR/EXECUTIVE access to user management and departments
     if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-      if (userRole !== "ADMIN") {
+      const isUserManagementRoute = pathname.startsWith("/api/admin/users") || pathname.startsWith("/api/admin/departments")
+      const allowedRoles = isUserManagementRoute
+        ? ["ADMIN", "HR", "EXECUTIVE"]
+        : ["ADMIN"]
+
+      if (!allowedRoles.includes(userRole)) {
         if (isApiRoute) {
           return createForbiddenResponse(pathname, 'Admin role required')
         }

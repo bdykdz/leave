@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { startOfWeek, endOfWeek } from 'date-fns';
+import { addDays, startOfDay, endOfWeek } from 'date-fns';
 
-// Called by cron every Monday at ~08:00 Bucharest time (06:00 UTC)
-// In winter (EET, UTC+2): runs at 08:00 Bucharest. In summer (EEST, UTC+3): runs at 09:00 Bucharest.
-// Cancels any PENDING WFH requests that have dates in the current week
+// Called by cron every Friday at 18:00 Bucharest time (16:00 UTC)
+// Cancels any PENDING WFH requests for the upcoming week (next Mon-Sun)
+// Also catches any stale PENDING requests from past dates
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -14,20 +14,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current week boundaries (Monday to Sunday)
     const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const today = startOfDay(now);
 
-    // Find all PENDING WFH requests with dates in this week
+    // Cancel all PENDING WFH requests whose startDate is <= next Sunday
+    // This covers: any past-dated stale requests + the upcoming week
+    const nextSunday = endOfWeek(addDays(today, 2), { weekStartsOn: 1 });
+
     const pendingRequests = await prisma.workFromHomeRequest.findMany({
       where: {
         status: 'PENDING',
         startDate: {
-          lte: weekEnd
-        },
-        endDate: {
-          gte: weekStart
+          lte: nextSunday
         }
       },
       include: {
@@ -43,13 +41,13 @@ export async function GET(request: NextRequest) {
         data: { status: 'CANCELLED' }
       });
 
-      // Cancel any pending approvals
+      // Reject any pending approvals
       await prisma.wFHApproval.updateMany({
         where: {
           wfhRequestId: req.id,
           status: 'PENDING'
         },
-        data: { status: 'CANCELLED' }
+        data: { status: 'REJECTED', comments: 'Auto-cancelled: not approved by Friday 18:00' }
       });
 
       // Notify the user
@@ -58,7 +56,7 @@ export async function GET(request: NextRequest) {
           userId: req.userId,
           type: 'WFH_CANCELLED',
           title: 'WFH Request Auto-Cancelled',
-          message: `Your WFH request for ${req.startDate.toISOString().split('T')[0]} to ${req.endDate.toISOString().split('T')[0]} was automatically cancelled because it was not approved before the start of the week.`,
+          message: `Your WFH request for ${req.startDate.toISOString().split('T')[0]} to ${req.endDate.toISOString().split('T')[0]} was automatically cancelled because it was not approved by Friday 18:00.`,
           link: '/employee/remote'
         }
       });
