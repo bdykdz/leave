@@ -9,6 +9,17 @@ import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { emailService } from '@/lib/email-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
 
+// Helper class to abort transactions with a client-facing response
+class TransactionAbort extends Error {
+  statusCode: number;
+  body: Record<string, unknown>;
+  constructor(statusCode: number, body: Record<string, unknown>) {
+    super('TransactionAbort');
+    this.statusCode = statusCode;
+    this.body = body;
+  }
+}
+
 // Validation schema for executive leave request
 const createExecutiveLeaveRequestSchema = z.object({
   leaveTypeId: z.string(),
@@ -118,119 +129,154 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     totalDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
   }
 
-  // Check for overlapping leave requests
-  const overlappingLeave = await prisma.leaveRequest.findFirst({
-    where: {
-      userId: session.user.id,
-      status: { in: ['APPROVED', 'PENDING'] },
-      OR: [
-        {
-          startDate: { lte: endDate },
-          endDate: { gte: startDate }
-        }
-      ]
-    }
-  });
+  // Wrap overlap check, balance check, request creation, and balance update in a transaction
+  // to prevent race conditions (#7, #17)
+  const currentYear = new Date().getFullYear();
 
-  if (overlappingLeave) {
-    return NextResponse.json(
-      { 
+  let leaveRequest;
+  try {
+    leaveRequest = await prisma.$transaction(async (tx) => {
+    // Check for overlapping leave requests
+    const overlappingLeave = await tx.leaveRequest.findFirst({
+      where: {
+        userId: session.user.id,
+        status: { in: ['APPROVED', 'PENDING'] },
+        OR: [
+          {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate }
+          }
+        ]
+      }
+    });
+
+    if (overlappingLeave) {
+      throw new TransactionAbort(400, {
         error: 'Date conflict',
         message: `You already have a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. Please choose different dates or cancel the existing request.`
-      },
-      { status: 400 }
-    );
-  }
-
-  // Check leave balance
-  const currentYear = new Date().getFullYear();
-  const leaveBalance = await prisma.leaveBalance.findUnique({
-    where: {
-      userId_leaveTypeId_year: {
-        userId: session.user.id,
-        leaveTypeId: validatedData.leaveTypeId,
-        year: currentYear,
-      }
+      });
     }
-  });
 
-  if (!leaveBalance || leaveBalance.available < totalDays) {
-    return NextResponse.json(
-      { 
+    // Check for overlapping WFH requests
+    const overlappingWfh = await tx.workFromHomeRequest.findFirst({
+      where: {
+        userId: session.user.id,
+        status: { in: ['APPROVED', 'PENDING'] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate }
+      }
+    });
+
+    if (overlappingWfh) {
+      throw new TransactionAbort(400, {
+        error: 'Date conflict',
+        message: `You already have a work-from-home request from ${overlappingWfh.startDate.toLocaleDateString()} to ${overlappingWfh.endDate.toLocaleDateString()}. Please choose different dates or cancel the existing WFH request.`
+      });
+    }
+
+    // Check leave balance
+    const leaveBalance = await tx.leaveBalance.findUnique({
+      where: {
+        userId_leaveTypeId_year: {
+          userId: session.user.id,
+          leaveTypeId: validatedData.leaveTypeId,
+          year: currentYear,
+        }
+      }
+    });
+
+    if (!leaveBalance || leaveBalance.available < totalDays) {
+      throw new TransactionAbort(400, {
         error: 'Insufficient leave balance',
         message: `You have ${leaveBalance?.available || 0} days available but are requesting ${totalDays} days.`
-      },
-      { status: 400 }
-    );
-  }
+      });
+    }
 
-  // Generate request number
-  const requestCount = await prisma.leaveRequest.count({
-    where: {
-      createdAt: {
-        gte: new Date(`${currentYear}-01-01`),
-      },
-    },
-  });
-  const requestNumber = `ELR-${currentYear}-${String(requestCount + 1).padStart(4, '0')}`;
-
-  // Create leave request with single executive approval
-  const leaveRequest = await prisma.leaveRequest.create({
-    data: {
-      requestNumber,
-      userId: session.user.id,
-      leaveTypeId: validatedData.leaveTypeId,
-      startDate,
-      endDate,
-      totalDays,
-      reason: validatedData.reason,
-      status: 'PENDING',
-      // Store selected dates as direct field for calendar filtering
-      selectedDates: validatedData.selectedDates ? 
-        validatedData.selectedDates.map(dateStr => new Date(dateStr)) : [],
-      // Store metadata about executive request
-      supportingDocuments: {
-        selectedDates: validatedData.selectedDates || null,
-        isExecutiveRequest: true,
-        executiveApproverId: validatedData.executiveApproverId,
-      },
-      // Create single approval for the selected executive
-      approvals: {
-        create: {
-          approverId: validatedData.executiveApproverId,
-          level: 1,
-          status: 'PENDING',
-        }
-      },
-    },
-    include: {
-      leaveType: true,
-      approvals: {
-        include: {
-          approver: true,
+    // Generate request number inside transaction to prevent duplicates (#17)
+    const requestCount = await tx.leaveRequest.count({
+      where: {
+        createdAt: {
+          gte: new Date(`${currentYear}-01-01`),
         },
       },
-    },
-  });
+    });
+    const requestNumber = `ELR-${currentYear}-${String(requestCount + 1).padStart(4, '0')}`;
 
-  // Update leave balance (add to pending)
-  await prisma.leaveBalance.update({
-    where: {
-      userId_leaveTypeId_year: {
+    // Create leave request with single executive approval
+    const created = await tx.leaveRequest.create({
+      data: {
+        requestNumber,
         userId: session.user.id,
         leaveTypeId: validatedData.leaveTypeId,
-        year: currentYear,
+        startDate,
+        endDate,
+        totalDays,
+        reason: validatedData.reason,
+        status: 'PENDING',
+        // Store selected dates as direct field for calendar filtering
+        selectedDates: validatedData.selectedDates ?
+          validatedData.selectedDates.map(dateStr => new Date(dateStr)) : [],
+        // Store metadata about executive request
+        supportingDocuments: {
+          selectedDates: validatedData.selectedDates || null,
+          isExecutiveRequest: true,
+          executiveApproverId: validatedData.executiveApproverId,
+        },
+        // Create single approval for the selected executive
+        approvals: {
+          create: {
+            approverId: validatedData.executiveApproverId,
+            level: 1,
+            status: 'PENDING',
+          }
+        },
       },
-    },
-    data: {
-      pending: {
-        increment: totalDays,
+      include: {
+        leaveType: true,
+        approvals: {
+          include: {
+            // Fix #2: Only select safe fields to prevent password hash leak
+            approver: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+              }
+            },
+          },
+        },
       },
-      available: {
-        decrement: totalDays,
+    });
+
+    // Update leave balance (add to pending)
+    await tx.leaveBalance.update({
+      where: {
+        userId_leaveTypeId_year: {
+          userId: session.user.id,
+          leaveTypeId: validatedData.leaveTypeId,
+          year: currentYear,
+        },
       },
-    },
+      data: {
+        pending: {
+          increment: totalDays,
+        },
+        available: {
+          decrement: totalDays,
+        },
+      },
+    });
+
+    return created;
   });
+  } catch (error) {
+    if (error instanceof TransactionAbort) {
+      return NextResponse.json(error.body, { status: error.statusCode });
+    }
+    throw error;
+  }
 
   // Create notification for approving executive
   await prisma.notification.create({

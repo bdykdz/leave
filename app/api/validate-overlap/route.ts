@@ -10,17 +10,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { 
-      userId, 
-      startDate, 
-      endDate, 
+    const {
+      userId,
+      startDate,
+      endDate,
       requestType, // 'LEAVE' or 'WFH'
       excludeRequestId // for editing existing requests
     } = await request.json();
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const targetUserId = userId || session.user.id;
+
+    // Only allow userId override for MANAGER/HR/ADMIN/EXECUTIVE roles
+    let targetUserId = session.user.id;
+    if (userId && userId !== session.user.id) {
+      const privilegedRoles = ['MANAGER', 'HR', 'ADMIN', 'EXECUTIVE', 'DEPARTMENT_DIRECTOR'];
+      if (privilegedRoles.includes(session.user.role)) {
+        targetUserId = userId;
+      }
+      // For EMPLOYEE role, silently use their own ID (ignore the override)
+    }
 
     // Check for overlapping leave requests
     const overlappingLeave = await prisma.leaveRequest.findMany({

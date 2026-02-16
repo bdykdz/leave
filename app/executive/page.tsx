@@ -93,7 +93,7 @@ export default function ExecutiveDashboard() {
     if (session.user.role !== "EXECUTIVE") {
       // Check if HR employee
       if (session.user.role === "HR" || 
-          (session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr"))) {
+          (session.user.role === "EMPLOYEE" && (session.user.department?.toLowerCase() === "hr" || session.user.department?.toLowerCase() === "human resources"))) {
         router.push("/hr")
         return
       }

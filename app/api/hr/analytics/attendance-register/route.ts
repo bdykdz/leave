@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       select: { role: true, department: true }
     })
 
-    const isHREmployee = currentUser?.role === 'EMPLOYEE' && currentUser?.department?.toLowerCase().includes('hr')
+    const isHREmployee = currentUser?.role === 'EMPLOYEE' && (currentUser?.department?.toLowerCase() === 'hr' || currentUser?.department?.toLowerCase() === 'human resources')
     if (!currentUser || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(currentUser.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }

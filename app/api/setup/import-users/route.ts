@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { prisma } from '@/lib/prisma'
 import { azureAdConfig } from '@/lib/env'
 import bcrypt from 'bcryptjs'
 import 'isomorphic-fetch'
+import { validateSetupAuth, checkSetupNotComplete } from '@/lib/setup-auth'
 
 // Helper to get access token
 async function getAccessToken() {
@@ -34,14 +34,11 @@ async function getAccessToken() {
 }
 
 export async function POST(request: NextRequest) {
-  // Check if user is authenticated for setup
-  const setupAuth = (await cookies()).get('setup-auth')
-  if (!setupAuth?.value) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    )
-  }
+  const authError = await validateSetupAuth()
+  if (authError) return authError
+
+  const setupComplete = await checkSetupNotComplete()
+  if (setupComplete) return setupComplete
 
   try {
     // Debug: Log environment variables status
@@ -74,10 +71,9 @@ export async function POST(request: NextRequest) {
       accessToken = await getAccessToken()
     } catch (error) {
       return NextResponse.json(
-        { 
+        {
           error: 'Authentication failed',
-          message: 'Could not authenticate with Azure AD. Please verify your credentials are correct.',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          message: 'Could not authenticate with Azure AD. Please verify your credentials are correct.'
         },
         { status: 401 }
       )
@@ -160,7 +156,7 @@ export async function POST(request: NextRequest) {
           
           if (jobTitle.includes('manager') || jobTitle.includes('lead')) {
             role = 'MANAGER'
-          } else if (department.includes('hr') || department.includes('human resources')) {
+          } else if (department === 'hr' || department === 'human resources') {
             role = 'HR'
           } else if (jobTitle.includes('executive') ||
                      jobTitle.includes('director') ||
@@ -245,14 +241,10 @@ export async function POST(request: NextRequest) {
       skipped: skippedUsers.length
     })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error importing users:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to import users',
-        message: error.message || 'An unexpected error occurred',
-        details: error.body || error.toString()
-      },
+      { error: 'Failed to import users' },
       { status: 500 }
     )
   }

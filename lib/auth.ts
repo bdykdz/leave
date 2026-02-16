@@ -29,10 +29,11 @@ export async function getCurrentUser() {
   return user
 }
 
-// Helper function to check if user is in HR department
+// Helper function to check if user is in HR department (exact match to prevent substring matching)
 export function isHRDepartment(user: { department: string | null } | null): boolean {
   if (!user?.department) return false
-  return user.department.includes('HR') || user.department.includes('hr') || user.department.includes('Hr')
+  const dept = user.department.toLowerCase().trim()
+  return dept === 'hr' || dept === 'human resources'
 }
 
 // Helper function to determine effective role for HR users

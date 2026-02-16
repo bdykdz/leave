@@ -4,10 +4,14 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { logDataExport } from '@/lib/utils/audit-log';
 
-// Helper function to escape CSV fields
+// Helper function to escape CSV fields with formula injection protection
 function escapeCSV(field: any): string {
   if (field === null || field === undefined) return '';
-  const str = String(field);
+  let str = String(field);
+  // Prevent CSV formula injection: prefix dangerous characters with single quote
+  if (str.length > 0 && /^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
       select: { role: true, department: true }
     });
 
-    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr');
+    const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources');
     
     if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });

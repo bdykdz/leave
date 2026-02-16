@@ -557,7 +557,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       let notificationLink = `/manager/approvals/${leaveRequest.id}`;
       if (approverUser) {
         if (approverUser.role === 'HR' || 
-            (approverUser.role === 'EMPLOYEE' && approverUser.department?.toLowerCase().includes('hr'))) {
+            (approverUser.role === 'EMPLOYEE' && (approverUser.department?.toLowerCase() === 'hr' || approverUser.department?.toLowerCase() === 'human resources'))) {
           notificationLink = `/hr?request=${leaveRequest.id}`;
         } else if (approverUser.role === 'EXECUTIVE') {
           notificationLink = `/executive?request=${leaveRequest.id}`;

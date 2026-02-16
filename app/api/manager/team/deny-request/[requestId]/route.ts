@@ -161,10 +161,8 @@ export async function POST(
     })
   } catch (error) {
     console.error("Error denying request:", error)
-    return NextResponse.json({ 
-      error: "Internal server error", 
-      details: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined
+    return NextResponse.json({
+      error: "Internal server error"
     }, { status: 500 })
   }
 }

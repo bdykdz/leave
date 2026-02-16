@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { validateSetupAuth } from '@/lib/setup-auth'
 
 export async function GET(request: NextRequest) {
-  // Check if user is authenticated for setup
-  const setupAuth = (await cookies()).get('setup-auth')
-  if (!setupAuth?.value) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    )
-  }
+  const authError = await validateSetupAuth()
+  if (authError) return authError
 
   try {
     // Fetch all users from the database
@@ -47,20 +41,10 @@ export async function GET(request: NextRequest) {
       users: formattedUsers,
       count: formattedUsers.length
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching users:', error)
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    })
-    
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch users',
-        details: error.message,
-        code: error.code
-      },
+      { error: 'Failed to fetch users' },
       { status: 500 }
     )
   }

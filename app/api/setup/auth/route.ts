@@ -1,26 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-
-// In production, this should be an environment variable
-const SETUP_PASSWORD = process.env.SETUP_PASSWORD || 'admin123'
+import { getSetupPassword, createSetupToken, COOKIE_NAME, MAX_AGE_SECONDS } from '@/lib/setup-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { password } = await request.json()
+    const password = getSetupPassword()
+    if (!password) {
+      return NextResponse.json(
+        { error: 'Setup is not available. SETUP_PASSWORD environment variable is not configured.' },
+        { status: 503 }
+      )
+    }
 
-    if (password !== SETUP_PASSWORD) {
+    const { password: inputPassword } = await request.json()
+
+    if (inputPassword !== password) {
       return NextResponse.json(
         { error: 'Invalid password' },
         { status: 401 }
       )
     }
 
-    // Set a cookie to maintain setup session
-    (await cookies()).set('setup-auth', 'true', {
+    // Set an HMAC-signed cookie to maintain setup session
+    const token = createSetupToken(password)
+    ;(await cookies()).set(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.APP_ENV === 'production', // Only secure in production, not UAT
-      sameSite: 'lax', // Changed from strict to lax for better compatibility
-      maxAge: 60 * 60 * 24 // 24 hours
+      secure: process.env.APP_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: MAX_AGE_SECONDS
     })
 
     return NextResponse.json({ success: true })

@@ -54,6 +54,7 @@ export default function ExecutiveDashboard() {
   const [departmentLeaveData, setDepartmentLeaveData] = useState<any[]>([])
   const [monthlyLeavePattern, setMonthlyLeavePattern] = useState<any[]>([])
   const [remoteWorkTrends, setRemoteWorkTrends] = useState<any[]>([])
+  const [remoteDepartments, setRemoteDepartments] = useState<string[]>([])
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [pendingRequestsPage, setPendingRequestsPage] = useState(1)
   const [totalPendingPages, setTotalPendingPages] = useState(0)
@@ -98,33 +99,14 @@ export default function ExecutiveDashboard() {
     fetchPendingRequests()
   }, [pendingRequestsPage])
   
-  // Initialize peak absence periods with sample data
+  // Fetch peak absence periods from API
   useEffect(() => {
-    setPeakAbsencePeriods([
-      {
-        period: "Dec 23-27",
-        percentageOfWorkforce: 32,
-        departments: ["Engineering", "Sales", "HR"],
-        totalEmployees: 45,
-        businessImpact: "Critical project deadlines may be affected"
-      },
-      {
-        period: "Jul 15-19",
-        percentageOfWorkforce: 18,
-        departments: ["Marketing", "Finance"],
-        totalEmployees: 26,
-        businessImpact: "Quarter-end reporting may require additional resources"
-      }
-    ])
-    
-    // Initialize leave utilization data
-    setLeaveUtilizationData([
-      { department: "Engineering", used: 145, remaining: 55, utilization: 72.5 },
-      { department: "Sales", used: 89, remaining: 31, utilization: 74.2 },
-      { department: "HR", used: 42, remaining: 18, utilization: 70.0 },
-      { department: "Finance", used: 67, remaining: 33, utilization: 67.0 },
-      { department: "Marketing", used: 53, remaining: 27, utilization: 66.3 }
-    ])
+    fetchPeakAbsencePeriods()
+  }, [])
+
+  // Fetch leave utilization from API
+  useEffect(() => {
+    fetchLeaveUtilization()
   }, [])
   
   const fetchCompanyMetrics = async () => {
@@ -171,7 +153,8 @@ export default function ExecutiveDashboard() {
       const response = await fetch('/api/executive/remote-trends')
       if (response.ok) {
         const data = await response.json()
-        setRemoteWorkTrends(data)
+        setRemoteWorkTrends(data.trends || [])
+        setRemoteDepartments(data.departments || [])
       }
     } catch (error) {
       console.error('Error fetching remote trends:', error)
@@ -195,6 +178,30 @@ export default function ExecutiveDashboard() {
     }
   }
   
+  const fetchPeakAbsencePeriods = async () => {
+    try {
+      const response = await fetch('/api/executive/peak-absence')
+      if (response.ok) {
+        const data = await response.json()
+        setPeakAbsencePeriods(data)
+      }
+    } catch (error) {
+      console.error('Error fetching peak absence periods:', error)
+    }
+  }
+
+  const fetchLeaveUtilization = async () => {
+    try {
+      const response = await fetch('/api/executive/leave-utilization')
+      if (response.ok) {
+        const data = await response.json()
+        setLeaveUtilizationData(data)
+      }
+    } catch (error) {
+      console.error('Error fetching leave utilization:', error)
+    }
+  }
+
   const handleApprove = async (requestId: string, comment?: string) => {
     try {
       const response = await fetch(`/api/executive/approve-request/${requestId}`, {
@@ -318,7 +325,8 @@ export default function ExecutiveDashboard() {
         document.body.removeChild(a)
         toast.success('Report generated successfully!')
       } else {
-        toast.error('Failed to generate report')
+        const errorData = await response.json().catch(() => null)
+        toast.error(errorData?.error || 'Failed to generate report')
       }
     } catch (error) {
       console.error('Error generating report:', error)
@@ -362,10 +370,10 @@ export default function ExecutiveDashboard() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => generateReport('department', 'pdf')}>{t.analytics.departmentSummary}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => generateReport('utilization', 'pdf')}>{t.analytics.leaveUtilizationReport}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => generateReport('capacity', 'pdf')}>{t.analytics.capacityPlanningReport}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => generateReport('manager-performance', 'pdf')}>{t.analytics.managerPerformanceReport}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('department', 'csv')}>{t.analytics.departmentSummary}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('utilization', 'csv')}>{t.analytics.leaveUtilizationReport}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('capacity', 'csv')}>{t.analytics.capacityPlanningReport}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generateReport('manager-performance', 'csv')}>{t.analytics.managerPerformanceReport}</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => generateReport('full', 'csv')}>{t.analytics.exportAllDataCSV}</DropdownMenuItem>
               </DropdownMenuContent>
@@ -490,17 +498,13 @@ export default function ExecutiveDashboard() {
                 <CardContent>
                   <ChartContainer
                     config={{
-                      vacationDays: {
-                        label: "Vacation",
+                      leave: {
+                        label: "Leave Days",
                         color: "hsl(var(--chart-1))",
                       },
-                      personalDays: {
-                        label: "Personal",
+                      remote: {
+                        label: "Remote Days",
                         color: "hsl(var(--chart-2))",
-                      },
-                      medicalDays: {
-                        label: "Medical",
-                        color: "hsl(var(--chart-3))",
                       },
                     }}
                     className="h-[300px]"
@@ -511,9 +515,8 @@ export default function ExecutiveDashboard() {
                       <YAxis />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <ChartLegend content={<ChartLegendContent />} />
-                      <Bar dataKey="vacationDays" stackId="a" fill="var(--color-vacationDays)" />
-                      <Bar dataKey="personalDays" stackId="a" fill="var(--color-personalDays)" />
-                      <Bar dataKey="medicalDays" stackId="a" fill="var(--color-medicalDays)" />
+                      <Bar dataKey="leave" stackId="a" fill="var(--color-leave)" />
+                      <Bar dataKey="remote" stackId="a" fill="var(--color-remote)" />
                     </BarChart>
                   </ChartContainer>
                 </CardContent>
@@ -526,24 +529,15 @@ export default function ExecutiveDashboard() {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer
-                    config={{
-                      Engineering: {
-                        label: "Engineering",
-                        color: "hsl(var(--chart-1))",
-                      },
-                      Product: {
-                        label: "Product",
-                        color: "hsl(var(--chart-2))",
-                      },
-                      Sales: {
-                        label: "Sales",
-                        color: "hsl(var(--chart-3))",
-                      },
-                      Marketing: {
-                        label: "Marketing",
-                        color: "hsl(var(--chart-4))",
-                      },
-                    }}
+                    config={Object.fromEntries(
+                      remoteDepartments.map((dept, i) => [
+                        dept,
+                        {
+                          label: dept,
+                          color: `hsl(var(--chart-${(i % 5) + 1}))`,
+                        },
+                      ])
+                    )}
                     className="h-[300px]"
                   >
                     <LineChart data={remoteWorkTrends}>
@@ -552,10 +546,15 @@ export default function ExecutiveDashboard() {
                       <YAxis />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <ChartLegend content={<ChartLegendContent />} />
-                      <Line type="monotone" dataKey="Engineering" stroke="var(--color-Engineering)" strokeWidth={2} />
-                      <Line type="monotone" dataKey="Product" stroke="var(--color-Product)" strokeWidth={2} />
-                      <Line type="monotone" dataKey="Sales" stroke="var(--color-Sales)" strokeWidth={2} />
-                      <Line type="monotone" dataKey="Marketing" stroke="var(--color-Marketing)" strokeWidth={2} />
+                      {remoteDepartments.map((dept, i) => (
+                        <Line
+                          key={dept}
+                          type="monotone"
+                          dataKey={dept}
+                          stroke={`hsl(var(--chart-${(i % 5) + 1}))`}
+                          strokeWidth={2}
+                        />
+                      ))}
                     </LineChart>
                   </ChartContainer>
                 </CardContent>
@@ -737,21 +736,39 @@ export default function ExecutiveDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="p-3 border rounded-lg bg-blue-50">
-                      <h4 className="font-medium text-blue-800">{t.analytics.peakSeason}</h4>
-                      <p className="text-sm text-blue-600">{t.insights.julyHighestUsage}</p>
-                      <p className="text-xs text-blue-500 mt-1">{t.insights.planSummerCoverage}</p>
-                    </div>
-                    <div className="p-3 border rounded-lg bg-green-50">
-                      <h4 className="font-medium text-green-800">{t.analytics.highUtilization}</h4>
-                      <p className="text-sm text-green-600">{t.insights.productTeamUsage}</p>
-                      <p className="text-xs text-green-500 mt-1">{t.insights.goodWorkLifeBalance}</p>
-                    </div>
-                    <div className="p-3 border rounded-lg bg-yellow-50">
-                      <h4 className="font-medium text-yellow-800">{t.analytics.lowUtilization}</h4>
-                      <p className="text-sm text-yellow-600">HR team only using 61% of leave</p>
-                      <p className="text-xs text-yellow-500 mt-1">{t.insights.burnoutRisk}</p>
-                    </div>
+                    {leaveUtilizationData.length > 0 ? (
+                      <>
+                        {(() => {
+                          const sorted = [...leaveUtilizationData].sort((a, b) => b.utilizationRate - a.utilizationRate);
+                          const highest = sorted[0];
+                          const lowest = sorted[sorted.length - 1];
+                          const avgRate = Math.round(sorted.reduce((sum, d) => sum + d.utilizationRate, 0) / sorted.length);
+                          return (
+                            <>
+                              <div className="p-3 border rounded-lg bg-blue-50">
+                                <h4 className="font-medium text-blue-800">Company Average</h4>
+                                <p className="text-sm text-blue-600">Average leave utilization across all departments: {avgRate}%</p>
+                                <p className="text-xs text-blue-500 mt-1">Based on current year leave balance data</p>
+                              </div>
+                              <div className="p-3 border rounded-lg bg-green-50">
+                                <h4 className="font-medium text-green-800">{t.analytics.highUtilization}</h4>
+                                <p className="text-sm text-green-600">{highest.department} team using {highest.utilizationRate}% of allocated leave</p>
+                                <p className="text-xs text-green-500 mt-1">{t.insights.goodWorkLifeBalance}</p>
+                              </div>
+                              {lowest.department !== highest.department && (
+                                <div className="p-3 border rounded-lg bg-yellow-50">
+                                  <h4 className="font-medium text-yellow-800">{t.analytics.lowUtilization}</h4>
+                                  <p className="text-sm text-yellow-600">{lowest.department} team only using {lowest.utilizationRate}% of leave</p>
+                                  <p className="text-xs text-yellow-500 mt-1">{t.insights.burnoutRisk}</p>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground">No utilization data available yet.</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

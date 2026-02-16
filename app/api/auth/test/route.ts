@@ -5,16 +5,23 @@ import { authOptions } from '../[...nextauth]/route'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     return NextResponse.json({
-      authenticated: !!session,
-      session: session,
+      authenticated: true,
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        role: session.user.role,
+      },
       timestamp: new Date().toISOString()
     })
   } catch (error) {
     return NextResponse.json({
-      error: 'Failed to get session',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Failed to get session'
     }, { status: 500 })
   }
 }

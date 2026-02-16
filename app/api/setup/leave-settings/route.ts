@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { validateSetupAuth, checkSetupNotComplete } from '@/lib/setup-auth'
 
 export async function POST(request: Request) {
-  // Check admin authentication
-  const cookieStore = await cookies()
-  const isAuthenticated = cookieStore.get('setup-auth')?.value === 'true'
-  
-  if (!isAuthenticated) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = await validateSetupAuth()
+  if (authError) return authError
+
+  const setupComplete = await checkSetupNotComplete()
+  if (setupComplete) return setupComplete
 
   try {
     const { normalLeaveDays } = await request.json()
@@ -40,13 +38,8 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  // Check admin authentication
-  const cookieStore = await cookies()
-  const isAuthenticated = cookieStore.get('setup-auth')?.value === 'true'
-  
-  if (!isAuthenticated) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = await validateSetupAuth()
+  if (authError) return authError
 
   try {
     const setting = await prisma.companySetting.findUnique({

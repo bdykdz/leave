@@ -1,5 +1,16 @@
 import { Resend } from 'resend'
 
+/** Escape user-supplied strings for safe HTML interpolation */
+function escapeHtml(str: string | undefined | null): string {
+  if (!str) return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export interface EmailTemplate {
   subject: string
   html: string
@@ -157,7 +168,8 @@ class EmailService {
 
   generateLeaveRequestEmail(data: LeaveRequestEmailData): EmailTemplate {
     const subject = `Cerere nouă de concediu - ${data.employeeName}`
-    
+    const h = escapeHtml
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -180,21 +192,21 @@ class EmailService {
         <div class="header">
             <h1>Cerere Nouă de Concediu</h1>
         </div>
-        
+
         <div class="content">
-            <p>Bună ziua <strong>${data.managerName}</strong>,</p>
-            
+            <p>Bună ziua <strong>${h(data.managerName)}</strong>,</p>
+
             <p>Aveți o cerere nouă de concediu care necesită aprobarea dvs.</p>
-            
+
             <div class="details">
                 <h3>Detalii Cerere:</h3>
                 <ul>
-                    <li><strong>Angajat:</strong> ${data.employeeName}</li>
-                    <li><strong>Tip concediu:</strong> ${data.leaveType}</li>
-                    <li><strong>Data început:</strong> ${data.startDate}</li>
-                    <li><strong>Data sfârșit:</strong> ${data.endDate}</li>
+                    <li><strong>Angajat:</strong> ${h(data.employeeName)}</li>
+                    <li><strong>Tip concediu:</strong> ${h(data.leaveType)}</li>
+                    <li><strong>Data început:</strong> ${h(data.startDate)}</li>
+                    <li><strong>Data sfârșit:</strong> ${h(data.endDate)}</li>
                     <li><strong>Numărul de zile:</strong> ${data.days}</li>
-                    ${data.reason ? `<li><strong>Motivul:</strong> ${data.reason}</li>` : ''}
+                    ${data.reason ? `<li><strong>Motivul:</strong> ${h(data.reason)}</li>` : ''}
                 </ul>
             </div>
             
@@ -246,7 +258,8 @@ ${process.env.NEXTAUTH_URL}/manager
   generateApprovalEmail(data: ApprovalEmailData): EmailTemplate {
     const isApproved = data.status === 'approved'
     const subject = `Cererea de concediu ${isApproved ? 'aprobată' : 'respinsă'}`
-    
+    const h = escapeHtml
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -269,23 +282,23 @@ ${process.env.NEXTAUTH_URL}/manager
         <div class="header">
             <h1>Cererea de Concediu ${isApproved ? 'Aprobată' : 'Respinsă'}</h1>
         </div>
-        
+
         <div class="content">
-            <p>Bună ziua <strong>${data.employeeName}</strong>,</p>
-            
+            <p>Bună ziua <strong>${h(data.employeeName)}</strong>,</p>
+
             <div class="status ${isApproved ? 'approved' : 'rejected'}">
                 <h3>Cererea dvs. de concediu a fost ${isApproved ? 'APROBATĂ' : 'RESPINSĂ'}</h3>
             </div>
-            
+
             <div class="details">
                 <h3>Detalii Cerere:</h3>
                 <ul>
-                    <li><strong>Tip concediu:</strong> ${data.leaveType}</li>
-                    <li><strong>Data început:</strong> ${data.startDate}</li>
-                    <li><strong>Data sfârșit:</strong> ${data.endDate}</li>
+                    <li><strong>Tip concediu:</strong> ${h(data.leaveType)}</li>
+                    <li><strong>Data început:</strong> ${h(data.startDate)}</li>
+                    <li><strong>Data sfârșit:</strong> ${h(data.endDate)}</li>
                     <li><strong>Numărul de zile:</strong> ${data.days}</li>
-                    <li><strong>Aprobată/Respinsă de:</strong> ${data.approverName}</li>
-                    ${data.comments ? `<li><strong>Comentarii:</strong> ${data.comments}</li>` : ''}
+                    <li><strong>Aprobată/Respinsă de:</strong> ${h(data.approverName)}</li>
+                    ${data.comments ? `<li><strong>Comentarii:</strong> ${h(data.comments)}</li>` : ''}
                 </ul>
             </div>
             
@@ -342,7 +355,8 @@ ${process.env.NEXTAUTH_URL}/employee
 
   generateEscalationEmail(data: EscalationEmailData): EmailTemplate {
     const subject = `Cerere de concediu escaladată pentru aprobare - ${data.employeeName}`
-    
+    const h = escapeHtml
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -362,27 +376,27 @@ ${process.env.NEXTAUTH_URL}/employee
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔔 Cerere de Concediu Escaladată</h1>
+            <h1>Cerere de Concediu Escaladată</h1>
         </div>
-        
+
         <div class="content">
-            <p>Bună ziua <strong>${data.escalatedToName}</strong>,</p>
-            
+            <p>Bună ziua <strong>${h(data.escalatedToName)}</strong>,</p>
+
             <div class="escalation-alert">
-                <h3>⚠️ ATENȚIE: Cerere Escaladată pentru Aprobare</h3>
+                <h3>ATENTIE: Cerere Escaladată pentru Aprobare</h3>
                 <p>O cerere de concediu a fost escaladată către dvs. pentru aprobare urgentă.</p>
             </div>
-            
+
             <div class="details">
                 <h3>Detalii Cerere:</h3>
                 <ul>
-                    <li><strong>Angajat:</strong> ${data.employeeName}</li>
-                    <li><strong>Tip concediu:</strong> ${data.leaveType}</li>
-                    <li><strong>Data început:</strong> ${data.startDate}</li>
-                    <li><strong>Data sfârșit:</strong> ${data.endDate}</li>
+                    <li><strong>Angajat:</strong> ${h(data.employeeName)}</li>
+                    <li><strong>Tip concediu:</strong> ${h(data.leaveType)}</li>
+                    <li><strong>Data început:</strong> ${h(data.startDate)}</li>
+                    <li><strong>Data sfârșit:</strong> ${h(data.endDate)}</li>
                     <li><strong>Numărul de zile:</strong> ${data.days}</li>
-                    <li><strong>Escaladată de la:</strong> ${data.escalatedFromName}</li>
-                    <li><strong>Motiv escaladare:</strong> ${data.escalationReason}</li>
+                    <li><strong>Escaladată de la:</strong> ${h(data.escalatedFromName)}</li>
+                    <li><strong>Motiv escaladare:</strong> ${h(data.escalationReason)}</li>
                 </ul>
             </div>
             
@@ -458,6 +472,7 @@ ${process.env.NEXTAUTH_URL}/manager/approvals
     requestId?: string
   }): EmailTemplate {
     const subject = `Cerere nouă de lucru de acasă - ${data.employeeName}`
+    const h = escapeHtml
 
     const html = `
 <!DOCTYPE html>
@@ -480,14 +495,14 @@ ${process.env.NEXTAUTH_URL}/manager/approvals
             <h2>Cerere de Lucru de Acasă</h2>
         </div>
         <div class="content">
-            <p>Bună ziua <strong>${data.managerName}</strong>,</p>
-            <p><strong>${data.employeeName}</strong> a trimis o cerere de lucru de acasă care necesită aprobarea dvs.</p>
+            <p>Bună ziua <strong>${h(data.managerName)}</strong>,</p>
+            <p><strong>${h(data.employeeName)}</strong> a trimis o cerere de lucru de acasă care necesită aprobarea dvs.</p>
 
             <div class="details">
                 <h3>Detalii Cerere:</h3>
-                <p><strong>Perioada:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
+                <p><strong>Perioada:</strong> ${data.endDate ? `${h(data.startDate)} - ${h(data.endDate)}` : h(data.startDate)}</p>
                 <p><strong>Numărul de zile:</strong> ${data.days}</p>
-                <p><strong>Locația:</strong> ${data.location}</p>
+                <p><strong>Locația:</strong> ${h(data.location)}</p>
             </div>
 
             <p>Vă rugăm să vă conectați la sistem pentru a revizui și aproba/respinge această cerere.</p>
@@ -535,6 +550,7 @@ ${process.env.NEXTAUTH_URL}/manager
   }): EmailTemplate {
     const statusText = data.approved ? 'Aprobată' : 'Respinsă'
     const subject = `Cererea de lucru de acasă ${statusText.toLowerCase()}`
+    const h = escapeHtml
 
     const html = `
 <!DOCTYPE html>
@@ -557,15 +573,15 @@ ${process.env.NEXTAUTH_URL}/manager
             <h2>Cerere de Lucru de Acasă ${statusText}</h2>
         </div>
         <div class="content">
-            <p>Bună ziua <strong>${data.employeeName}</strong>,</p>
-            <p>Cererea dvs. de lucru de acasă a fost <span class="status">${statusText.toLowerCase()}</span> de ${data.managerName}.</p>
+            <p>Bună ziua <strong>${h(data.employeeName)}</strong>,</p>
+            <p>Cererea dvs. de lucru de acasă a fost <span class="status">${statusText.toLowerCase()}</span> de ${h(data.managerName)}.</p>
 
             <div class="details">
                 <h3>Detalii Cerere:</h3>
-                <p><strong>Perioada:</strong> ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}</p>
+                <p><strong>Perioada:</strong> ${data.endDate ? `${h(data.startDate)} - ${h(data.endDate)}` : h(data.startDate)}</p>
                 <p><strong>Numărul de zile:</strong> ${data.days}</p>
-                <p><strong>Locația:</strong> ${data.location}</p>
-                ${data.comments && !data.comments.includes('[SIGNATURE:') ? `<p><strong>Comentarii manager:</strong> ${data.comments}</p>` : ''}
+                <p><strong>Locația:</strong> ${h(data.location)}</p>
+                ${data.comments && !data.comments.includes('[SIGNATURE:') ? `<p><strong>Comentarii manager:</strong> ${h(data.comments)}</p>` : ''}
             </div>
 
             ${data.approved ?
@@ -617,7 +633,8 @@ ${data.approved ?
 
   generateNewUserWelcomeEmail(data: NewUserWelcomeEmailData): EmailTemplate {
     const subject = `Bun venit la ${data.companyName} - Contul dvs. a fost creat`
-    
+    const h = escapeHtml
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -638,31 +655,31 @@ ${data.approved ?
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎉 Bun venit la ${data.companyName}!</h1>
+            <h1>Bun venit la ${h(data.companyName)}!</h1>
         </div>
-        
+
         <div class="content">
             <div class="welcome-box">
-                <h2>Salut ${data.firstName}!</h2>
+                <h2>Salut ${h(data.firstName)}!</h2>
                 <p>Contul dvs. în sistemul de management al concediilor a fost creat cu succes.</p>
             </div>
-            
+
             <div class="details">
                 <h3>Detaliile Contului Dvs.:</h3>
                 <ul>
-                    <li><strong>Nume:</strong> ${data.firstName} ${data.lastName}</li>
-                    <li><strong>Email:</strong> ${data.email}</li>
-                    <li><strong>ID Angajat:</strong> ${data.employeeId}</li>
-                    <li><strong>Poziție:</strong> ${data.position}</li>
-                    <li><strong>Departament:</strong> ${data.department}</li>
-                    ${data.managerName ? `<li><strong>Manager:</strong> ${data.managerName}</li>` : ''}
+                    <li><strong>Nume:</strong> ${h(data.firstName)} ${h(data.lastName)}</li>
+                    <li><strong>Email:</strong> ${h(data.email)}</li>
+                    <li><strong>ID Angajat:</strong> ${h(data.employeeId)}</li>
+                    <li><strong>Poziție:</strong> ${h(data.position)}</li>
+                    <li><strong>Departament:</strong> ${h(data.department)}</li>
+                    ${data.managerName ? `<li><strong>Manager:</strong> ${h(data.managerName)}</li>` : ''}
                 </ul>
             </div>
-            
+
             ${data.temporaryPassword ? `
             <div class="password-box">
-                <h4>🔐 Parola Temporară</h4>
-                <p><strong>Parola:</strong> ${data.temporaryPassword}</p>
+                <h4>Parola Temporară</h4>
+                <p><strong>Parola:</strong> ${h(data.temporaryPassword)}</p>
                 <p><em>Vă rugăm să schimbați această parolă la prima conectare pentru securitate.</em></p>
             </div>
             ` : ''}
@@ -733,7 +750,8 @@ Aveți întrebări? Contactați departamentul HR sau managerul dvs. pentru asist
 
   generateSubstituteAssignmentEmail(data: SubstituteAssignmentEmailData): EmailTemplate {
     const subject = `Ați fost desemnat ca înlocuitor pentru ${data.employeeName}`
-    
+    const h = escapeHtml
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -754,46 +772,46 @@ Aveți întrebări? Contactați departamentul HR sau managerul dvs. pentru asist
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Desemnare ca Înlocuitor</h1>
+            <h1>Desemnare ca Înlocuitor</h1>
         </div>
-        
+
         <div class="content">
-            <p>Bună ziua <strong>${data.substituteName}</strong>,</p>
-            
+            <p>Bună ziua <strong>${h(data.substituteName)}</strong>,</p>
+
             <div class="assignment-alert">
-                <h3>🔄 Ați fost desemnat ca înlocuitor oficial</h3>
-                <p>Veți acoperi responsabilitățile lui <strong>${data.employeeName}</strong> pe perioada concediului acestuia.</p>
+                <h3>Ați fost desemnat ca înlocuitor oficial</h3>
+                <p>Veți acoperi responsabilitățile lui <strong>${h(data.employeeName)}</strong> pe perioada concediului acestuia.</p>
             </div>
-            
+
             <div class="details">
                 <h3>Detalii Concediu:</h3>
                 <ul>
-                    <li><strong>Angajat în concediu:</strong> ${data.employeeName}</li>
-                    <li><strong>Tip concediu:</strong> ${data.leaveType}</li>
-                    <li><strong>Data început:</strong> ${data.startDate}</li>
-                    <li><strong>Data sfârșit:</strong> ${data.endDate}</li>
+                    <li><strong>Angajat în concediu:</strong> ${h(data.employeeName)}</li>
+                    <li><strong>Tip concediu:</strong> ${h(data.leaveType)}</li>
+                    <li><strong>Data început:</strong> ${h(data.startDate)}</li>
+                    <li><strong>Data sfârșit:</strong> ${h(data.endDate)}</li>
                     <li><strong>Durata:</strong> ${data.days} zile</li>
                 </ul>
             </div>
-            
+
             ${data.responsibilities ? `
             <div class="responsibilities">
-                <h4>📝 Responsabilități și Sarcini:</h4>
-                <p>${data.responsibilities}</p>
+                <h4>Responsabilități și Sarcini:</h4>
+                <p>${h(data.responsibilities)}</p>
             </div>
             ` : ''}
-            
+
             ${data.contactInfo ? `
             <div class="details">
-                <h4>📞 Informații de Contact:</h4>
-                <p>${data.contactInfo}</p>
+                <h4>Informații de Contact:</h4>
+                <p>${h(data.contactInfo)}</p>
             </div>
             ` : ''}
-            
+
             <div class="details">
                 <h4>Acțiuni Recomandate:</h4>
                 <ul>
-                    <li>Coordonați cu ${data.employeeName} înainte de începerea concediului</li>
+                    <li>Coordonați cu ${h(data.employeeName)} înainte de începerea concediului</li>
                     <li>Asigurați-vă că aveți acces la toate resursele necesare</li>
                     <li>Clarificați procesele și prioritățile</li>
                     <li>Notificați echipa despre noua structură temporară</li>
@@ -876,6 +894,7 @@ Vă mulțumim pentru flexibilitate și colaborare!
 
   generateHolidayPlanSubmissionEmail(data: HolidayPlanSubmissionEmailData): EmailTemplate {
     const subject = `Plan de concediu trimis - ${data.employeeName} (${data.year})`
+    const h = escapeHtml
 
     const html = `
 <!DOCTYPE html>
@@ -900,17 +919,17 @@ Vă mulțumim pentru flexibilitate și colaborare!
         </div>
 
         <div class="content">
-            <p>Bună ziua <strong>${data.managerName}</strong>,</p>
+            <p>Bună ziua <strong>${h(data.managerName)}</strong>,</p>
 
-            <p><strong>${data.employeeName}</strong> a trimis planul de concediu pentru ${data.year} care necesită revizuirea și aprobarea dvs.</p>
+            <p><strong>${h(data.employeeName)}</strong> a trimis planul de concediu pentru ${data.year} care necesită revizuirea și aprobarea dvs.</p>
 
             <div class="details">
                 <h3>Detalii Plan:</h3>
                 <ul>
-                    <li><strong>Angajat:</strong> ${data.employeeName}</li>
+                    <li><strong>Angajat:</strong> ${h(data.employeeName)}</li>
                     <li><strong>Anul de planificare:</strong> ${data.year}</li>
                     <li><strong>Total zile solicitate:</strong> ${data.totalDays}</li>
-                    <li><strong>Trimis la:</strong> ${data.submissionDate}</li>
+                    <li><strong>Trimis la:</strong> ${h(data.submissionDate)}</li>
                 </ul>
             </div>
 
@@ -972,6 +991,7 @@ Pași următori:
     const statusText = data.status === 'approved' ? 'Aprobat' :
                       data.status === 'rejected' ? 'Respins' : 'Necesită Revizuire'
     const subject = `Planul dvs. de concediu pentru ${data.year} - ${statusText}`
+    const h = escapeHtml
 
     const html = `
 <!DOCTYPE html>
@@ -998,7 +1018,7 @@ Pași următori:
         </div>
 
         <div class="content">
-            <p>Bună ziua <strong>${data.employeeName}</strong>,</p>
+            <p>Bună ziua <strong>${h(data.employeeName)}</strong>,</p>
 
             <div class="status ${data.status === 'approved' ? 'approved' : data.status === 'rejected' ? 'rejected' : 'revision'}">
                 <h3>Planul dvs. de concediu pentru ${data.year} a fost ${statusText.toUpperCase()}</h3>
@@ -1009,8 +1029,8 @@ Pași următori:
                 <ul>
                     <li><strong>Anul de planificare:</strong> ${data.year}</li>
                     <li><strong>Total zile:</strong> ${data.totalDays}</li>
-                    <li><strong>Revizuit de:</strong> ${data.managerName}</li>
-                    ${data.comments ? `<li><strong>Comentarii:</strong> ${data.comments}</li>` : ''}
+                    <li><strong>Revizuit de:</strong> ${h(data.managerName)}</li>
+                    ${data.comments ? `<li><strong>Comentarii:</strong> ${h(data.comments)}</li>` : ''}
                 </ul>
             </div>
 

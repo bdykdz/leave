@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { emailService } from '@/lib/email-service';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 // GET: List all users
 export async function GET(request: NextRequest) {
@@ -113,8 +114,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate a default password if not provided
-    const password = data.password || `${data.firstName.toLowerCase()}${Math.floor(Math.random() * 10000)}`;
+    // Generate a cryptographically secure default password if not provided
+    const password = data.password || crypto.randomBytes(12).toString('base64url');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Generate employee ID if not provided

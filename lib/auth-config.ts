@@ -7,11 +7,12 @@ import { Role } from "@prisma/client"
 export const authOptions: NextAuthOptions = {
   // Remove adapter when using JWT strategy - they don't work together
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 hours - appropriate for HR system with sensitive data
   },
   providers: [
-    // Development and UAT credentials provider
-    ...(process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true" ? [
+    // Development and UAT credentials provider — requires NODE_ENV or APP_ENV, SHOW_DEV_LOGIN alone is insufficient
+    ...((process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat") && process.env.SHOW_DEV_LOGIN === "true" ? [
       CredentialsProvider({
         name: "Development Login",
         credentials: {
@@ -119,7 +120,7 @@ export const authOptions: NextAuthOptions = {
       })
       
       // Allow development credentials provider in development and UAT
-      if (account?.provider === "credentials" && (process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true")) {
+      if (account?.provider === "credentials" && ((process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat") && process.env.SHOW_DEV_LOGIN === "true")) {
         console.log('Allowing credentials provider login')
         return true
       }
@@ -181,7 +182,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account, profile }) {
       // Handle development credentials provider in development and UAT
-      if (account?.provider === "credentials" && (process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat" || process.env.SHOW_DEV_LOGIN === "true")) {
+      if (account?.provider === "credentials" && ((process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat") && process.env.SHOW_DEV_LOGIN === "true")) {
         const devUser = user as any
         token.id = devUser.id
         token.email = devUser.email

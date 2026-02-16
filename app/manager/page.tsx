@@ -513,7 +513,7 @@ export default function ManagerDashboard() {
   }
 
   // Check if user should access manager dashboard
-  const isHREmployee = session?.user.role === "EMPLOYEE" && session?.user.department?.toLowerCase().includes("hr")
+  const isHREmployee = session?.user.role === "EMPLOYEE" && (session?.user.department?.toLowerCase() === "hr" || session?.user.department?.toLowerCase() === "human resources")
   
   if (!session || !["MANAGER", "DEPARTMENT_DIRECTOR", "HR", "EXECUTIVE"].includes(session.user.role)) {
     // HR employees should go to HR dashboard
@@ -597,7 +597,7 @@ export default function ManagerDashboard() {
                 <CalendarDays className="h-4 w-4" />
               </Button>
 
-              {(session.user.role === "HR" || (session.user.role === "MANAGER" && session.user.department?.includes("HR"))) && (
+              {(session.user.role === "HR" || (session.user.role === "MANAGER" && (session.user.department?.toLowerCase() === "hr" || session.user.department?.toLowerCase() === "human resources"))) && (
                 <>
                   <Button onClick={() => router.push("/hr")} variant="outline" className="hidden md:flex items-center gap-2">
                     <Building className="h-4 w-4" />

@@ -159,7 +159,7 @@ export async function middleware(request: NextRequest) {
     const userDepartment = token.department as string
 
     // HR routes - allow HR role, EXECUTIVE, ADMIN, or EMPLOYEE with HR department
-    const isHREmployee = userRole === "EMPLOYEE" && userDepartment?.toLowerCase().includes("hr")
+    const isHREmployee = userRole === "EMPLOYEE" && (userDepartment?.toLowerCase() === "hr" || userDepartment?.toLowerCase() === "human resources")
     if (pathname.startsWith("/hr") || pathname.startsWith("/api/hr")) {
       if (userRole !== "HR" && userRole !== "EXECUTIVE" && userRole !== "ADMIN" && !isHREmployee) {
         if (isApiRoute) {

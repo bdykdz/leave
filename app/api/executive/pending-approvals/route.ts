@@ -15,61 +15,39 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    // Fix #9: Clamp pagination to prevent DoS and NaN edge cases
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '10') || 10, 1), 100);
+    const page = Math.max(parseInt(searchParams.get('page') || '1') || 1, 1);
     const skip = (page - 1) * limit;
 
-    // Get leave requests that require this executive's attention:
-    // 1. Requests where this executive is assigned as approver
-    // 2. Requests from other executives (peer approval)
-    // 3. Escalated requests from managers who report to this executive
-    // 4. High-level requests from managers/directors
+    // Fix #14: Only show requests this executive can actually act on:
+    // 1. Requests where this executive has a PENDING approval record (assigned approver)
+    // 2. Requests from direct reports (managerId = this user)
+    const whereClause = {
+      status: 'PENDING' as const,
+      userId: { not: session.user.id },
+      OR: [
+        {
+          // Has pending approval for this executive
+          approvals: {
+            some: {
+              approverId: session.user.id,
+              status: 'PENDING'
+            }
+          }
+        },
+        {
+          // Requests from direct reports
+          user: {
+            managerId: session.user.id
+          }
+        }
+      ]
+    };
+
     const [requests, totalCount] = await Promise.all([
       prisma.leaveRequest.findMany({
-        where: {
-          status: 'PENDING',
-          // Exclude the executive's own requests (cannot approve own request)
-          userId: { not: session.user.id },
-          OR: [
-            {
-              // Has pending approval for this executive
-              approvals: {
-                some: {
-                  approverId: session.user.id,
-                  status: 'PENDING'
-                }
-              }
-            },
-            {
-              // Requests from other executives (peer executive approval)
-              user: {
-                role: 'EXECUTIVE',
-                id: { not: session.user.id }
-              }
-            },
-            {
-              // Escalated requests from managers who report to this executive
-              user: {
-                role: 'MANAGER',
-                managerId: session.user.id
-              }
-            },
-            {
-              // High-level requests that might need executive approval
-              AND: [
-                { totalDays: { gte: 10 } }, // Requests >= 10 days typically need executive approval
-                {
-                  user: {
-                    OR: [
-                      { role: 'MANAGER' },
-                      { role: 'DEPARTMENT_DIRECTOR' }
-                    ]
-                  }
-                }
-              ]
-            }
-          ]
-        },
+        where: whereClause,
         include: {
           user: {
             select: {
@@ -101,45 +79,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' }
       }),
       prisma.leaveRequest.count({
-        where: {
-          status: 'PENDING',
-          userId: { not: session.user.id },
-          OR: [
-            {
-              approvals: {
-                some: {
-                  approverId: session.user.id,
-                  status: 'PENDING'
-                }
-              }
-            },
-            {
-              user: {
-                role: 'EXECUTIVE',
-                id: { not: session.user.id }
-              }
-            },
-            {
-              user: {
-                role: 'MANAGER',
-                managerId: session.user.id
-              }
-            },
-            {
-              AND: [
-                { totalDays: { gte: 10 } },
-                {
-                  user: {
-                    OR: [
-                      { role: 'MANAGER' },
-                      { role: 'DEPARTMENT_DIRECTOR' }
-                    ]
-                  }
-                }
-              ]
-            }
-          ]
-        }
+        where: whereClause
       })
     ]);
 

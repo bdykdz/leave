@@ -92,10 +92,10 @@ export async function PATCH(
     }
 
     const data = await request.json();
-    
+
     // Prepare update data
     const updateData: any = {};
-    
+
     // Basic fields
     if (data.firstName !== undefined) updateData.firstName = data.firstName;
     if (data.lastName !== undefined) updateData.lastName = data.lastName;
@@ -104,7 +104,17 @@ export async function PATCH(
     if (data.employeeId !== undefined) updateData.employeeId = data.employeeId;
     if (data.position !== undefined) updateData.position = data.position;
     if (data.department !== undefined) updateData.department = data.department;
-    if (data.role !== undefined) updateData.role = data.role;
+    // Only ADMIN can change roles - prevent privilege escalation by HR/EXECUTIVE
+    if (data.role !== undefined) {
+      if (adminUser.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Only administrators can change user roles' }, { status: 403 });
+      }
+      const validRoles = ['EMPLOYEE', 'MANAGER', 'DEPARTMENT_DIRECTOR', 'HR', 'EXECUTIVE', 'ADMIN'];
+      if (!validRoles.includes(data.role)) {
+        return NextResponse.json({ error: 'Invalid role value' }, { status: 400 });
+      }
+      updateData.role = data.role;
+    }
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     
     // Date fields

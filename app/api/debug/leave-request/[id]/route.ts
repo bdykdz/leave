@@ -19,28 +19,38 @@ export async function GET(
       include: {
         user: {
           include: {
-            manager: true
+            manager: {
+              select: { id: true, firstName: true, lastName: true, email: true, role: true }
+            }
           }
         },
         leaveType: true,
-        substitute: true,
+        substitute: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        },
         substitutes: {
           include: {
-            user: true
+            user: {
+              select: { id: true, firstName: true, lastName: true, email: true }
+            }
           }
         },
         generatedDocument: {
           include: {
             signatures: {
               include: {
-                signer: true
+                signer: {
+                  select: { id: true, firstName: true, lastName: true, email: true }
+                }
               }
             }
           }
         },
         approvals: {
           include: {
-            approver: true
+            approver: {
+              select: { id: true, firstName: true, lastName: true, email: true, role: true }
+            }
           }
         }
       }

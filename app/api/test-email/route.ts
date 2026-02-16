@@ -98,16 +98,25 @@ export async function POST(request: NextRequest) {
 // GET endpoint to check email configuration
 export async function GET() {
   try {
-    const config = {
-      provider: 'Resend',
-      apiKey: process.env.RESEND_API_KEY ? 'configured' : 'not configured',
-      fromEmail: process.env.RESEND_FROM_EMAIL || 'not configured',
-      companyName: process.env.COMPANY_NAME || 'not configured'
-    };
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Only allow HR and executives to check email config
+    if (!['HR', 'EXECUTIVE', 'ADMIN'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     return NextResponse.json({
       configured: !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
-      config
+      config: {
+        provider: 'Resend',
+        apiKey: process.env.RESEND_API_KEY ? 'configured' : 'not configured',
+        fromEmail: process.env.RESEND_FROM_EMAIL ? 'configured' : 'not configured',
+        companyName: process.env.COMPANY_NAME || 'not configured'
+      }
     });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to check configuration' }, { status: 500 });

@@ -38,6 +38,12 @@ export async function POST(request: NextRequest) {
     if (!leaveRequest) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 });
     }
+
+    // Authorization: only the request owner or HR/ADMIN/EXECUTIVE can generate documents
+    const userRole = session.user.role;
+    if (leaveRequest.userId !== session.user.id && !['HR', 'ADMIN', 'EXECUTIVE'].includes(userRole)) {
+      return NextResponse.json({ error: 'Not authorized to generate document for this request' }, { status: 403 });
+    }
     
     if (!leaveRequest.leaveType.documentTemplates.length) {
       return NextResponse.json({ error: 'No active template found for this leave type' }, { status: 404 });

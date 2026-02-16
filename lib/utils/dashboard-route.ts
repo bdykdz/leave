@@ -4,7 +4,7 @@
 
 export function getDashboardRoute(user: { role: string; department?: string | null }): string {
   // Check if EMPLOYEE is actually in HR department
-  if (user.role === 'EMPLOYEE' && user.department?.toLowerCase().includes('hr')) {
+  if (user.role === 'EMPLOYEE' && (user.department?.toLowerCase() === 'hr' || user.department?.toLowerCase() === 'human resources')) {
     return '/hr'
   }
   

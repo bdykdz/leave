@@ -200,7 +200,7 @@ export async function POST(
             let notificationLink = `/manager?request=${params.id}`;
             if (managerUser) {
               if (managerUser.role === 'HR' || 
-                  (managerUser.role === 'EMPLOYEE' && managerUser.department?.toLowerCase().includes('hr'))) {
+                  (managerUser.role === 'EMPLOYEE' && (managerUser.department?.toLowerCase() === 'hr' || managerUser.department?.toLowerCase() === 'human resources'))) {
                 notificationLink = `/hr?request=${params.id}`;
               } else if (managerUser.role === 'EXECUTIVE') {
                 notificationLink = `/executive?request=${params.id}`;

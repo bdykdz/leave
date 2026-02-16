@@ -13,7 +13,7 @@ export async function GET() {
 
     // Check if there are users in the database
     const userCount = await prisma.user.count()
-    
+
     // Check if setup is complete
     const setupSetting = await prisma.companySetting.findUnique({
       where: { key: 'setup_complete' }
@@ -23,8 +23,7 @@ export async function GET() {
       isComplete: setupSetting?.value === true,
       azureConfigured,
       userCount,
-      clientId: azureConfigured ? process.env.AZURE_AD_CLIENT_ID : null,
-      tenantId: azureConfigured ? process.env.AZURE_AD_TENANT_ID : null
+      // Do NOT expose clientId or tenantId values
     })
   } catch (error) {
     return NextResponse.json(

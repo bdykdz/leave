@@ -20,9 +20,8 @@ export function DevRoleSwitcher() {
   const [users, setUsers] = useState<User[]>([])
   const [isChanging, setIsChanging] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true)
-  const isDevelopment = process.env.NODE_ENV === 'development' || 
-    (typeof window !== 'undefined' && /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname)) ||
-    (typeof window !== 'undefined' && window.location.hostname === 'lms.tpfing.ro')
+  const isDevelopment = process.env.NODE_ENV === 'development' ||
+    (typeof window !== 'undefined' && /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname))
   
   useEffect(() => {
     if (isDevelopment) {

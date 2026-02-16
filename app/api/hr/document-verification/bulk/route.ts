@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       select: { role: true, department: true }
     })
 
-    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
     
     if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -34,6 +34,14 @@ export async function POST(request: NextRequest) {
 
     if (!requestIds || !Array.isArray(requestIds) || requestIds.length === 0) {
       return NextResponse.json({ error: 'Request IDs are required' }, { status: 400 })
+    }
+
+    if (requestIds.length > 100) {
+      return NextResponse.json({ error: 'Maximum 100 requests per bulk operation' }, { status: 400 })
+    }
+
+    if (notes && notes.length > 1000) {
+      return NextResponse.json({ error: 'Notes must be 1000 characters or less' }, { status: 400 })
     }
 
     if (!['approve', 'reject'].includes(action)) {
@@ -186,7 +194,7 @@ export async function GET(request: NextRequest) {
       select: { role: true, department: true }
     })
 
-    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
     
     if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })

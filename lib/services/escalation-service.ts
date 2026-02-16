@@ -522,7 +522,7 @@ export class EscalationService {
     let notificationLink = `/manager/approvals/${leaveRequest.id}`;
     if (escalatedApprover) {
       if (escalatedApprover.role === 'HR' || 
-          (escalatedApprover.role === 'EMPLOYEE' && escalatedApprover.department?.toLowerCase().includes('hr'))) {
+          (escalatedApprover.role === 'EMPLOYEE' && (escalatedApprover.department?.toLowerCase() === 'hr' || escalatedApprover.department?.toLowerCase() === 'human resources'))) {
         notificationLink = `/hr?request=${leaveRequest.id}`;
       } else if (escalatedApprover.role === 'EXECUTIVE') {
         notificationLink = `/executive?request=${leaveRequest.id}`;
@@ -715,7 +715,7 @@ export class EscalationService {
     let notificationLink = `/manager/approvals/${leaveRequestId}`;
     if (initialApprover) {
       if (initialApprover.role === 'HR' || 
-          (initialApprover.role === 'EMPLOYEE' && initialApprover.department?.toLowerCase().includes('hr'))) {
+          (initialApprover.role === 'EMPLOYEE' && (initialApprover.department?.toLowerCase() === 'hr' || initialApprover.department?.toLowerCase() === 'human resources'))) {
         notificationLink = `/hr?request=${leaveRequestId}`;
       } else if (initialApprover.role === 'EXECUTIVE') {
         notificationLink = `/executive?request=${leaveRequestId}`;

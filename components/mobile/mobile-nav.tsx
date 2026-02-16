@@ -65,7 +65,7 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
       label: t.nav.hrDashboard,
       icon: Building,
       href: "/hr",
-      show: userRole === 'HR' || session.user?.department?.includes('HR')
+      show: userRole === 'HR' || session.user?.department?.toLowerCase() === 'hr' || session.user?.department?.toLowerCase() === 'human resources'
     },
     {
       label: t.nav.analytics,

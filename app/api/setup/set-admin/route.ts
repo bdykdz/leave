@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { validateSetupAuth, checkSetupNotComplete } from '@/lib/setup-auth'
 
 export async function POST(request: NextRequest) {
-  // Check if user is authenticated for setup
-  const setupAuth = (await cookies()).get('setup-auth')
-  if (!setupAuth?.value) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    )
-  }
+  const authError = await validateSetupAuth()
+  if (authError) return authError
+
+  const setupComplete = await checkSetupNotComplete()
+  if (setupComplete) return setupComplete
 
   try {
     const { userId } = await request.json()

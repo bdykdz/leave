@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,67 +16,120 @@ export async function GET(request: NextRequest) {
     }
 
     const today = new Date();
+    const todayStart = startOfDay(today);
+    const todayEnd = endOfDay(today);
     const monthStart = startOfMonth(today);
     const monthEnd = endOfMonth(today);
 
-    // Get all departments
-    const departments = await prisma.user.groupBy({
-      by: ['department'],
+    // Fetch all active users with their department in a single query
+    const allUsers = await prisma.user.findMany({
       where: { isActive: true },
-      _count: { id: true }
+      select: { id: true, department: true }
     });
 
-    // Get leave stats by department
-    const departmentStats = await Promise.all(
-      departments.map(async (dept) => {
-        // Get employees in this department
-        const deptUsers = await prisma.user.findMany({
-          where: {
-            department: dept.department,
-            isActive: true
-          },
-          select: { id: true }
-        });
+    // Group users by department
+    const deptUserMap = new Map<string, string[]>();
+    for (const user of allUsers) {
+      const dept = user.department || 'Unassigned';
+      if (!deptUserMap.has(dept)) {
+        deptUserMap.set(dept, []);
+      }
+      deptUserMap.get(dept)!.push(user.id);
+    }
 
-        const userIds = deptUsers.map(u => u.id);
+    const allUserIds = allUsers.map(u => u.id);
 
-        // Get leave requests for this department this month
-        const leaveRequests = await prisma.leaveRequest.findMany({
-          where: {
-            userId: { in: userIds },
-            status: 'APPROVED',
-            startDate: { lte: monthEnd },
-            endDate: { gte: monthStart }
-          },
-          select: { totalDays: true }
-        });
+    // Fetch all approved leave requests overlapping today (single query)
+    const onLeaveToday = await prisma.leaveRequest.findMany({
+      where: {
+        userId: { in: allUserIds },
+        status: 'APPROVED',
+        startDate: { lte: todayEnd },
+        endDate: { gte: todayStart }
+      },
+      select: { userId: true }
+    });
 
-        const totalLeaveDays = leaveRequests.reduce(
-          (sum, req) => sum + req.totalDays, 
-          0
-        );
+    // Fetch all approved WFH requests overlapping today (single query)
+    const remoteToday = await prisma.workFromHomeRequest.findMany({
+      where: {
+        userId: { in: allUserIds },
+        status: 'APPROVED',
+        startDate: { lte: todayEnd },
+        endDate: { gte: todayStart }
+      },
+      select: { userId: true }
+    });
 
-        // Get WFH requests
-        const wfhRequests = await prisma.workFromHomeRequest.count({
-          where: {
-            userId: { in: userIds },
-            status: 'APPROVED',
-            startDate: { lte: monthEnd },
-            endDate: { gte: monthStart }
-          }
-        });
+    // Fetch all pending leave requests (single query)
+    const pendingLeave = await prisma.leaveRequest.findMany({
+      where: {
+        userId: { in: allUserIds },
+        status: 'PENDING'
+      },
+      select: { userId: true }
+    });
 
-        return {
-          department: dept.department,
-          employeeCount: dept._count.id,
-          totalLeaveDays,
-          averageLeavePerEmployee: dept._count.id > 0 
-            ? (totalLeaveDays / dept._count.id).toFixed(1) 
-            : 0,
-          wfhRequests
-        };
-      })
-    );
+    // Fetch approved leave requests for the month (for totalLeaveDays)
+    const monthLeave = await prisma.leaveRequest.findMany({
+      where: {
+        userId: { in: allUserIds },
+        status: 'APPROVED',
+        startDate: { lte: monthEnd },
+        endDate: { gte: monthStart }
+      },
+      select: { userId: true, totalDays: true }
+    });
+
+    // Fetch WFH requests for the month
+    const monthWfh = await prisma.workFromHomeRequest.findMany({
+      where: {
+        userId: { in: allUserIds },
+        status: 'APPROVED',
+        startDate: { lte: monthEnd },
+        endDate: { gte: monthStart }
+      },
+      select: { userId: true }
+    });
+
+    // Build sets for quick lookup by userId
+    const onLeaveTodayByUser = new Set(onLeaveToday.map(r => r.userId));
+    const remoteTodayByUser = new Set(remoteToday.map(r => r.userId));
+    const pendingByUser = new Map<string, number>();
+    for (const r of pendingLeave) {
+      pendingByUser.set(r.userId, (pendingByUser.get(r.userId) || 0) + 1);
+    }
+    const monthLeaveByUser = new Map<string, number>();
+    for (const r of monthLeave) {
+      monthLeaveByUser.set(r.userId, (monthLeaveByUser.get(r.userId) || 0) + r.totalDays);
+    }
+    const monthWfhByUser = new Map<string, number>();
+    for (const r of monthWfh) {
+      monthWfhByUser.set(r.userId, (monthWfhByUser.get(r.userId) || 0) + 1);
+    }
+
+    // Build department stats
+    const departmentStats = Array.from(deptUserMap.entries()).map(([department, userIds]) => {
+      const employees = userIds.length;
+      const onLeaveTodayCount = userIds.filter(id => onLeaveTodayByUser.has(id)).length;
+      const remoteTodayCount = userIds.filter(id => remoteTodayByUser.has(id)).length;
+      const pendingRequestsCount = userIds.reduce((sum, id) => sum + (pendingByUser.get(id) || 0), 0);
+      const totalLeaveDays = userIds.reduce((sum, id) => sum + (monthLeaveByUser.get(id) || 0), 0);
+      const wfhRequests = userIds.reduce((sum, id) => sum + (monthWfhByUser.get(id) || 0), 0);
+
+      return {
+        department,
+        employees,
+        onLeaveToday: onLeaveTodayCount,
+        remoteToday: remoteTodayCount,
+        pendingRequests: pendingRequestsCount,
+        totalLeaveDays,
+        averageLeavePerEmployee: employees > 0
+          ? Number((totalLeaveDays / employees).toFixed(1))
+          : 0,
+        wfhRequests
+      };
+    });
 
     return NextResponse.json(departmentStats);
   } catch (error) {

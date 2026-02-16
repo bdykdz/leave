@@ -3,6 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
+// Fix #13: Sanitize comment — strip HTML tags, limit length, trim
+function sanitizeComment(raw: string): string {
+  return raw.replace(/<[^>]*>/g, '').trim().slice(0, 1000);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { requestId: string } }
@@ -17,7 +22,8 @@ export async function POST(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const { comment } = await request.json();
+    const body = await request.json();
+    const comment = sanitizeComment(body.comment || '');
 
     if (!comment || comment.trim() === '') {
       return NextResponse.json(
@@ -30,13 +36,21 @@ export async function POST(
     const requestDetails = await prisma.leaveRequest.findUnique({
       where: { id: params.requestId },
       include: {
-        user: true,
-        approvals: true
+        user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+        approvals: { select: { id: true, approverId: true, status: true, level: true } }
       }
     });
 
     if (!requestDetails) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 });
+    }
+
+    // Fix #6: Reject if request is not PENDING
+    if (requestDetails.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: 'Request is not in pending status' },
+        { status: 400 }
+      );
     }
 
     // Prevent circular rejection: executive cannot reject their own request
@@ -47,58 +61,53 @@ export async function POST(
       );
     }
 
-    // Check if this executive is assigned as an approver OR has authority to reject
+    // Check if this executive is assigned as an approver OR is an admin
     const isAssignedApprover = requestDetails.approvals.some(
       approval => approval.approverId === session.user.id && approval.status === 'PENDING'
     );
 
-    // Allow any executive to reject another executive's request (peer rejection)
-    const isExecutivePeerAction = session.user.role === 'EXECUTIVE' &&
-      requestDetails.user.role === 'EXECUTIVE';
-
-    if (!isAssignedApprover && session.user.role !== 'ADMIN' && !isExecutivePeerAction) {
+    if (!isAssignedApprover && session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'You are not authorized to reject this request' },
         { status: 403 }
       );
     }
 
-    // If this executive is not explicitly assigned but is doing peer rejection,
-    // create an approval record for them with REJECTED status
-    if (!isAssignedApprover && isExecutivePeerAction) {
-      await prisma.approval.create({
-        data: {
-          leaveRequestId: params.requestId,
-          approverId: session.user.id,
-          level: requestDetails.approvals.length + 1,
-          status: 'REJECTED',
-          comments: comment,
-          approvedAt: new Date()
-        }
-      });
-    } else {
-      // Update the existing approval record for this executive
-      await prisma.approval.updateMany({
-        where: {
-          leaveRequestId: params.requestId,
-          approverId: session.user.id,
-          status: 'PENDING'
-        },
-        data: {
-          status: 'REJECTED',
-          comments: comment,
-          approvedAt: new Date()
-        }
-      });
-    }
-
-    // Update the leave request status to rejected and restore balance
+    // Fix #4: Move updateMany inside the transaction to prevent race conditions
     const updatedRequest = await prisma.$transaction(async (tx) => {
-      // Get the leave request first to check its current status
+      // Fix #8: ADMIN override — create a rejection record if ADMIN has no assigned record
+      if (session.user.role === 'ADMIN' && !isAssignedApprover) {
+        await tx.approval.create({
+          data: {
+            leaveRequestId: params.requestId,
+            approverId: session.user.id,
+            level: 0, // ADMIN override level
+            status: 'REJECTED',
+            comments: `[ADMIN OVERRIDE] ${comment}`,
+            approvedAt: new Date(),
+          }
+        });
+      } else {
+        // Update the existing approval record for this executive
+        await tx.approval.updateMany({
+          where: {
+            leaveRequestId: params.requestId,
+            approverId: session.user.id,
+            status: 'PENDING'
+          },
+          data: {
+            status: 'REJECTED',
+            comments: comment,
+            approvedAt: new Date()
+          }
+        });
+      }
+
+      // Get the leave request to check its current status for balance restoration
       const leaveRequest = await tx.leaveRequest.findUnique({
         where: { id: params.requestId },
         include: {
-          user: true,
+          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
           leaveType: true
         }
       });
@@ -114,7 +123,7 @@ export async function POST(
           status: 'REJECTED'
         },
         include: {
-          user: true,
+          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
           leaveType: true
         }
       });
@@ -122,7 +131,7 @@ export async function POST(
       // Restore leave balance based on current status
       if (leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
         const currentYear = new Date().getFullYear();
-        
+
         try {
           if (leaveRequest.status === 'APPROVED') {
             // For approved requests, restore from used back to available
@@ -184,21 +193,25 @@ export async function POST(
       return rejectedRequest;
     });
 
-    // Send notification to the employee
-    await prisma.notification.create({
-      data: {
-        userId: updatedRequest.userId,
-        type: 'LEAVE_REJECTED',
-        title: 'Leave Request Denied',
-        message: `Your ${updatedRequest.leaveType?.name || 'leave'} request has been denied by executive management. Reason: ${comment}`,
-        link: `/employee?tab=requests`
-      }
-    });
+    // Fix #15: Wrap notification creation in try-catch — don't mask success as failure
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: updatedRequest.userId,
+          type: 'LEAVE_REJECTED',
+          title: 'Leave Request Denied',
+          message: `Your ${updatedRequest.leaveType?.name || 'leave'} request has been denied by executive management. Reason: ${comment}`,
+          link: `/employee?tab=requests`
+        }
+      });
+    } catch (notifError) {
+      console.error('Warning: Failed to create denial notification:', notifError);
+    }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: 'Request denied successfully',
-      request: updatedRequest 
+      request: updatedRequest
     });
   } catch (error) {
     console.error('Error denying request:', error);

@@ -6,6 +6,11 @@ import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
 import { emailService } from '@/lib/email-service';
 import { format } from 'date-fns';
 
+// Fix #13: Sanitize comment — strip HTML tags, limit length, trim
+function sanitizeComment(raw: string): string {
+  return raw.replace(/<[^>]*>/g, '').trim().slice(0, 1000);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { requestId: string } }
@@ -21,7 +26,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    let comment = body.comment || '';
+    let comment = sanitizeComment(body.comment || '');
     let signature: string | null = null;
 
     // Extract signature from comment if present
@@ -29,6 +34,13 @@ export async function POST(
       const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/);
       if (signatureMatch) {
         signature = signatureMatch[1];
+        // Fix #16: Validate signature size (max 50KB)
+        if (signature && signature.length > 50000) {
+          return NextResponse.json(
+            { error: 'Signature data exceeds maximum allowed size' },
+            { status: 400 }
+          );
+        }
         comment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
       }
     }
@@ -37,13 +49,21 @@ export async function POST(
     const leaveRequest = await prisma.leaveRequest.findUnique({
       where: { id: params.requestId },
       include: {
-        user: true,
-        approvals: true
+        user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+        approvals: { select: { id: true, approverId: true, status: true, level: true } }
       }
     });
 
     if (!leaveRequest) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 });
+    }
+
+    // Fix #5: Reject if request is not PENDING
+    if (leaveRequest.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: 'Request is not in pending status' },
+        { status: 400 }
+      );
     }
 
     // Prevent circular approval: executive cannot approve their own request
@@ -59,73 +79,67 @@ export async function POST(
       approval => approval.approverId === session.user.id && approval.status === 'PENDING'
     );
 
-    // For executives with ADMIN role, allow approval even if not explicitly assigned
-    // Also allow any executive to approve another executive's request (peer approval)
-    const isExecutivePeerApproval = session.user.role === 'EXECUTIVE' &&
-      leaveRequest.user.role === 'EXECUTIVE';
-
-    if (!isAssignedApprover && session.user.role !== 'ADMIN' && !isExecutivePeerApproval) {
+    if (!isAssignedApprover && session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'You are not assigned to approve this request' },
         { status: 403 }
       );
     }
 
-    // If this executive is not explicitly assigned but is doing peer approval,
-    // create an approval record for them
-    if (!isAssignedApprover && isExecutivePeerApproval) {
-      await prisma.approval.create({
-        data: {
-          leaveRequestId: params.requestId,
-          approverId: session.user.id,
-          level: leaveRequest.approvals.length + 1,
-          status: 'APPROVED',
-          comments: comment || null,
-          signature: signature,
-          approvedAt: new Date(),
-          signedAt: signature ? new Date() : null
-        }
+    // Fix #3: Move updateMany + findMany inside the transaction to prevent race conditions
+    const { updatedRequest, allApproved } = await prisma.$transaction(async (tx) => {
+      // Fix #8: ADMIN override — create an approval record if ADMIN has no assigned record
+      if (session.user.role === 'ADMIN' && !isAssignedApprover) {
+        await tx.approval.create({
+          data: {
+            leaveRequestId: params.requestId,
+            approverId: session.user.id,
+            level: 0, // ADMIN override level
+            status: 'APPROVED',
+            comments: comment ? `[ADMIN OVERRIDE] ${comment}` : '[ADMIN OVERRIDE]',
+            signature: signature,
+            approvedAt: new Date(),
+            signedAt: signature ? new Date() : null,
+          }
+        });
+      } else {
+        // Update the existing approval record for this executive
+        await tx.approval.updateMany({
+          where: {
+            leaveRequestId: params.requestId,
+            approverId: session.user.id,
+            status: 'PENDING'
+          },
+          data: {
+            status: 'APPROVED',
+            comments: comment || null,
+            signature: signature,
+            approvedAt: new Date(),
+            signedAt: signature ? new Date() : null
+          }
+        });
+      }
+
+      // Check if all approvals are complete (inside transaction)
+      const allApprovals = await tx.approval.findMany({
+        where: { leaveRequestId: params.requestId }
       });
-    } else {
-      // Update the existing approval record for this executive
-      await prisma.approval.updateMany({
-        where: {
-          leaveRequestId: params.requestId,
-          approverId: session.user.id,
-          status: 'PENDING'
-        },
-        data: {
-          status: 'APPROVED',
-          comments: comment || null,
-          signature: signature,
-          approvedAt: new Date(),
-          signedAt: signature ? new Date() : null
-        }
-      });
-    }
 
-    // Check if all approvals are complete
-    const allApprovals = await prisma.approval.findMany({
-      where: { leaveRequestId: params.requestId }
-    });
+      const isAllApproved = allApprovals.every(approval => approval.status === 'APPROVED');
 
-    const allApproved = allApprovals.every(approval => approval.status === 'APPROVED');
-
-    // Update the leave request status if all approvals are complete
-    const updatedRequest = await prisma.$transaction(async (tx) => {
       const updated = await tx.leaveRequest.update({
         where: { id: params.requestId },
         data: {
-          status: allApproved ? 'APPROVED' : 'PENDING'
+          status: isAllApproved ? 'APPROVED' : 'PENDING'
         },
         include: {
-          user: true,
+          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
           leaveType: true
         }
       });
 
       // If fully approved, update leave balance
-      if (allApproved && updated.leaveTypeId && updated.totalDays > 0) {
+      if (isAllApproved && updated.leaveTypeId && updated.totalDays > 0) {
         const currentYear = new Date().getFullYear();
         try {
           await tx.leaveBalance.update({
@@ -158,23 +172,27 @@ export async function POST(
           entity: 'LEAVE_REQUEST',
           entityId: params.requestId,
           oldValues: { status: 'PENDING' },
-          newValues: { status: allApproved ? 'APPROVED' : 'PENDING', comment: comment || null }
+          newValues: { status: isAllApproved ? 'APPROVED' : 'PENDING', comment: comment || null }
         }
       });
 
-      return updated;
+      return { updatedRequest: updated, allApproved: isAllApproved };
     });
 
-    // Send notification to the employee
-    await prisma.notification.create({
-      data: {
-        userId: updatedRequest.userId,
-        type: 'LEAVE_APPROVED',
-        title: 'Leave Request Approved',
-        message: `Your ${updatedRequest.leaveType.name} request has been approved by executive management.`,
-        link: `/employee?tab=requests`
-      }
-    });
+    // Fix #15: Wrap notification creation in try-catch — don't mask success as failure
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: updatedRequest.userId,
+          type: 'LEAVE_APPROVED',
+          title: 'Leave Request Approved',
+          message: `Your ${updatedRequest.leaveType.name} request has been approved by executive management.`,
+          link: `/employee?tab=requests`
+        }
+      });
+    } catch (notifError) {
+      console.error('Warning: Failed to create approval notification:', notifError);
+    }
 
     // Add executive signature to document immediately (before checking allApproved)
     try {

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       select: { role: true, department: true }
     })
 
-    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
     
     if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -194,7 +194,7 @@ export async function PATCH(request: NextRequest) {
       select: { role: true, department: true }
     })
 
-    const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
+    const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
     
     if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })

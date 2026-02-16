@@ -56,7 +56,7 @@ export default function RolloverManagementPage() {
       return
     }
 
-    const isHREmployee = session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr")
+    const isHREmployee = session.user.role === "EMPLOYEE" && (session.user.department?.toLowerCase() === "hr" || session.user.department?.toLowerCase() === "human resources")
     if (session.user.role !== "HR" && session.user.role !== "ADMIN" && session.user.role !== "EXECUTIVE" && !isHREmployee) {
       router.push("/employee")
       return
