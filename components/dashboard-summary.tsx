@@ -5,18 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { 
-  Calendar, 
-  Home, 
-  Users, 
-  UserCheck, 
-  Clock, 
+import {
+  Calendar,
+  Home,
+  Users,
+  UserCheck,
+  Clock,
   AlertTriangle,
   ChevronRight,
   MapPin
 } from "lucide-react"
 import { format } from "date-fns"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { useTranslations } from "@/components/language-provider"
 
 interface DashboardSummaryData {
@@ -64,14 +65,17 @@ interface DashboardSummaryProps {
 
 export function DashboardSummary({ userRole, className = "" }: DashboardSummaryProps) {
   const { data: session } = useSession()
+  const router = useRouter()
   const [data, setData] = useState<DashboardSummaryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const t = useTranslations()
 
   useEffect(() => {
-    fetchSummaryData()
-  }, [])
+    if (session) {
+      fetchSummaryData()
+    }
+  }, [session])
 
   const fetchSummaryData = async () => {
     try {
@@ -267,7 +271,12 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
                         <Badge variant="outline" className="text-xs bg-orange-100">
                           {request.status}
                         </Badge>
-                        <Button size="sm" variant="outline" className="h-6 px-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2"
+                          onClick={() => router.push(`/manager`)}
+                        >
                           <Clock className="h-3 w-3 mr-1" />
                           {t.buttons.review}
                         </Button>

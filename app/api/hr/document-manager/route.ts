@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 
     // Transform the data to include HR verifier info
     const transformedDocuments = documents.map(doc => {
-      const hrApproval = doc.approvals[0]
+      const hrApproval = doc.approvals?.length > 0 ? doc.approvals[0] : null
       return {
         id: doc.id,
         requestNumber: doc.requestNumber,

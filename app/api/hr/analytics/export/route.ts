@@ -5,6 +5,16 @@ import { prisma } from '@/lib/prisma'
 import { logDataExport } from '@/lib/utils/audit-log'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -38,6 +48,13 @@ export async function GET(request: NextRequest) {
     if (startDateParam && endDateParam) {
       rangeStart = new Date(startDateParam)
       rangeEnd = new Date(endDateParam)
+
+      if (isNaN(rangeStart.getTime()) || isNaN(rangeEnd.getTime())) {
+        return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
+      }
+      if (rangeStart > rangeEnd) {
+        return NextResponse.json({ error: 'Start date must be before end date' }, { status: 400 })
+      }
     } else {
       rangeStart = startOfMonth(currentDate)
       rangeEnd = endOfMonth(currentDate)
@@ -205,7 +222,7 @@ export async function GET(request: NextRequest) {
             <tbody>
                 ${departmentBreakdown.map(dept => `
                     <tr>
-                        <td>${dept.department}</td>
+                        <td>${escapeHtml(dept.department)}</td>
                         <td>${dept.employeeCount}</td>
                         <td>${dept.leaveDays}</td>
                         <td>${dept.wfhDays}</td>
@@ -230,7 +247,7 @@ export async function GET(request: NextRequest) {
                 ${holidays.map(holiday => `
                     <tr>
                         <td>${format(holiday.date, 'MMM dd, yyyy')}</td>
-                        <td>${holiday.nameEn}</td>
+                        <td>${escapeHtml(holiday.nameEn)}</td>
                     </tr>
                 `).join('')}
             </tbody>
@@ -254,9 +271,9 @@ export async function GET(request: NextRequest) {
             <tbody>
                 ${leaveRequests.slice(0, 50).map(req => `
                     <tr>
-                        <td>${req.user?.firstName || ''} ${req.user?.lastName || ''} (${req.user?.employeeId || ''})</td>
-                        <td>${req.user?.department || 'N/A'}</td>
-                        <td>${req.leaveType?.name || 'N/A'}</td>
+                        <td>${escapeHtml(req.user?.firstName)} ${escapeHtml(req.user?.lastName)} (${escapeHtml(req.user?.employeeId)})</td>
+                        <td>${escapeHtml(req.user?.department) || 'N/A'}</td>
+                        <td>${escapeHtml(req.leaveType?.name) || 'N/A'}</td>
                         <td>${format(req.startDate, 'MMM dd, yyyy')}</td>
                         <td>${format(req.endDate, 'MMM dd, yyyy')}</td>
                         <td>${req.totalDays}</td>
@@ -274,7 +291,7 @@ export async function GET(request: NextRequest) {
     </div>
 
     <div class="footer">
-        <p>Generated on ${format(new Date(), 'MMMM dd, yyyy \'at\' HH:mm')} by ${session.user.email}</p>
+        <p>Generated on ${format(new Date(), 'MMMM dd, yyyy \'at\' HH:mm')} by ${escapeHtml(session.user.email)}</p>
         <p>TPF - Raport Analitic</p>
     </div>
 </body>

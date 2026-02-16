@@ -191,7 +191,7 @@ export async function middleware(request: NextRequest) {
 
     // Admin routes - allow HR/EXECUTIVE access to user management and departments
     if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-      const isUserManagementRoute = pathname.startsWith("/api/admin/users") || pathname.startsWith("/api/admin/departments")
+      const isUserManagementRoute = pathname.startsWith("/api/admin/users") || pathname.startsWith("/api/admin/departments") || pathname.startsWith("/api/admin/rollover")
       const allowedRoles = isUserManagementRoute
         ? ["ADMIN", "HR", "EXECUTIVE"]
         : ["ADMIN"]

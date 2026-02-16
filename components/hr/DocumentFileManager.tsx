@@ -93,9 +93,10 @@ export function DocumentFileManager() {
       const response = await fetch('/api/hr/document-manager')
       
       if (!response.ok) {
-        const errorData = await response.json()
+        let errorData: any = {}
+        try { errorData = await response.json() } catch { /* non-JSON response */ }
         console.error('Document fetch error:', errorData)
-        
+
         if (response.status === 401) {
           toast.error(errorData.message || 'Please log in to view documents')
         } else if (response.status === 403) {
@@ -132,7 +133,8 @@ export function DocumentFileManager() {
         // Refresh the documents list to show the new document
         await fetchDocuments()
       } else {
-        const error = await response.json()
+        let error: any = {}
+        try { error = await response.json() } catch { /* non-JSON response */ }
         toast.error(error.error || 'Failed to generate document')
       }
     } catch (error) {

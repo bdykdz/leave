@@ -40,7 +40,7 @@ interface RolloverData {
 }
 
 export default function RolloverManagementPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const t = useTranslations()
   const [rolloverData, setRolloverData] = useState<RolloverData | null>(null)
@@ -49,10 +49,21 @@ export default function RolloverManagementPage() {
   const [executing, setExecuting] = useState(false)
 
   useEffect(() => {
-    if (session) {
-      loadRolloverData()
+    if (status === "loading") return
+
+    if (!session) {
+      router.push("/login")
+      return
     }
-  }, [session, selectedYear])
+
+    const isHREmployee = session.user.role === "EMPLOYEE" && session.user.department?.toLowerCase().includes("hr")
+    if (session.user.role !== "HR" && session.user.role !== "ADMIN" && session.user.role !== "EXECUTIVE" && !isHREmployee) {
+      router.push("/employee")
+      return
+    }
+
+    loadRolloverData()
+  }, [session, status, selectedYear])
 
   const loadRolloverData = async () => {
     try {
