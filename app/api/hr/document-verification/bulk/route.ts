@@ -89,11 +89,8 @@ export async function POST(request: NextRequest) {
             hrVerifiedBy: session.user.id,
             hrVerifiedAt: new Date(),
             hrVerificationNotes: notes || (approved ? 'Bulk approved by HR' : 'Bulk rejected by HR'),
-            ...(approved ? {} : { 
-              status: 'REJECTED',
-              rejectedAt: new Date(),
-              rejectedBy: session.user.id,
-              rejectionReason: `Document verification failed: ${notes || 'Documents did not meet requirements'}`
+            ...(approved ? {} : {
+              status: 'REJECTED'
             })
           }
         })
@@ -123,13 +120,12 @@ export async function POST(request: NextRequest) {
           await tx.notification.create({
           data: {
             userId: request.userId,
-            type: 'LEAVE',
+            type: approved ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
             title: approved ? 'Documents Verified' : 'Documents Rejected',
-            message: approved 
+            message: approved
               ? `Your documents for ${request.leaveType.name} leave have been verified by HR and your request is being processed.`
               : `Your documents for ${request.leaveType.name} leave have been rejected by HR. Reason: ${notes || 'Documents did not meet requirements'}. Please resubmit with proper documentation.`,
-            relatedEntityType: 'LEAVE_REQUEST',
-            relatedEntityId: request.id
+            link: `/employee?tab=requests`
           }
         })
 
@@ -218,7 +214,7 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: {
-        timestamp: 'desc'
+        createdAt: 'desc'
       },
       take: 20
     })
@@ -226,7 +222,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recentBulkOperations: bulkOperations.map(op => ({
         id: op.id,
-        timestamp: op.timestamp,
+        timestamp: op.createdAt,
         action: op.action,
         performedBy: {
           name: `${op.user?.firstName || ''} ${op.user?.lastName || ''}`.trim() || 'Unknown',

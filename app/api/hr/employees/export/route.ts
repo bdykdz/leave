@@ -90,25 +90,21 @@ export async function GET(request: NextRequest) {
         'Status',
         'Joining Date',
         'Manager',
-        'Annual Leave Balance',
-        'Sick Leave Used',
-        'Personal Leave Balance'
+        'Normal Leave Balance',
+        'Sick Leave Balance'
       ];
 
       const rows = employees.map(emp => {
         // Calculate leave balances
         let annualLeave = 0;
         let sickLeave = 0;
-        let personalLeave = 0;
 
         emp.leaveBalances.forEach(balance => {
           const code = balance.leaveType.code?.toUpperCase();
-          if (code === 'AL' || code === 'NL') {
+          if (code === 'NL') {
             annualLeave = balance.available || 0;
           } else if (code === 'SL') {
-            sickLeave = balance.used || 0;
-          } else if (code === 'PL') {
-            personalLeave = balance.available || 0;
+            sickLeave = balance.available || 0;
           }
         });
 
@@ -125,8 +121,7 @@ export async function GET(request: NextRequest) {
           escapeCSV(emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString() : ''),
           escapeCSV(emp.manager ? `${emp.manager?.firstName || ''} ${emp.manager?.lastName || ''}` : ''),
           escapeCSV(annualLeave),
-          escapeCSV(sickLeave),
-          escapeCSV(personalLeave)
+          escapeCSV(sickLeave)
         ].join(',');
       });
 

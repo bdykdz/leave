@@ -172,8 +172,7 @@ export async function POST(
         type: 'LEAVE_APPROVED',
         title: 'Leave Request Approved',
         message: `Your ${updatedRequest.leaveType.name} request has been approved by executive management.`,
-        relatedEntityId: params.requestId,
-        relatedEntityType: 'LEAVE_REQUEST'
+        link: `/employee?tab=requests`
       }
     });
 

@@ -131,7 +131,7 @@ export async function POST(
         // Notify the employee about their own cancellation
         await NotificationService.createNotification({
           userId: session.user.id,
-          type: 'REQUEST_CANCELLED',
+          type: 'WFH_CANCELLED',
           title: 'WFH Request Cancelled',
           message: `Your work from home request for ${wfhRequest.startDate.toDateString()} - ${wfhRequest.endDate.toDateString()} has been cancelled`,
           link: `/employee?request=${params.id}`
@@ -158,7 +158,7 @@ export async function POST(
             
             await NotificationService.createNotification({
               userId: managerId,
-              type: 'REQUEST_CANCELLED',
+              type: 'WFH_CANCELLED',
               title: 'WFH Request Cancelled',
               message: `${wfhRequest.user.firstName} ${wfhRequest.user.lastName} has cancelled their work from home request for ${wfhRequest.startDate.toDateString()} - ${wfhRequest.endDate.toDateString()}`,
               link: notificationLink

@@ -99,14 +99,7 @@ export async function PATCH(
     const updatedEmployee = await prisma.user.update({
       where: { id: params.id },
       data: {
-        isActive,
-        // Store deactivation metadata in a JSON field if needed
-        metadata: isActive ? {} : {
-          deactivatedBy: session.user.id,
-          deactivatedAt: new Date(),
-          deactivationReason: reason || 'Not specified',
-          previousStatus: currentEmployee
-        }
+        isActive
       }
     });
 
@@ -144,11 +137,10 @@ export async function PATCH(
       await prisma.notification.create({
         data: {
           userId: hrUser.id,
-          type: 'SYSTEM',
+          type: 'LEAVE_CANCELLED',
           title: isActive ? 'Employee Reactivated' : 'Employee Deactivated',
           message: `${currentEmployee.firstName} ${currentEmployee.lastName} (${currentEmployee.employeeId}) has been ${isActive ? 'reactivated' : 'deactivated'} by ${session.user.email}`,
-          relatedEntityType: 'USER',
-          relatedEntityId: params.id
+          link: `/hr?tab=employees`
         }
       });
     }
@@ -195,7 +187,7 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get employee with metadata
+    // Get employee details
     const employee = await prisma.user.findUnique({
       where: { id: params.id },
       select: {
@@ -203,8 +195,7 @@ export async function GET(
         firstName: true,
         lastName: true,
         employeeId: true,
-        isActive: true,
-        metadata: true
+        isActive: true
       }
     });
 
@@ -231,7 +222,7 @@ export async function GET(
         }
       },
       orderBy: {
-        timestamp: 'desc'
+        createdAt: 'desc'
       },
       take: 10
     });
@@ -241,12 +232,11 @@ export async function GET(
         id: employee.id,
         name: `${employee.firstName || ''} ${employee.lastName || ''}`,
         employeeId: employee.employeeId,
-        isActive: employee.isActive,
-        metadata: employee.metadata
+        isActive: employee.isActive
       },
       history: statusChangeLogs.map(log => ({
         action: log.action,
-        timestamp: log.timestamp,
+        timestamp: log.createdAt,
         performedBy: {
           name: `${log.user?.firstName || ''} ${log.user?.lastName || ''}`.trim() || 'Unknown',
           email: log.user?.email || ''

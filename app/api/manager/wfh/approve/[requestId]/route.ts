@@ -188,7 +188,7 @@ export const POST = asyncHandler(async (
   await prisma.notification.create({
     data: {
       userId: wfhRequest.userId,
-      type: 'REQUEST_APPROVED',
+      type: 'LEAVE_APPROVED',
       title: 'WFH Request Approved',
       message: `Your WFH request for ${wfhRequest.totalDays} days has been approved`,
       link: `/employee/wfh-requests/${requestId}`
@@ -287,7 +287,7 @@ export const DELETE = asyncHandler(async (
   await prisma.notification.create({
     data: {
       userId: wfhRequest.userId,
-      type: 'REQUEST_REJECTED',
+      type: 'LEAVE_REJECTED',
       title: 'WFH Request Rejected',
       message: `Your WFH request has been rejected. Reason: ${comment}`,
       link: `/employee/wfh-requests/${requestId}`

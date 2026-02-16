@@ -613,7 +613,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           await prisma.notification.create({
             data: {
               userId: hrUser.id,
-              type: 'SICK_LEAVE_SUBMITTED',
+              type: 'APPROVAL_REQUIRED',
               title: 'Sick Leave Verification Required',
               message: `${user.firstName} ${user.lastName} has submitted sick leave with medical documents`,
               link: `/hr?tab=verification&request=${leaveRequest.id}`,

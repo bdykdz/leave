@@ -75,11 +75,10 @@ export async function POST(request: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: data.userId,
-        type: 'LEAVE_REQUEST_CREATED',
+        type: 'LEAVE_REQUESTED',
         title: 'Leave Request Created by HR',
         message: `A leave request has been created on your behalf by ${session.user.firstName} ${session.user.lastName}`,
-        relatedEntityId: leaveRequest.id,
-        relatedEntityType: 'LEAVE_REQUEST',
+        link: `/employee?tab=requests`,
       }
     });
 

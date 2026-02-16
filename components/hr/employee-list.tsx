@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Search, UserPlus, Mail, Phone, Calendar, ChevronLeft, ChevronRight, RefreshCw, Download, Filter, Loader2, Edit, Save } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, UserPlus, Mail, Phone, Calendar, ChevronLeft, ChevronRight, RefreshCw, Download, Filter, Loader2, Edit, Save, Trash2, Power, Pencil } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { UserSearchSelect } from "@/components/admin/UserSearchSelect"
 
 interface Employee {
   id: string
@@ -25,10 +27,13 @@ interface Employee {
   phoneNumber?: string
   role: string
   isActive: boolean
+  managerId?: string | null
+  departmentDirectorId?: string | null
+  manager?: { firstName: string; lastName: string; email: string } | null
+  departmentDirector?: { firstName: string; lastName: string; email: string } | null
   leaveBalance?: {
     annual: number
     sick: number
-    personal: number
   }
 }
 
@@ -38,6 +43,48 @@ interface EmployeeResponse {
   page: number
   pageSize: number
   totalPages: number
+}
+
+interface UserOption {
+  id: string
+  firstName: string
+  lastName: string
+  role: string
+}
+
+interface DepartmentOption {
+  id: string
+  name: string
+}
+
+interface UserFormData {
+  firstName: string
+  lastName: string
+  email: string
+  employeeId: string
+  phoneNumber: string
+  position: string
+  department: string
+  role: string
+  joiningDate: string
+  managerId: string
+  departmentDirectorId: string
+  isActive: boolean
+}
+
+const emptyFormData: UserFormData = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  employeeId: "",
+  phoneNumber: "",
+  position: "",
+  department: "",
+  role: "EMPLOYEE",
+  joiningDate: new Date().toISOString().split("T")[0],
+  managerId: "none",
+  departmentDirectorId: "none",
+  isActive: true,
 }
 
 export function EmployeeList() {
@@ -58,13 +105,27 @@ export function EmployeeList() {
   const [balanceForm, setBalanceForm] = useState({
     annual: 0,
     sick: 0,
-    personal: 0
   })
   const [savingBalance, setSavingBalance] = useState(false)
+
+  // CRUD state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [allUsers, setAllUsers] = useState<UserOption[]>([])
+  const [allDepartments, setAllDepartments] = useState<DepartmentOption[]>([])
+  const [formData, setFormData] = useState<UserFormData>(emptyFormData)
+  const [savingUser, setSavingUser] = useState(false)
+  const [deletingUser, setDeletingUser] = useState<string | null>(null)
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchEmployees()
   }, [currentPage, pageSize, departmentFilter, roleFilter])
+
+  useEffect(() => {
+    fetchAllUsers()
+    fetchAllDepartments()
+  }, [])
 
   const fetchEmployees = async () => {
     try {
@@ -76,14 +137,14 @@ export function EmployeeList() {
         ...(roleFilter !== "all" && { role: roleFilter }),
         ...(searchTerm && { search: searchTerm })
       })
-      
+
       const response = await fetch(`/api/hr/employees?${params}`)
       if (response.ok) {
         const data: EmployeeResponse = await response.json()
         setEmployees(data.employees || [])
         setTotalPages(data.totalPages || 1)
         setTotalCount(data.totalCount || 0)
-        
+
         // Extract unique departments for filter
         if (departments.length === 0 && data.employees.length > 0) {
           const uniqueDepts = [...new Set(data.employees.map(e => e.department).filter(Boolean))]
@@ -97,6 +158,38 @@ export function EmployeeList() {
       toast.error('Failed to load employee list')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAllUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/users')
+      if (response.ok) {
+        const data = await response.json()
+        setAllUsers((data.users || []).map((u: any) => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          role: u.role,
+        })))
+      }
+    } catch (error) {
+      console.error('Error fetching all users:', error)
+    }
+  }
+
+  const fetchAllDepartments = async () => {
+    try {
+      const response = await fetch('/api/admin/departments')
+      if (response.ok) {
+        const data = await response.json()
+        setAllDepartments((data || []).map((d: any) => ({
+          id: d.id,
+          name: d.name,
+        })))
+      }
+    } catch (error) {
+      console.error('Error fetching departments:', error)
     }
   }
 
@@ -118,7 +211,6 @@ export function EmployeeList() {
     setBalanceForm({
       annual: employee.leaveBalance?.annual || 0,
       sick: employee.leaveBalance?.sick || 0,
-      personal: employee.leaveBalance?.personal || 0
     })
   }
 
@@ -132,7 +224,6 @@ export function EmployeeList() {
       setBalanceForm({
         annual: selectedEmployee.leaveBalance?.annual || 0,
         sick: selectedEmployee.leaveBalance?.sick || 0,
-        personal: selectedEmployee.leaveBalance?.personal || 0
       })
     }
   }
@@ -151,8 +242,8 @@ export function EmployeeList() {
       if (response.ok) {
         toast.success('Leave balance updated successfully')
         // Update the local state
-        const updatedEmployees = employees.map(emp => 
-          emp.id === selectedEmployee.id 
+        const updatedEmployees = employees.map(emp =>
+          emp.id === selectedEmployee.id
             ? { ...emp, leaveBalance: balanceForm }
             : emp
         )
@@ -196,6 +287,103 @@ export function EmployeeList() {
     }
   }
 
+  // CRUD handlers
+  const handleCreateUser = () => {
+    setFormData(emptyFormData)
+    setEditingUserId(null)
+    setIsCreateDialogOpen(true)
+  }
+
+  const handleEditUser = (employee: Employee) => {
+    setFormData({
+      firstName: employee.firstName || "",
+      lastName: employee.lastName || "",
+      email: employee.email || "",
+      employeeId: employee.employeeId || "",
+      phoneNumber: employee.phoneNumber || "",
+      position: employee.position || "",
+      department: employee.department || "",
+      role: employee.role || "EMPLOYEE",
+      joiningDate: employee.joiningDate ? employee.joiningDate.split("T")[0] : "",
+      managerId: employee.managerId || "none",
+      departmentDirectorId: employee.departmentDirectorId || "none",
+      isActive: employee.isActive,
+    })
+    setEditingUserId(employee.id)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveUser = async () => {
+    setSavingUser(true)
+    try {
+      const isCreate = !editingUserId
+      const url = isCreate ? '/api/admin/users' : `/api/admin/users/${editingUserId}`
+      const method = isCreate ? 'POST' : 'PATCH'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      if (response.ok) {
+        toast.success(isCreate ? 'User created successfully' : 'User updated successfully')
+        setIsCreateDialogOpen(false)
+        setIsEditDialogOpen(false)
+        fetchEmployees()
+        fetchAllUsers()
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to save user')
+      }
+    } catch (error) {
+      toast.error('Failed to save user')
+    } finally {
+      setSavingUser(false)
+    }
+  }
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm('Are you sure you want to deactivate this user? This will remove them from management chains.')) return
+
+    setDeletingUser(id)
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' })
+      if (response.ok) {
+        toast.success('User deactivated successfully')
+        fetchEmployees()
+        fetchAllUsers()
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to deactivate user')
+      }
+    } catch (error) {
+      toast.error('Failed to deactivate user')
+    } finally {
+      setDeletingUser(null)
+    }
+  }
+
+  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentStatus })
+      })
+
+      if (response.ok) {
+        toast.success(`User ${currentStatus ? 'deactivated' : 'activated'} successfully`)
+        fetchEmployees()
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to update user status')
+      }
+    } catch (error) {
+      toast.error('Failed to update user status')
+    }
+  }
+
   const filteredEmployees = employees.filter(emp =>
     (emp.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (emp.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -208,11 +396,22 @@ export function EmployeeList() {
     switch (role) {
       case 'EXECUTIVE': return 'bg-purple-100 text-purple-800'
       case 'MANAGER': return 'bg-blue-100 text-blue-800'
+      case 'DEPARTMENT_DIRECTOR': return 'bg-indigo-100 text-indigo-800'
       case 'HR': return 'bg-green-100 text-green-800'
+      case 'ADMIN': return 'bg-orange-100 text-orange-800'
       case 'EMPLOYEE': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
+
+  const roleOptions = [
+    { value: "EMPLOYEE", label: "Employee" },
+    { value: "MANAGER", label: "Manager" },
+    { value: "DEPARTMENT_DIRECTOR", label: "Department Director" },
+    { value: "HR", label: "HR" },
+    { value: "EXECUTIVE", label: "Executive" },
+    { value: "ADMIN", label: "Admin" },
+  ]
 
   return (
     <>
@@ -238,7 +437,7 @@ export function EmployeeList() {
               )}
               Export CSV
             </Button>
-            <Button>
+            <Button onClick={handleCreateUser}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Employee
             </Button>
@@ -287,8 +486,10 @@ export function EmployeeList() {
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="EMPLOYEE">Employee</SelectItem>
                 <SelectItem value="MANAGER">Manager</SelectItem>
+                <SelectItem value="DEPARTMENT_DIRECTOR">Department Director</SelectItem>
                 <SelectItem value="HR">HR</SelectItem>
                 <SelectItem value="EXECUTIVE">Executive</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>
 
@@ -365,13 +566,46 @@ export function EmployeeList() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewDetails(employee)}
-                      >
-                        Manage
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDetails(employee)}
+                          title="View Details & Balance"
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditUser(employee)}
+                          title="Edit User"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleStatus(employee.id, employee.isActive)}
+                          title={employee.isActive ? "Deactivate" : "Activate"}
+                        >
+                          <Power className={cn("h-3 w-3", employee.isActive ? "text-green-600" : "text-gray-400")} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteUser(employee.id)}
+                          disabled={deletingUser === employee.id}
+                          title="Delete User"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          {deletingUser === employee.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -434,7 +668,7 @@ export function EmployeeList() {
       </CardContent>
     </Card>
 
-    {/* Employee Details Dialog */}
+    {/* Employee Details / Balance Dialog */}
     <Dialog open={showDetails} onOpenChange={setShowDetails}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -484,9 +718,19 @@ export function EmployeeList() {
                 </Badge>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Joining Date</label>
-              <p className="text-sm">{new Date(selectedEmployee.joiningDate).toLocaleDateString()}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Joining Date</label>
+                <p className="text-sm">{selectedEmployee.joiningDate ? new Date(selectedEmployee.joiningDate).toLocaleDateString() : 'Not set'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Manager</label>
+                <p className="text-sm">
+                  {selectedEmployee.manager
+                    ? `${selectedEmployee.manager.firstName} ${selectedEmployee.manager.lastName}`
+                    : 'Not assigned'}
+                </p>
+              </div>
             </div>
             <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-3">
@@ -502,11 +746,11 @@ export function EmployeeList() {
                   </Button>
                 )}
               </div>
-              
+
               {editingBalance ? (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="annual">Annual Leave</Label>
+                    <Label htmlFor="annual">Normal Leave</Label>
                     <Input
                       id="annual"
                       type="number"
@@ -535,35 +779,16 @@ export function EmployeeList() {
                       className="mt-1"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="personal">Personal Leave</Label>
-                    <Input
-                      id="personal"
-                      type="number"
-                      min="0"
-                      max="365"
-                      value={balanceForm.personal}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0
-                        setBalanceForm({...balanceForm, personal: Math.max(0, Math.min(365, val))})
-                      }}
-                      className="mt-1"
-                    />
-                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="text-center p-3 bg-blue-50 rounded">
-                    <p className="text-xs text-gray-500">Annual</p>
+                    <p className="text-xs text-gray-500">Normal Leave</p>
                     <p className="text-lg font-medium">{selectedEmployee.leaveBalance?.annual || 0} days</p>
                   </div>
                   <div className="text-center p-3 bg-red-50 rounded">
-                    <p className="text-xs text-gray-500">Sick</p>
+                    <p className="text-xs text-gray-500">Sick Leave</p>
                     <p className="text-lg font-medium">{selectedEmployee.leaveBalance?.sick || 0} days</p>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded">
-                    <p className="text-xs text-gray-500">Personal</p>
-                    <p className="text-lg font-medium">{selectedEmployee.leaveBalance?.personal || 0} days</p>
                   </div>
                 </div>
               )}
@@ -597,6 +822,316 @@ export function EmployeeList() {
             </Button>
           </DialogFooter>
         )}
+      </DialogContent>
+    </Dialog>
+
+    {/* Create User Dialog */}
+    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create New Employee</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-firstName">First Name *</Label>
+              <Input
+                id="create-firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                placeholder="First name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-lastName">Last Name *</Label>
+              <Input
+                id="create-lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                placeholder="Last name"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Email *</Label>
+              <Input
+                id="create-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="email@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-phone">Phone Number</Label>
+              <Input
+                id="create-phone"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                placeholder="Phone number"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-role">Role</Label>
+              <Select value={formData.role} onValueChange={(v) => setFormData({ ...formData, role: v })}>
+                <SelectTrigger id="create-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleOptions.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-department">Department</Label>
+              <Select value={formData.department} onValueChange={(v) => setFormData({ ...formData, department: v })}>
+                <SelectTrigger id="create-department">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allDepartments.map(d => (
+                    <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-position">Position</Label>
+              <Input
+                id="create-position"
+                value={formData.position}
+                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                placeholder="Job position"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-joiningDate">Joining Date</Label>
+              <Input
+                id="create-joiningDate"
+                type="date"
+                value={formData.joiningDate}
+                onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Manager</Label>
+              <UserSearchSelect
+                users={allUsers}
+                value={formData.managerId}
+                onValueChange={(v) => setFormData({ ...formData, managerId: v })}
+                placeholder="Search manager..."
+                noneLabel="No Manager"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Department Director</Label>
+              <UserSearchSelect
+                users={allUsers}
+                value={formData.departmentDirectorId}
+                onValueChange={(v) => setFormData({ ...formData, departmentDirectorId: v })}
+                placeholder="Search director..."
+                noneLabel="No Director"
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={savingUser}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveUser} disabled={savingUser || !formData.firstName || !formData.lastName || !formData.email}>
+            {savingUser ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Create Employee
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Edit User Dialog */}
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Employee</DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="role">Role & Department</TabsTrigger>
+            <TabsTrigger value="reporting">Reporting</TabsTrigger>
+          </TabsList>
+          <TabsContent value="basic" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">First Name</Label>
+                <Input
+                  id="edit-firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">Last Name</Label>
+                <Input
+                  id="edit-lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-employeeId">Employee ID</Label>
+                <Input
+                  id="edit-employeeId"
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-joiningDate">Joining Date</Label>
+                <Input
+                  id="edit-joiningDate"
+                  type="date"
+                  value={formData.joiningDate}
+                  onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-position">Position</Label>
+                <Input
+                  id="edit-position"
+                  value={formData.position}
+                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={formData.isActive ? "active" : "inactive"} onValueChange={(v) => setFormData({ ...formData, isActive: v === "active" })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="role" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">Role</Label>
+                <Select value={formData.role} onValueChange={(v) => setFormData({ ...formData, role: v })}>
+                  <SelectTrigger id="edit-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-department">Department</Label>
+                <Select value={formData.department} onValueChange={(v) => setFormData({ ...formData, department: v })}>
+                  <SelectTrigger id="edit-department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allDepartments.map(d => (
+                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="reporting" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Manager</Label>
+                <UserSearchSelect
+                  users={allUsers}
+                  value={formData.managerId}
+                  onValueChange={(v) => setFormData({ ...formData, managerId: v })}
+                  placeholder="Search manager..."
+                  noneLabel="No Manager"
+                  excludeId={editingUserId || undefined}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Department Director</Label>
+                <UserSearchSelect
+                  users={allUsers}
+                  value={formData.departmentDirectorId}
+                  onValueChange={(v) => setFormData({ ...formData, departmentDirectorId: v })}
+                  placeholder="Search director..."
+                  noneLabel="No Director"
+                  excludeId={editingUserId || undefined}
+                />
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={savingUser}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveUser} disabled={savingUser}>
+            {savingUser ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
     </>

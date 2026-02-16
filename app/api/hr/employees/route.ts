@@ -116,17 +116,14 @@ export async function GET(request: NextRequest) {
       const leaveBalance = {
         annual: 0,
         sick: 0,
-        personal: 0
       };
 
       emp.leaveBalances.forEach(balance => {
         const leaveTypeCode = balance.leaveType.code?.toUpperCase();
-        if (leaveTypeCode === 'AL' || leaveTypeCode === 'NL') {
+        if (leaveTypeCode === 'NL') {
           leaveBalance.annual = balance.entitled || 0;
         } else if (leaveTypeCode === 'SL') {
           leaveBalance.sick = balance.entitled || 0;
-        } else if (leaveTypeCode === 'PL') {
-          leaveBalance.personal = balance.entitled || 0;
         }
       });
 
@@ -142,6 +139,10 @@ export async function GET(request: NextRequest) {
         phoneNumber: emp.phoneNumber,
         role: emp.role,
         isActive: emp.isActive,
+        managerId: emp.managerId,
+        departmentDirectorId: emp.departmentDirectorId,
+        manager: emp.manager,
+        departmentDirector: emp.departmentDirector,
         leaveBalance
       };
     });

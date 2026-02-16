@@ -11,7 +11,7 @@ import { DocumentFileManager } from "@/components/hr/DocumentFileManager"
 import { DashboardSummary } from "@/components/dashboard-summary"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar } from "lucide-react"
+import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -127,6 +127,15 @@ export default function HRDashboard() {
                   <DropdownMenuItem onClick={() => router.push(getDashboardRoute())}>
                     <Calendar className="mr-2 h-4 w-4" />
                     <span>{t.nav.myDashboard}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/hr/settings')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/hr/rollover')}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    <span>Leave Rollover</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>

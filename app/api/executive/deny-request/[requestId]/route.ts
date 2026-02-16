@@ -191,8 +191,7 @@ export async function POST(
         type: 'LEAVE_REJECTED',
         title: 'Leave Request Denied',
         message: `Your ${updatedRequest.leaveType?.name || 'leave'} request has been denied by executive management. Reason: ${comment}`,
-        relatedEntityId: params.requestId,
-        relatedEntityType: 'LEAVE_REQUEST'
+        link: `/employee?tab=requests`
       }
     });
 

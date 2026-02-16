@@ -74,9 +74,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (dateFrom || dateTo) {
-      where.timestamp = {}
-      if (dateFrom) where.timestamp.gte = new Date(dateFrom + 'T00:00:00.000Z')
-      if (dateTo) where.timestamp.lte = new Date(dateTo + 'T23:59:59.999Z')
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom + 'T00:00:00.000Z')
+      if (dateTo) where.createdAt.lte = new Date(dateTo + 'T23:59:59.999Z')
     }
 
     if (search) {
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
           }
         },
         orderBy: {
-          timestamp: 'desc'
+          createdAt: 'desc'
         },
         skip,
         take: limit
@@ -132,19 +132,19 @@ export async function GET(request: NextRequest) {
       prisma.auditLog.count({
         where: {
           ...where,
-          timestamp: { gte: startOfToday }
+          createdAt: { gte: startOfToday }
         }
       }),
       prisma.auditLog.count({
         where: {
           ...where,
-          timestamp: { gte: startOfWeek }
+          createdAt: { gte: startOfWeek }
         }
       }),
       prisma.auditLog.count({
         where: {
           ...where,
-          timestamp: { gte: startOfMonth }
+          createdAt: { gte: startOfMonth }
         }
       })
     ])
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
       by: ['action'],
       where: {
         ...where,
-        timestamp: { gte: startOfWeek }
+        createdAt: { gte: startOfWeek }
       },
       _count: {
         action: true
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       auditLogs: auditLogs.map(log => ({
         id: log.id,
-        timestamp: log.timestamp,
+        timestamp: log.createdAt,
         user: log.user,
         action: log.action,
         entity: log.entity,

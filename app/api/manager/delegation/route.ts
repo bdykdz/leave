@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: delegateId,
-        type: 'GENERAL',
+        type: 'APPROVAL_REQUIRED',
         title: 'Approval Delegation Assigned',
         message: `You have been assigned as an approval delegate from ${start.toLocaleDateString()} to ${end.toLocaleDateString()}`,
         link: '/manager/delegations'
@@ -247,7 +247,7 @@ export async function DELETE(request: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: delegation.delegateId,
-        type: 'GENERAL',
+        type: 'LEAVE_CANCELLED',
         title: 'Approval Delegation Cancelled',
         message: `Your approval delegation has been cancelled`,
         link: '/manager/delegations'

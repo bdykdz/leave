@@ -67,6 +67,10 @@ interface DocumentRecord {
   hrVerificationNotes?: string
   createdAt: string
   updatedAt: string
+  generatedDocument?: {
+    id: string
+    status: string
+  } | null
 }
 
 export function DocumentFileManager() {

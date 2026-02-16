@@ -51,11 +51,10 @@ export async function POST(request: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: data.userId,
-        type: 'WFH_REQUEST_CREATED',
+        type: 'LEAVE_REQUESTED',
         title: 'Work From Home Request Created by HR',
         message: `A work from home request has been created on your behalf by ${session.user.firstName} ${session.user.lastName}`,
-        relatedEntityId: wfhRequest.id,
-        relatedEntityType: 'WFH_REQUEST',
+        link: `/employee?tab=wfh`,
       }
     });
 

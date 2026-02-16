@@ -104,9 +104,9 @@ export async function getAuditLogs(filters: {
   if (filters.entityId) where.entityId = filters.entityId
   
   if (filters.startDate || filters.endDate) {
-    where.timestamp = {}
-    if (filters.startDate) where.timestamp.gte = filters.startDate
-    if (filters.endDate) where.timestamp.lte = filters.endDate
+    where.createdAt = {}
+    if (filters.startDate) where.createdAt.gte = filters.startDate
+    if (filters.endDate) where.createdAt.lte = filters.endDate
   }
   
   return prisma.auditLog.findMany({

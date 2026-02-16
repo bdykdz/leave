@@ -20,37 +20,36 @@ export async function PUT(
     })
 
     const isHREmployee = user?.role === 'EMPLOYEE' && user?.department?.toLowerCase().includes('hr')
-    
+
     if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const { annual, sick, personal } = await request.json()
-    
+    const { annual, sick } = await request.json()
+
     // Validate input - no negative values
-    if (annual < 0 || sick < 0 || personal < 0) {
+    if (annual < 0 || sick < 0) {
       return NextResponse.json(
         { error: 'Balance values cannot be negative' },
         { status: 400 }
       )
     }
-    
+
     const currentYear = new Date().getFullYear()
 
     // Get leave types
     const leaveTypes = await prisma.leaveType.findMany({
       where: {
-        code: { in: ['AL', 'SL', 'PL'] }
+        code: { in: ['NL', 'SL'] }
       }
     })
 
-    const annualLeaveType = leaveTypes.find(lt => lt.code === 'AL')
+    const annualLeaveType = leaveTypes.find(lt => lt.code === 'NL')
     const sickLeaveType = leaveTypes.find(lt => lt.code === 'SL')
-    const personalLeaveType = leaveTypes.find(lt => lt.code === 'PL')
 
     // Update balances using transaction
     await prisma.$transaction(async (tx) => {
-      // Update annual leave balance
+      // Update normal leave balance
       if (annualLeaveType) {
         // Get existing balance to preserve used/pending
         const existing = await tx.leaveBalance.findUnique({
@@ -62,10 +61,10 @@ export async function PUT(
             }
           }
         })
-        
+
         const used = existing?.used || 0
         const pending = existing?.pending || 0
-        
+
         await tx.leaveBalance.upsert({
           where: {
             userId_leaveTypeId_year: {
@@ -102,10 +101,10 @@ export async function PUT(
             }
           }
         })
-        
+
         const used = existing?.used || 0
         const pending = existing?.pending || 0
-        
+
         await tx.leaveBalance.upsert({
           where: {
             userId_leaveTypeId_year: {
@@ -130,46 +129,6 @@ export async function PUT(
         })
       }
 
-      // Update personal leave balance
-      if (personalLeaveType) {
-        // Get existing balance to preserve used/pending
-        const existing = await tx.leaveBalance.findUnique({
-          where: {
-            userId_leaveTypeId_year: {
-              userId: params.id,
-              leaveTypeId: personalLeaveType.id,
-              year: currentYear
-            }
-          }
-        })
-        
-        const used = existing?.used || 0
-        const pending = existing?.pending || 0
-        
-        await tx.leaveBalance.upsert({
-          where: {
-            userId_leaveTypeId_year: {
-              userId: params.id,
-              leaveTypeId: personalLeaveType.id,
-              year: currentYear
-            }
-          },
-          update: {
-            entitled: personal,
-            available: Math.max(0, personal - used - pending) // Recalculate available
-          },
-          create: {
-            userId: params.id,
-            leaveTypeId: personalLeaveType.id,
-            year: currentYear,
-            entitled: personal,
-            used: 0,
-            pending: 0,
-            available: personal
-          }
-        })
-      }
-
       // Create audit log
       await tx.auditLog.create({
         data: {
@@ -179,14 +138,14 @@ export async function PUT(
           entityId: params.id,
           details: {
             updatedBy: session.user.email,
-            newBalances: { annual, sick, personal },
+            newBalances: { annual, sick },
             year: currentYear
           }
         }
       })
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       message: 'Leave balances updated successfully'
     })
