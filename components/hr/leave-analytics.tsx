@@ -48,6 +48,10 @@ export function LeaveAnalytics() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [exportingAttendance, setExportingAttendance] = useState(false)
+  const [attendanceDepartment, setAttendanceDepartment] = useState<string>('all')
+  const [attendanceFormat, setAttendanceFormat] = useState<'xlsx' | 'pdf'>('xlsx')
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([])
   const [selectedRange, setSelectedRange] = useState<PresetRange>('current_month')
   const [dateRange, setDateRange] = useState<DateRange>({
     from: startOfMonth(new Date()),
@@ -58,6 +62,13 @@ export function LeaveAnalytics() {
   useEffect(() => {
     fetchAnalytics()
   }, [dateRange])
+
+  useEffect(() => {
+    fetch('/api/admin/departments')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setDepartments(Array.isArray(data) ? data : []))
+      .catch(() => setDepartments([]))
+  }, [])
 
   const fetchAnalytics = async () => {
     try {
@@ -151,6 +162,42 @@ export function LeaveAnalytics() {
       toast.error('Failed to export analytics report')
     } finally {
       setExporting(false)
+    }
+  }
+
+  const downloadAttendanceRegister = async () => {
+    setExportingAttendance(true)
+    try {
+      const params = new URLSearchParams()
+      if (dateRange.from) params.append('startDate', dateRange.from.toISOString())
+      if (dateRange.to) params.append('endDate', dateRange.to.toISOString())
+      if (attendanceDepartment && attendanceDepartment !== 'all') {
+        params.append('department', attendanceDepartment)
+      }
+      params.append('format', attendanceFormat)
+
+      const response = await fetch(`/api/hr/analytics/attendance-register?${params}`)
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const ext = attendanceFormat === 'pdf' ? 'html' : 'xlsx'
+        a.download = `attendance_register_${format(new Date(), 'yyyy-MM-dd')}.${ext}`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success('Attendance register downloaded successfully')
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.error || 'Failed to download attendance register')
+      }
+    } catch (error) {
+      console.error('Error downloading attendance register:', error)
+      toast.error('Failed to download attendance register')
+    } finally {
+      setExportingAttendance(false)
     }
   }
 
@@ -278,6 +325,56 @@ export function LeaveAnalytics() {
                 </Button>
               </>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Attendance Register Download */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance Register</CardTitle>
+          <CardDescription>
+            Download a per-employee, per-day attendance sheet for the selected period
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select value={attendanceDepartment} onValueChange={setAttendanceDepartment}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Format</Label>
+              <Select value={attendanceFormat} onValueChange={(v: 'xlsx' | 'pdf') => setAttendanceFormat(v)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+                  <SelectItem value="pdf">PDF / Print</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={downloadAttendanceRegister} disabled={exportingAttendance || !dateRange.from || !dateRange.to}>
+              {exportingAttendance ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download
+            </Button>
           </div>
         </CardContent>
       </Card>
