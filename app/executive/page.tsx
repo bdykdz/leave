@@ -515,7 +515,8 @@ export default function ExecutiveDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {executiveLeaveBalance.map((balance, index) => (
+                    {/* Standard leave types - full balance card */}
+                    {executiveLeaveBalance.filter(b => b.hasBalance).map((balance, index) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-medium">
@@ -545,7 +546,7 @@ export default function ExecutiveDashboard() {
                         </div>
                         {balance.entitled > 0 && (
                           <div className="mt-2 bg-gray-200 rounded-full h-2">
-                            <div 
+                            <div
                               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${(balance.used / balance.entitled) * 100}%` }}
                             />
@@ -553,6 +554,31 @@ export default function ExecutiveDashboard() {
                         )}
                       </div>
                     ))}
+                    {/* Special leave types - summary card */}
+                    {(() => {
+                      const specialLeaves = executiveLeaveBalance.filter(b => !b.hasBalance);
+                      if (specialLeaves.length === 0) return null;
+                      const totalUsed = specialLeaves.reduce((sum, l) => sum + (l.used || 0), 0);
+                      return (
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-medium">{t.leaveTypes.special}</h3>
+                            <Badge variant="outline" className="text-xs">
+                              {totalUsed} {t.leaveForm.days}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-2">{t.labels.totalSpecialLeave}</p>
+                          <div className="text-xs text-gray-500 space-y-1">
+                            {specialLeaves.filter(l => l.used > 0).map(l => (
+                              <div key={l.leaveTypeId}>{l.leaveTypeName}: {l.used} {t.leaveForm.days}</div>
+                            ))}
+                            {specialLeaves.filter(l => l.used > 0).length === 0 && (
+                              <div>{t.labels.noSpecialLeaveTaken}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </CardContent>

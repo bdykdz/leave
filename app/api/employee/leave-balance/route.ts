@@ -57,13 +57,14 @@ export async function GET() {
     const leaveBalances = leaveTypes.map(type => {
       const balance = balances.find(b => b.leaveTypeId === type.id)
       const used = usageMap.get(type.id) || 0
-      
-      if (type.code === 'NL' || type.code === 'AL') {
-        // Normal/Annual Leave - has a balance
+
+      if (type.category === 'STANDARD') {
+        // Standard leave (Normal Leave, Sick Leave) - show full balance
         return {
           leaveTypeId: type.id,
           leaveTypeName: type.name,
           leaveTypeCode: type.code,
+          category: type.category,
           description: type.description,
           year: currentYear,
           entitled: balance?.entitled || 0,
@@ -73,11 +74,12 @@ export async function GET() {
           hasBalance: true
         }
       } else {
-        // Sick and Special leaves - no balance, just track usage
+        // PERSONAL/PROVISIONAL - event-based, only track usage
         return {
           leaveTypeId: type.id,
           leaveTypeName: type.name,
           leaveTypeCode: type.code,
+          category: type.category,
           description: type.description,
           year: currentYear,
           used: used,

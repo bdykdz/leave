@@ -53,26 +53,21 @@ export async function GET(request: NextRequest) {
     });
 
     // Auto-create missing balances for this user/year (lazy initialization)
-    // Only STANDARD leave types get entitled = daysAllowed (yearly entitlement).
-    // PERSONAL/PROVISIONAL are event-based — they start at 0 and only track usage.
     const existingTypeIds = new Set(leaveBalances.map(b => b.leaveTypeId));
     const missingTypes = leaveTypes.filter(lt => !existingTypeIds.has(lt.id));
 
     if (missingTypes.length > 0) {
       await prisma.leaveBalance.createMany({
-        data: missingTypes.map(lt => {
-          const isStandard = lt.category === 'STANDARD';
-          return {
-            userId: session.user.id,
-            leaveTypeId: lt.id,
-            year: currentYear,
-            entitled: isStandard ? lt.daysAllowed : 0,
-            used: 0,
-            pending: 0,
-            available: isStandard ? lt.daysAllowed : 0,
-            carriedForward: 0,
-          };
-        }),
+        data: missingTypes.map(lt => ({
+          userId: session.user.id,
+          leaveTypeId: lt.id,
+          year: currentYear,
+          entitled: lt.daysAllowed,
+          used: 0,
+          pending: 0,
+          available: lt.daysAllowed,
+          carriedForward: 0,
+        })),
         skipDuplicates: true,
       });
       // Re-fetch to include newly created balances
