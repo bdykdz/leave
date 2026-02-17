@@ -905,10 +905,15 @@ export default function ExecutiveDashboard() {
             setShowApprovalDialog(false)
             setApprovalDetails(null)
           }}
-          onApprove={(requestId, comment) => handleApprove(requestId, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)}
-          onDeny={(requestId, comment) => handleDeny(requestId, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)}
-          request={approvalDetails.request}
           action={approvalDetails.action}
+          request={approvalDetails.request}
+          onConfirm={(comment) => {
+            if (approvalDetails.action === 'approve') {
+              handleApprove(approvalDetails.request.id, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)
+            } else {
+              handleDeny(approvalDetails.request.id, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)
+            }
+          }}
         />
       )}
     </div>
