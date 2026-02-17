@@ -922,6 +922,13 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
     approvalLevels = applicableRule.approvalLevels as any[];
   } else {
     console.log('[generateApprovalWorkflow] Using default approval levels:', approvalLevels);
+
+    // If the leave type requires HR verification and no explicit workflow rule covers it,
+    // inject HR as the FIRST approval step (HR verifies → then normal manager chain).
+    if (leaveType?.requiresHRVerification) {
+      approvalLevels = [{ role: 'HR', required: true }, ...approvalLevels];
+      console.log('[generateApprovalWorkflow] Prepended HR verification step for requiresHRVerification leave type');
+    }
   }
 
   // Convert workflow roles to actual approvers

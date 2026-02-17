@@ -730,24 +730,23 @@ export function LeaveTypesManager() {
                     onCheckedChange={(checked) => setFormData({
                       ...formData,
                       isSpecialLeave: checked,
-                      requiresHRVerification: checked, // Auto-enable HR verification
                       requiresDocument: checked, // Auto-enable document requirement
                     })}
                   />
                   <Label htmlFor="isSpecialLeave">Mark as Special Leave</Label>
                 </div>
 
-                {formData.isSpecialLeave && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="requiresHRVerification"
+                    checked={formData.requiresHRVerification}
+                    onCheckedChange={(checked) => setFormData({ ...formData, requiresHRVerification: checked })}
+                  />
+                  <Label htmlFor="requiresHRVerification">HR approves first (before manager)</Label>
+                </div>
+
+                {(formData.isSpecialLeave || formData.requiresDocument) && (
                   <>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="requiresHRVerification"
-                        checked={formData.requiresHRVerification}
-                        onCheckedChange={(checked) => setFormData({ ...formData, requiresHRVerification: checked })}
-                        disabled // Always required for special leave
-                      />
-                      <Label htmlFor="requiresHRVerification">Requires HR Document Verification</Label>
-                    </div>
 
                     <div>
                       <Label>Required Document Types</Label>
