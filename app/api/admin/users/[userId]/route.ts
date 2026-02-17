@@ -121,6 +121,9 @@ export async function PATCH(
     if (data.joiningDate !== undefined) {
       updateData.joiningDate = data.joiningDate ? new Date(data.joiningDate) : null;
     }
+    if (data.dateOfBirth !== undefined) {
+      updateData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+    }
     if (data.managerId !== undefined) {
       updateData.managerId = (data.managerId === 'none' || !data.managerId) ? null : data.managerId;
     }

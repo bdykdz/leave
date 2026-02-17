@@ -11,7 +11,8 @@ import { DocumentFileManager } from "@/components/hr/DocumentFileManager"
 import { DashboardSummary } from "@/components/dashboard-summary"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw } from "lucide-react"
+import { LeaveTypesManager } from "@/components/admin/LeaveTypesManager"
+import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw, ListChecks } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -152,7 +153,7 @@ export default function HRDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="employees">{t.tabs.employees}</TabsTrigger>
           <TabsTrigger value="calendar">{t.tabs.calendar}</TabsTrigger>
           <TabsTrigger value="analytics">{t.tabs.analytics}</TabsTrigger>
@@ -163,6 +164,10 @@ export default function HRDashboard() {
           <TabsTrigger value="documents" className="flex items-center gap-1">
             <FolderOpen className="h-3 w-3" />
             {t.tabs.documents}
+          </TabsTrigger>
+          <TabsTrigger value="leave-types" className="flex items-center gap-1">
+            <ListChecks className="h-3 w-3" />
+            Leave Types
           </TabsTrigger>
         </TabsList>
 
@@ -187,6 +192,10 @@ export default function HRDashboard() {
 
         <TabsContent value="documents" className="space-y-4">
           <DocumentFileManager />
+        </TabsContent>
+
+        <TabsContent value="leave-types" className="space-y-4">
+          <LeaveTypesManager />
         </TabsContent>
       </Tabs>
       </div>

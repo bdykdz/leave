@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !['ADMIN', 'HR'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
       requiresHRVerification,
       documentTypes,
       maxDaysPerRequest,
+      category,
+      dateRestriction,
+      sortOrder,
     } = body
 
     // Validate required fields
@@ -55,6 +58,41 @@ export async function POST(request: NextRequest) {
         { error: 'Name, code, and days allowed are required' },
         { status: 400 }
       )
+    }
+
+    // Validate category enum
+    const validCategories = ['STANDARD', 'PERSONAL', 'PROVISIONAL']
+    if (category && !validCategories.includes(category)) {
+      return NextResponse.json(
+        { error: 'Invalid category. Must be STANDARD, PERSONAL, or PROVISIONAL' },
+        { status: 400 }
+      )
+    }
+
+    // Validate dateRestriction structure
+    if (dateRestriction) {
+      if (typeof dateRestriction !== 'object' || Array.isArray(dateRestriction)) {
+        return NextResponse.json(
+          { error: 'Invalid dateRestriction format' },
+          { status: 400 }
+        )
+      }
+      const validTypes = ['BIRTHDAY_WINDOW']
+      if (dateRestriction.type && !validTypes.includes(dateRestriction.type)) {
+        return NextResponse.json(
+          { error: 'Invalid dateRestriction type' },
+          { status: 400 }
+        )
+      }
+      if (dateRestriction.windowDays !== undefined) {
+        const days = Number(dateRestriction.windowDays)
+        if (!Number.isInteger(days) || days < 1 || days > 365) {
+          return NextResponse.json(
+            { error: 'windowDays must be an integer between 1 and 365' },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     // Check for existing leave type with same code
@@ -84,6 +122,9 @@ export async function POST(request: NextRequest) {
         documentTypes: documentTypes || [],
         isActive: true,
         maxDaysPerRequest: maxDaysPerRequest || null,
+        category: category || 'STANDARD',
+        dateRestriction: dateRestriction || null,
+        sortOrder: sortOrder ?? 0,
       },
     })
 

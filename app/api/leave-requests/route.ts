@@ -263,6 +263,52 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     // Calculate total days
     const startDate = new Date(validatedData.startDate);
     const endDate = new Date(validatedData.endDate);
+
+    // Check birthday window restriction for provisional leave types
+    const requestedLeaveType = await prisma.leaveType.findUnique({
+      where: { id: validatedData.leaveTypeId },
+      select: { dateRestriction: true, name: true },
+    });
+
+    if (requestedLeaveType?.dateRestriction) {
+      const restriction = requestedLeaveType.dateRestriction as { type?: string; windowDays?: number };
+      if (restriction.type === 'BIRTHDAY_WINDOW') {
+        if (!user.dateOfBirth) {
+          return NextResponse.json(
+            { error: `To request ${requestedLeaveType.name}, your date of birth must be set. Please contact HR.` },
+            { status: 400 }
+          );
+        }
+        const windowDays = restriction.windowDays || 30;
+        const requestYear = startDate.getFullYear();
+        // Handle leap year: if born Feb 29 and request year is not a leap year, use Feb 28
+        const birthMonth = user.dateOfBirth.getMonth();
+        const birthDay = user.dateOfBirth.getDate();
+        const birthday = new Date(requestYear, birthMonth, birthDay);
+        // If the date rolled over (e.g. Feb 29 → Mar 1), use Feb 28 instead
+        if (birthday.getMonth() !== birthMonth) {
+          birthday.setDate(0); // Go to last day of previous month (Feb 28)
+        }
+
+        // Check each requested date against the birthday window
+        const datesToCheck = validatedData.selectedDates?.length
+          ? validatedData.selectedDates.map((d: string) => new Date(d))
+          : [startDate, endDate];
+
+        for (const date of datesToCheck) {
+          const diffMs = Math.abs(date.getTime() - birthday.getTime());
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+          if (diffDays > windowDays) {
+            return NextResponse.json(
+              {
+                error: `${requestedLeaveType.name} must be taken within ${windowDays} days of your birthday (${birthday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}).`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    }
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     // Calculate actual working days, excluding weekends and holidays

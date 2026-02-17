@@ -22,10 +22,15 @@ export async function GET(request: NextRequest) {
         description: true,
         requiresDocument: true,
         maxDaysPerRequest: true,
+        category: true,
+        dateRestriction: true,
+        sortOrder: true,
       },
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: [
+        { category: 'asc' },
+        { sortOrder: 'asc' },
+        { name: 'asc' },
+      ],
     });
 
     // Get user's leave balances for the current year

@@ -10,13 +10,13 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !['ADMIN', 'HR'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     console.log('Update request body:', JSON.stringify(body, null, 2))
-    
+
     const {
       name,
       code,
@@ -31,6 +31,9 @@ export async function PATCH(
       documentTypes,
       isActive,
       maxDaysPerRequest,
+      category,
+      dateRestriction,
+      sortOrder,
     } = body
 
     // Build update data only with provided fields
@@ -57,6 +60,44 @@ export async function PATCH(
     if (maxDaysPerRequest !== undefined) {
       updateData.maxDaysPerRequest = maxDaysPerRequest ? parseInt(maxDaysPerRequest) : null
     }
+    if (category !== undefined) {
+      const validCategories = ['STANDARD', 'PERSONAL', 'PROVISIONAL']
+      if (!validCategories.includes(category)) {
+        return NextResponse.json(
+          { error: 'Invalid category. Must be STANDARD, PERSONAL, or PROVISIONAL' },
+          { status: 400 }
+        )
+      }
+      updateData.category = category
+    }
+    if (dateRestriction !== undefined) {
+      if (dateRestriction !== null) {
+        if (typeof dateRestriction !== 'object' || Array.isArray(dateRestriction)) {
+          return NextResponse.json(
+            { error: 'Invalid dateRestriction format' },
+            { status: 400 }
+          )
+        }
+        const validTypes = ['BIRTHDAY_WINDOW']
+        if (dateRestriction.type && !validTypes.includes(dateRestriction.type)) {
+          return NextResponse.json(
+            { error: 'Invalid dateRestriction type' },
+            { status: 400 }
+          )
+        }
+        if (dateRestriction.windowDays !== undefined) {
+          const days = Number(dateRestriction.windowDays)
+          if (!Number.isInteger(days) || days < 1 || days > 365) {
+            return NextResponse.json(
+              { error: 'windowDays must be an integer between 1 and 365' },
+              { status: 400 }
+            )
+          }
+        }
+      }
+      updateData.dateRestriction = dateRestriction
+    }
+    if (sortOrder !== undefined) updateData.sortOrder = parseInt(sortOrder) || 0
     
     console.log('Update data:', JSON.stringify(updateData, null, 2))
     
@@ -145,7 +186,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !['ADMIN', 'HR'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

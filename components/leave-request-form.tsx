@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, CalendarIcon, X, User, AlertCircle, Upload, FileText } from "lucide-react"
 import { LeaveCalendar } from "@/components/leave-calendar"
 import { SignaturePad } from "@/components/signature-pad"
@@ -29,6 +29,9 @@ interface LeaveType {
   description: string
   requiresDocument: boolean
   maxDaysPerRequest: number | null
+  category?: 'STANDARD' | 'PERSONAL' | 'PROVISIONAL'
+  dateRestriction?: { type?: string; windowDays?: number } | null
+  sortOrder?: number
   balance: {
     entitled: number
     used: number
@@ -555,16 +558,42 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                         <SelectValue placeholder={loadingLeaveTypes ? t.common.loading : t.leaveForm.selectLeaveType} />
                       </SelectTrigger>
                       <SelectContent>
-                        {leaveTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>{type.name}</span>
-                              <Badge variant="secondary" className="ml-2">
-                                {type.balance.available} {t.leaveForm.days}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {(() => {
+                          const grouped: Record<string, LeaveType[]> = {}
+                          const categoryOrder = ['STANDARD', 'PERSONAL', 'PROVISIONAL']
+                          const categoryLabels: Record<string, string> = {
+                            STANDARD: 'Standard Leave',
+                            PERSONAL: 'Personal Leave (Collective Contract)',
+                            PROVISIONAL: 'Provisional Leave',
+                          }
+                          for (const type of leaveTypes) {
+                            const cat = type.category || 'STANDARD'
+                            if (!grouped[cat]) grouped[cat] = []
+                            grouped[cat].push(type)
+                          }
+                          const categories = categoryOrder.filter(c => grouped[c]?.length > 0)
+                          const hasMultipleCategories = categories.length > 1
+                          return categories.map((cat, idx) => (
+                            <SelectGroup key={cat}>
+                              {hasMultipleCategories && (
+                                <SelectLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                  {categoryLabels[cat] || cat}
+                                </SelectLabel>
+                              )}
+                              {grouped[cat].map((type) => (
+                                <SelectItem key={type.id} value={type.id}>
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>{type.name}</span>
+                                    <Badge variant="secondary" className="ml-2">
+                                      {type.balance.available} {t.leaveForm.days}
+                                    </Badge>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                              {idx < categories.length - 1 && <SelectSeparator />}
+                            </SelectGroup>
+                          ))
+                        })()}
                       </SelectContent>
                     </Select>
                     {leaveType && (() => {
@@ -573,6 +602,12 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                         <div className="space-y-2 p-3 bg-gray-50 rounded-md text-sm">
                           {selected.description && (
                             <p className="text-gray-600">{selected.description}</p>
+                          )}
+                          {selected.dateRestriction?.type === 'BIRTHDAY_WINDOW' && (
+                            <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 p-2 rounded text-xs">
+                              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span>This leave must be taken within {selected.dateRestriction.windowDays || 30} days of your birthday.</span>
+                            </div>
                           )}
                           <div className="flex items-center justify-between text-xs">
                             <span>{t.leaveForm.available}: {selected.balance.available} {t.leaveForm.days}</span>

@@ -63,6 +63,7 @@ interface User {
   position: string
   phoneNumber?: string
   joiningDate?: string
+  dateOfBirth?: string
   isActive: boolean
   createdAt: string
   managerId?: string | null
@@ -105,6 +106,7 @@ export function UserManagementEnhanced() {
     position: "",
     phoneNumber: "",
     joiningDate: "",
+    dateOfBirth: "",
     managerId: "none",
     departmentDirectorId: "none",
     isActive: true,
@@ -155,6 +157,7 @@ export function UserManagementEnhanced() {
       position: user.position || "",
       phoneNumber: user.phoneNumber || "",
       joiningDate: user.joiningDate ? format(new Date(user.joiningDate), 'yyyy-MM-dd') : "",
+      dateOfBirth: user.dateOfBirth ? format(new Date(user.dateOfBirth), 'yyyy-MM-dd') : "",
       managerId: user.managerId || "none",
       departmentDirectorId: user.departmentDirectorId || "none",
       isActive: user.isActive,
@@ -218,6 +221,7 @@ export function UserManagementEnhanced() {
       position: "",
       phoneNumber: "",
       joiningDate: "",
+      dateOfBirth: "",
       managerId: "",
       departmentDirectorId: "",
       isActive: true,
@@ -554,11 +558,20 @@ export function UserManagementEnhanced() {
                 </div>
                 <div>
                   <Label>Joining Date</Label>
-                  <Input 
+                  <Input
                     type="date"
                     value={formData.joiningDate}
                     onChange={(e) => setFormData({...formData, joiningDate: e.target.value})}
                   />
+                </div>
+                <div>
+                  <Label>Date of Birth</Label>
+                  <Input
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Required for birthday leave eligibility</p>
                 </div>
                 <div>
                   <Label>Position</Label>
@@ -749,12 +762,21 @@ export function UserManagementEnhanced() {
                 />
               </div>
               <div>
-                <Label>Hire Date</Label>
-                <Input 
+                <Label>Joining Date</Label>
+                <Input
                   type="date"
-                  value={formData.hireDate}
-                  onChange={(e) => setFormData({...formData, hireDate: e.target.value})}
+                  value={formData.joiningDate}
+                  onChange={(e) => setFormData({...formData, joiningDate: e.target.value})}
                 />
+              </div>
+              <div>
+                <Label>Date of Birth</Label>
+                <Input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Required for birthday leave eligibility</p>
               </div>
             </div>
           </div>

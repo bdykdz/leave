@@ -41,6 +41,7 @@ model User {
   department            String
   position              String
   joiningDate           DateTime
+  dateOfBirth           DateTime?
   phoneNumber           String?
   profileImage          String?
   isActive              Boolean                  @default(true)
@@ -89,6 +90,9 @@ model LeaveType {
   isSpecialLeave         Boolean            @default(false)
   requiresHRVerification Boolean            @default(false)
   documentTypes          String[]
+  category               LeaveTypeCategory  @default(STANDARD)
+  dateRestriction        Json?              // e.g. { type: "BIRTHDAY_WINDOW", windowDays: 30 }
+  sortOrder              Int                @default(0)
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   documentTemplates      DocumentTemplate[]
@@ -569,4 +573,10 @@ enum ContractType {
   CASUAL
   CONTRACTOR
   INTERN
+}
+
+enum LeaveTypeCategory {
+  STANDARD      // Normal Leave, Sick Leave, Unpaid Leave
+  PERSONAL      // Collective contract: Marriage, Bereavement, Moving, etc.
+  PROVISIONAL   // Conditional: Blood Donation, Birthday Leave
 }

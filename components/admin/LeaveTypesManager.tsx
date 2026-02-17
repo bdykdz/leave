@@ -25,17 +25,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { 
-  Calendar, 
-  Plus, 
-  Edit, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Calendar,
+  Plus,
+  Edit,
   FileText,
   Shield,
   AlertCircle,
   Trash2,
-  MoreHorizontal,
+  Filter,
 } from "lucide-react"
 import { toast } from "sonner"
+
+type LeaveTypeCategory = 'STANDARD' | 'PERSONAL' | 'PROVISIONAL'
 
 interface LeaveType {
   id: string
@@ -52,6 +61,9 @@ interface LeaveType {
   documentTypes: string[]
   isActive: boolean
   maxDaysPerRequest: number | null
+  category: LeaveTypeCategory
+  dateRestriction: { type?: string; windowDays?: number } | null
+  sortOrder: number
 }
 
 const COMMON_DOCUMENT_TYPES = [
@@ -66,12 +78,25 @@ const COMMON_DOCUMENT_TYPES = [
   'Other Supporting Documents',
 ]
 
+const CATEGORY_LABELS: Record<LeaveTypeCategory, string> = {
+  STANDARD: 'Standard',
+  PERSONAL: 'Personal (Collective Contract)',
+  PROVISIONAL: 'Provisional (Conditional)',
+}
+
+const CATEGORY_BADGE_VARIANT: Record<LeaveTypeCategory, 'default' | 'secondary' | 'outline'> = {
+  STANDARD: 'default',
+  PERSONAL: 'secondary',
+  PROVISIONAL: 'outline',
+}
+
 export function LeaveTypesManager() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [loading, setLoading] = useState(true)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedLeaveType, setSelectedLeaveType] = useState<LeaveType | null>(null)
-  
+  const [categoryFilter, setCategoryFilter] = useState<LeaveTypeCategory | 'ALL'>('ALL')
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -87,6 +112,9 @@ export function LeaveTypesManager() {
     documentTypes: [] as string[],
     isActive: true,
     maxDaysPerRequest: null as number | null,
+    category: 'STANDARD' as LeaveTypeCategory,
+    dateRestriction: null as { type?: string; windowDays?: number } | null,
+    sortOrder: 0,
   })
 
   useEffect(() => {
@@ -127,6 +155,9 @@ export function LeaveTypesManager() {
       documentTypes: leaveType.documentTypes || [],
       isActive: leaveType.isActive,
       maxDaysPerRequest: leaveType.maxDaysPerRequest,
+      category: leaveType.category || 'STANDARD',
+      dateRestriction: leaveType.dateRestriction || null,
+      sortOrder: leaveType.sortOrder || 0,
     })
     setEditDialogOpen(true)
   }
@@ -147,20 +178,35 @@ export function LeaveTypesManager() {
       documentTypes: [],
       isActive: true,
       maxDaysPerRequest: null,
+      category: 'STANDARD',
+      dateRestriction: null,
+      sortOrder: 0,
     })
     setEditDialogOpen(true)
   }
 
   const handleSubmit = async () => {
+    // Client-side validation
+    if (!formData.name.trim()) {
+      toast.error('Leave type name is required')
+      return
+    }
+    if (!formData.code.trim()) {
+      toast.error('Leave type code is required')
+      return
+    }
+    if (formData.daysAllowed < 0) {
+      toast.error('Days allowed cannot be negative')
+      return
+    }
+
     try {
-      const url = selectedLeaveType 
+      const url = selectedLeaveType
         ? `/api/admin/leave-types/${selectedLeaveType.id}`
         : '/api/admin/leave-types'
-      
+
       const method = selectedLeaveType ? 'PATCH' : 'POST'
-      
-      // Clean up the payload to remove undefined values
-      // Build payload with all fields
+
       const payload: any = {
         name: formData.name,
         code: formData.code,
@@ -174,15 +220,16 @@ export function LeaveTypesManager() {
         requiresHRVerification: formData.requiresHRVerification || false,
         documentTypes: formData.documentTypes || [],
         maxDaysPerRequest: formData.maxDaysPerRequest || null,
+        category: formData.category,
+        dateRestriction: formData.dateRestriction,
+        sortOrder: formData.sortOrder,
       }
-      
+
       // Only include isActive for updates
       if (selectedLeaveType) {
         payload.isActive = formData.isActive
       }
-      
-      console.log('Sending payload:', payload)
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -236,6 +283,10 @@ export function LeaveTypesManager() {
     }
   }
 
+  const filteredLeaveTypes = categoryFilter === 'ALL'
+    ? leaveTypes
+    : leaveTypes.filter(lt => lt.category === categoryFilter)
+
   if (loading) {
     return <div className="text-center py-8">Loading leave types...</div>
   }
@@ -251,7 +302,7 @@ export function LeaveTypesManager() {
                 Leave Types Configuration
               </CardTitle>
               <CardDescription>
-                Manage leave types and special leave requirements
+                Manage leave types, categories, and special leave requirements
               </CardDescription>
             </div>
             <Button onClick={handleCreate} className="flex items-center gap-2">
@@ -261,23 +312,40 @@ export function LeaveTypesManager() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Category Filter */}
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <div className="flex gap-1">
+              {(['ALL', 'STANDARD', 'PERSONAL', 'PROVISIONAL'] as const).map((cat) => (
+                <Button
+                  key={cat}
+                  variant={categoryFilter === cat ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {cat === 'ALL' ? 'All' : CATEGORY_LABELS[cat]}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Leave Type</TableHead>
                   <TableHead>Code</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead className="text-center">Days</TableHead>
                   <TableHead className="text-center">Carry Forward</TableHead>
                   <TableHead className="text-center">Documents</TableHead>
-                  <TableHead className="text-center">Special Leave</TableHead>
                   <TableHead className="text-center">HR Verification</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leaveTypes.map((leaveType) => (
+                {filteredLeaveTypes.map((leaveType) => (
                   <TableRow key={leaveType.id}>
                     <TableCell>
                       <div>
@@ -289,6 +357,11 @@ export function LeaveTypesManager() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{leaveType.code}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={CATEGORY_BADGE_VARIANT[leaveType.category] || 'default'}>
+                        {CATEGORY_LABELS[leaveType.category] || leaveType.category}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       {leaveType.daysAllowed}
@@ -303,13 +376,6 @@ export function LeaveTypesManager() {
                     <TableCell className="text-center">
                       {leaveType.requiresDocument ? (
                         <FileText className="h-4 w-4 mx-auto text-blue-600" />
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {leaveType.isSpecialLeave ? (
-                        <Shield className="h-4 w-4 mx-auto text-orange-600" />
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -383,7 +449,7 @@ export function LeaveTypesManager() {
               Configure leave type settings and requirements
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6 py-4">
             {/* Basic Information */}
             <div className="space-y-4">
@@ -409,7 +475,7 @@ export function LeaveTypesManager() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -420,6 +486,103 @@ export function LeaveTypesManager() {
                   rows={2}
                 />
               </div>
+            </div>
+
+            {/* Classification */}
+            <div className="space-y-4">
+              <h3 className="font-medium">Classification</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value: LeaveTypeCategory) => setFormData({
+                      ...formData,
+                      category: value,
+                      // Reset date restriction when switching away from PROVISIONAL
+                      dateRestriction: value !== 'PROVISIONAL' ? null : formData.dateRestriction,
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STANDARD">Standard</SelectItem>
+                      <SelectItem value="PERSONAL">Personal (Collective Contract)</SelectItem>
+                      <SelectItem value="PROVISIONAL">Provisional (Conditional)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.category === 'STANDARD' && 'Normal leave, sick leave, unpaid leave'}
+                    {formData.category === 'PERSONAL' && 'Guaranteed by collective contract: marriage, bereavement, etc.'}
+                    {formData.category === 'PROVISIONAL' && 'Conditional leave triggered by events: blood donation, birthday'}
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="sortOrder">Sort Order</Label>
+                  <Input
+                    id="sortOrder"
+                    type="number"
+                    value={formData.sortOrder}
+                    onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lower numbers appear first within category
+                  </p>
+                </div>
+              </div>
+
+              {/* Date Restriction (only for PROVISIONAL) */}
+              {formData.category === 'PROVISIONAL' && (
+                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                  <Label>Date Restriction</Label>
+                  <Select
+                    value={formData.dateRestriction?.type || 'NONE'}
+                    onValueChange={(value) => {
+                      if (value === 'NONE') {
+                        setFormData({ ...formData, dateRestriction: null })
+                      } else if (value === 'BIRTHDAY_WINDOW') {
+                        setFormData({
+                          ...formData,
+                          dateRestriction: { type: 'BIRTHDAY_WINDOW', windowDays: 30 },
+                        })
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">None (requires proof only)</SelectItem>
+                      <SelectItem value="BIRTHDAY_WINDOW">Birthday Window</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {formData.dateRestriction?.type === 'BIRTHDAY_WINDOW' && (
+                    <div>
+                      <Label htmlFor="windowDays">Window (days around birthday)</Label>
+                      <Input
+                        id="windowDays"
+                        type="number"
+                        value={formData.dateRestriction.windowDays || 30}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          dateRestriction: {
+                            ...formData.dateRestriction!,
+                            windowDays: parseInt(e.target.value) || 30,
+                          },
+                        })}
+                        min="1"
+                        max="180"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Employee must take this leave within this many days of their birthday
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Leave Allowance */}
@@ -456,7 +619,7 @@ export function LeaveTypesManager() {
                   )}
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="maxDaysPerRequest">Maximum Days Per Request (Optional)</Label>
                 <Input
@@ -485,7 +648,7 @@ export function LeaveTypesManager() {
                   />
                   <Label htmlFor="requiresApproval">Requires Approval</Label>
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="requiresDocument"
@@ -494,7 +657,7 @@ export function LeaveTypesManager() {
                   />
                   <Label htmlFor="requiresDocument">Requires Supporting Documents</Label>
                 </div>
-                
+
                 {selectedLeaveType && (
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -516,8 +679,8 @@ export function LeaveTypesManager() {
                   <Switch
                     id="isSpecialLeave"
                     checked={formData.isSpecialLeave}
-                    onCheckedChange={(checked) => setFormData({ 
-                      ...formData, 
+                    onCheckedChange={(checked) => setFormData({
+                      ...formData,
                       isSpecialLeave: checked,
                       requiresHRVerification: checked, // Auto-enable HR verification
                       requiresDocument: checked, // Auto-enable document requirement
@@ -525,7 +688,7 @@ export function LeaveTypesManager() {
                   />
                   <Label htmlFor="isSpecialLeave">Mark as Special Leave</Label>
                 </div>
-                
+
                 {formData.isSpecialLeave && (
                   <>
                     <div className="flex items-center space-x-2">

@@ -24,6 +24,7 @@ interface Employee {
   department: string
   position: string
   joiningDate: string
+  dateOfBirth?: string
   phoneNumber?: string
   role: string
   isActive: boolean
@@ -67,6 +68,7 @@ interface UserFormData {
   department: string
   role: string
   joiningDate: string
+  dateOfBirth: string
   managerId: string
   departmentDirectorId: string
   isActive: boolean
@@ -82,6 +84,7 @@ const emptyFormData: UserFormData = {
   department: "",
   role: "EMPLOYEE",
   joiningDate: new Date().toISOString().split("T")[0],
+  dateOfBirth: "",
   managerId: "none",
   departmentDirectorId: "none",
   isActive: true,
@@ -305,6 +308,7 @@ export function EmployeeList() {
       department: employee.department || "",
       role: employee.role || "EMPLOYEE",
       joiningDate: employee.joiningDate ? employee.joiningDate.split("T")[0] : "",
+      dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
       managerId: employee.managerId || "none",
       departmentDirectorId: employee.departmentDirectorId || "none",
       isActive: employee.isActive,
@@ -724,6 +728,12 @@ export function EmployeeList() {
                 <p className="text-sm">{selectedEmployee.joiningDate ? new Date(selectedEmployee.joiningDate).toLocaleDateString() : 'Not set'}</p>
               </div>
               <div>
+                <label className="text-sm font-medium text-gray-500">Date of Birth</label>
+                <p className="text-sm">{selectedEmployee.dateOfBirth ? new Date(selectedEmployee.dateOfBirth).toLocaleDateString() : 'Not set'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label className="text-sm font-medium text-gray-500">Manager</label>
                 <p className="text-sm">
                   {selectedEmployee.manager
@@ -920,6 +930,16 @@ export function EmployeeList() {
                 onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-dateOfBirth">Date of Birth</Label>
+              <Input
+                id="create-dateOfBirth"
+                type="date"
+                value={formData.dateOfBirth}
+                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Required for birthday leave eligibility</p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1032,6 +1052,16 @@ export function EmployeeList() {
                   value={formData.joiningDate}
                   onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-dateOfBirth">Date of Birth</Label>
+                <Input
+                  id="edit-dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Required for birthday leave eligibility</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
