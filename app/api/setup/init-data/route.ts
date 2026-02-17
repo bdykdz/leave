@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
             daysAllowed: 5,
             carryForward: false,
             requiresApproval: true,
-            description: 'Unpaid personal leave'
+            description: 'Personal leave'
           }
         })
       ])

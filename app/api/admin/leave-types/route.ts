@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       category,
       dateRestriction,
       sortOrder,
+      isHROnly,
     } = body
 
     // Validate required fields
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
         category: category || 'STANDARD',
         dateRestriction: dateRestriction || null,
         sortOrder: sortOrder ?? 0,
+        isHROnly: isHROnly || false,
       },
     })
 

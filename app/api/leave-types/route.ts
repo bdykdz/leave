@@ -11,9 +11,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Exclude HR-only leave types from employee self-service
     const leaveTypes = await prisma.leaveType.findMany({
       where: {
         isActive: true,
+        isHROnly: false,
       },
       select: {
         id: true,

@@ -34,6 +34,7 @@ export async function PATCH(
       category,
       dateRestriction,
       sortOrder,
+      isHROnly,
     } = body
 
     // Build update data only with provided fields
@@ -98,6 +99,7 @@ export async function PATCH(
       updateData.dateRestriction = dateRestriction
     }
     if (sortOrder !== undefined) updateData.sortOrder = parseInt(sortOrder) || 0
+    if (isHROnly !== undefined) updateData.isHROnly = isHROnly
     
     console.log('Update data:', JSON.stringify(updateData, null, 2))
     

@@ -547,7 +547,7 @@ export function WorkflowRulesManager() {
                 <div className="space-y-2">
                   <Label className="text-sm">Leave Types</Label>
                   <div className="flex flex-wrap gap-2">
-                    {['ANNUAL', 'SICK', 'COMPASSIONATE', 'MATERNITY', 'PATERNITY', 'UNPAID'].map((type) => (
+                    {['ANNUAL', 'SICK', 'COMPASSIONATE', 'MATERNITY', 'PATERNITY', 'STUDY', 'BLOOD_DONATION', 'BIRTHDAY'].map((type) => (
                       <Label key={type} className="flex items-center gap-2 font-normal">
                         <input
                           type="checkbox"

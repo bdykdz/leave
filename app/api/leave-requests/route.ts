@@ -264,11 +264,24 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     const startDate = new Date(validatedData.startDate);
     const endDate = new Date(validatedData.endDate);
 
-    // Check birthday window restriction for provisional leave types
+    // Check if leave type exists and is not HR-only
     const requestedLeaveType = await prisma.leaveType.findUnique({
       where: { id: validatedData.leaveTypeId },
-      select: { dateRestriction: true, name: true },
+      select: { dateRestriction: true, name: true, isHROnly: true },
     });
+
+    if (!requestedLeaveType) {
+      return NextResponse.json({ error: 'Leave type not found' }, { status: 400 });
+    }
+
+    if (requestedLeaveType.isHROnly) {
+      return NextResponse.json(
+        { error: `${requestedLeaveType.name} can only be recorded by HR. Please contact your HR department.` },
+        { status: 403 }
+      );
+    }
+
+    // Check birthday window restriction for provisional leave types
 
     if (requestedLeaveType?.dateRestriction) {
       const restriction = requestedLeaveType.dateRestriction as { type?: string; windowDays?: number };

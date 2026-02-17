@@ -142,21 +142,7 @@ async function main() {
       documentTypes: ['medical_certificate'],
       category: 'STANDARD',
       sortOrder: 2,
-    },
-    {
-      name: 'Unpaid Leave',
-      code: 'UPL',
-      daysAllowed: 30,
-      carryForward: false,
-      requiresApproval: true,
-      requiresDocument: false,
-      description: 'Leave without pay',
-      isActive: true,
-      maxDaysPerRequest: 30,
-      isSpecialLeave: false,
-      requiresHRVerification: true,
-      category: 'STANDARD',
-      sortOrder: 3,
+      isHROnly: true,
     },
     // PERSONAL category (Collective Contract)
     {

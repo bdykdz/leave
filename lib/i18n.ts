@@ -270,7 +270,7 @@ export interface Translations {
     maternity: string
     paternity: string
     study: string
-    unpaid: string
+    other: string
     compassionate: string
     special: string
   }
@@ -1011,7 +1011,7 @@ export const translations: Record<Language, Translations> = {
       maternity: "Maternity Leave",
       paternity: "Paternity Leave",
       study: "Study Leave",
-      unpaid: "Unpaid Leave",
+      other: "Other Leave",
       compassionate: "Compassionate Leave",
       special: "Special Leave"
     },
@@ -1704,7 +1704,7 @@ export const translations: Record<Language, Translations> = {
       maternity: "Concediu de maternitate",
       paternity: "Concediu de paternitate",
       study: "Concediu de studii",
-      unpaid: "Concediu fără plată",
+      other: "Alt concediu",
       compassionate: "Concediu din motive personale",
       special: "Concediu special"
     },

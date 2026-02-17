@@ -64,6 +64,7 @@ interface LeaveType {
   category: LeaveTypeCategory
   dateRestriction: { type?: string; windowDays?: number } | null
   sortOrder: number
+  isHROnly: boolean
 }
 
 const COMMON_DOCUMENT_TYPES = [
@@ -115,6 +116,7 @@ export function LeaveTypesManager() {
     category: 'STANDARD' as LeaveTypeCategory,
     dateRestriction: null as { type?: string; windowDays?: number } | null,
     sortOrder: 0,
+    isHROnly: false,
   })
 
   useEffect(() => {
@@ -158,6 +160,7 @@ export function LeaveTypesManager() {
       category: leaveType.category || 'STANDARD',
       dateRestriction: leaveType.dateRestriction || null,
       sortOrder: leaveType.sortOrder || 0,
+      isHROnly: leaveType.isHROnly || false,
     })
     setEditDialogOpen(true)
   }
@@ -181,6 +184,7 @@ export function LeaveTypesManager() {
       category: 'STANDARD',
       dateRestriction: null,
       sortOrder: 0,
+      isHROnly: false,
     })
     setEditDialogOpen(true)
   }
@@ -223,6 +227,7 @@ export function LeaveTypesManager() {
         category: formData.category,
         dateRestriction: formData.dateRestriction,
         sortOrder: formData.sortOrder,
+        isHROnly: formData.isHROnly,
       }
 
       // Only include isActive for updates
@@ -340,6 +345,7 @@ export function LeaveTypesManager() {
                   <TableHead className="text-center">Carry Forward</TableHead>
                   <TableHead className="text-center">Documents</TableHead>
                   <TableHead className="text-center">HR Verification</TableHead>
+                  <TableHead className="text-center">HR Only</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -383,6 +389,13 @@ export function LeaveTypesManager() {
                     <TableCell className="text-center">
                       {leaveType.requiresHRVerification ? (
                         <Badge variant="default" className="text-xs">Required</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {leaveType.isHROnly ? (
+                        <Badge variant="destructive" className="text-xs">HR Only</Badge>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -513,7 +526,7 @@ export function LeaveTypesManager() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formData.category === 'STANDARD' && 'Normal leave, sick leave, unpaid leave'}
+                    {formData.category === 'STANDARD' && 'Normal leave, sick leave'}
                     {formData.category === 'PERSONAL' && 'Guaranteed by collective contract: marriage, bereavement, etc.'}
                     {formData.category === 'PROVISIONAL' && 'Conditional leave triggered by events: blood donation, birthday'}
                   </p>
@@ -667,6 +680,20 @@ export function LeaveTypesManager() {
                     />
                     <Label htmlFor="isActive">Active (Users can request this leave type)</Label>
                   </div>
+                )}
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isHROnly"
+                    checked={formData.isHROnly}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isHROnly: checked })}
+                  />
+                  <Label htmlFor="isHROnly">HR Only (Hidden from employee self-service)</Label>
+                </div>
+                {formData.isHROnly && (
+                  <p className="text-xs text-amber-600 ml-8">
+                    Employees and managers cannot request this leave type. Only HR can record it manually.
+                  </p>
                 )}
               </div>
             </div>
