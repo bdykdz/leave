@@ -367,11 +367,35 @@ export class SmartDocumentGenerator {
         }
       }
 
-      // 8b) Flatten the form so field widgets (including signature placeholders) are
-      //     merged into page content and no longer sit as annotations on top of the
-      //     signature images we drew in step 7. Without this, PDF viewers render the
-      //     empty annotation widgets over the drawn images, hiding them.
+      // 8b) Remove signature field widgets then flatten the rest.
+      //
+      //     Signature images are already drawn into the page content stream (step 7).
+      //     form.flatten() generates appearances for every field that lacks one — including
+      //     empty signature text fields — and bakes those blank appearances ON TOP of our
+      //     drawn images, making them invisible.
+      //
+      //     Fix: remove signature fields from the AcroForm first (this also removes their
+      //     widget annotations from the page), then flatten remaining text/checkbox fields.
       try {
+        const signatureFieldNames: string[] = []
+        for (const field of form.getFields()) {
+          try {
+            const fn = field.getName()
+            if (fn && typeof fn === 'string' && (
+              fn.includes('signature') || fn.includes('Signature') || fn.includes('SIGNATURE')
+            )) {
+              signatureFieldNames.push(fn)
+            }
+          } catch (_) { /* skip */ }
+        }
+        for (const fn of signatureFieldNames) {
+          try {
+            form.removeField(form.getField(fn))
+            console.log(`Removed signature field widget: ${fn}`)
+          } catch (e) {
+            console.warn(`Could not remove signature field ${fn}:`, e)
+          }
+        }
         form.flatten()
         console.log('Form flattened successfully')
       } catch (e) {
