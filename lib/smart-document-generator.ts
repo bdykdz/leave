@@ -287,7 +287,14 @@ export class SmartDocumentGenerator {
             const widget = widgets[0] as any
             const rect = widget.getRectangle ? widget.getRectangle() : widget.getRect?.()
             const pageRef = widget.getP ? widget.getP() : widget.P?.()
-            const pageIndex = pages.findIndex((p: any) => p.ref === pageRef || p.node === pageRef)
+            // Compare by object number (not identity) to handle multi-page PDFs correctly
+            const pageIndex = pages.findIndex((p: any) => {
+              const pRef = p.ref
+              if (pRef && pageRef && typeof pRef.objectNumber === 'number') {
+                return pRef.objectNumber === pageRef.objectNumber && pRef.generationNumber === pageRef.generationNumber
+              }
+              return p.ref === pageRef || p.node === pageRef
+            })
 
             if (pageIndex >= 0 && typeof sig.signatureData === 'string' && sig.signatureData.startsWith('data:image')) {
               const base64Data = sig.signatureData.split(',')[1]
@@ -358,6 +365,17 @@ export class SmartDocumentGenerator {
         } catch (e) {
           console.warn(`Could not clean field appearance: ${e}`)
         }
+      }
+
+      // 8b) Flatten the form so field widgets (including signature placeholders) are
+      //     merged into page content and no longer sit as annotations on top of the
+      //     signature images we drew in step 7. Without this, PDF viewers render the
+      //     empty annotation widgets over the drawn images, hiding them.
+      try {
+        form.flatten()
+        console.log('Form flattened successfully')
+      } catch (e) {
+        console.warn('Could not flatten form (non-fatal):', e)
       }
 
       // 9) Replace existing generated doc metadata, upload new PDF
