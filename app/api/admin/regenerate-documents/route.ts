@@ -57,12 +57,13 @@ export async function POST(request: Request) {
       try {
         console.log(`Processing ${lr.requestNumber}`)
 
-        // Determine template
+        // Determine template — always prefer the latest active template for the leave type,
+        // fall back to the previously-used template only if no active one exists
         let templateId: string | null = null
-        if (lr.generatedDocument?.template) {
-          templateId = lr.generatedDocument.template.id
-        } else if (lr.leaveType.documentTemplates?.length > 0) {
+        if (lr.leaveType.documentTemplates?.length > 0) {
           templateId = lr.leaveType.documentTemplates[0].id
+        } else if (lr.generatedDocument?.template) {
+          templateId = lr.generatedDocument.template.id
         }
 
         if (!templateId) {
