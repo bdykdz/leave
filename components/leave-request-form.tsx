@@ -30,7 +30,7 @@ interface LeaveType {
   requiresDocument: boolean
   maxDaysPerRequest: number | null
   category?: 'STANDARD' | 'PERSONAL' | 'PROVISIONAL'
-  dateRestriction?: { type?: string; windowDays?: number } | null
+  dateRestriction?: { type?: string; windowDays?: number; beforeDays?: number; afterDays?: number } | null
   sortOrder?: number
   balance: {
     entitled: number
@@ -606,7 +606,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                           {selected.dateRestriction?.type === 'BIRTHDAY_WINDOW' && (
                             <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 p-2 rounded text-xs">
                               <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span>This leave must be taken within {selected.dateRestriction.windowDays || 30} days of your birthday.</span>
+                              <span>This leave can be taken from {selected.dateRestriction.beforeDays ?? 10} days before to {selected.dateRestriction.afterDays ?? 20} days after your birthday.</span>
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs">

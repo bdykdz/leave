@@ -62,7 +62,7 @@ interface LeaveType {
   isActive: boolean
   maxDaysPerRequest: number | null
   category: LeaveTypeCategory
-  dateRestriction: { type?: string; windowDays?: number } | null
+  dateRestriction: { type?: string; windowDays?: number; beforeDays?: number; afterDays?: number } | null
   sortOrder: number
   isHROnly: boolean
 }
@@ -114,7 +114,7 @@ export function LeaveTypesManager() {
     isActive: true,
     maxDaysPerRequest: null as number | null,
     category: 'STANDARD' as LeaveTypeCategory,
-    dateRestriction: null as { type?: string; windowDays?: number } | null,
+    dateRestriction: null as { type?: string; windowDays?: number; beforeDays?: number; afterDays?: number } | null,
     sortOrder: 0,
     isHROnly: false,
   })
@@ -558,7 +558,7 @@ export function LeaveTypesManager() {
                       } else if (value === 'BIRTHDAY_WINDOW') {
                         setFormData({
                           ...formData,
-                          dateRestriction: { type: 'BIRTHDAY_WINDOW', windowDays: 30 },
+                          dateRestriction: { type: 'BIRTHDAY_WINDOW', beforeDays: 10, afterDays: 20 },
                         })
                       }
                     }}
@@ -573,24 +573,45 @@ export function LeaveTypesManager() {
                   </Select>
 
                   {formData.dateRestriction?.type === 'BIRTHDAY_WINDOW' && (
-                    <div>
-                      <Label htmlFor="windowDays">Window (days around birthday)</Label>
-                      <Input
-                        id="windowDays"
-                        type="number"
-                        value={formData.dateRestriction.windowDays || 30}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          dateRestriction: {
-                            ...formData.dateRestriction!,
-                            windowDays: parseInt(e.target.value) || 30,
-                          },
-                        })}
-                        min="1"
-                        max="180"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Employee must take this leave within this many days of their birthday
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="beforeDays">Days before birthday</Label>
+                          <Input
+                            id="beforeDays"
+                            type="number"
+                            value={formData.dateRestriction.beforeDays ?? 10}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              dateRestriction: {
+                                ...formData.dateRestriction!,
+                                beforeDays: parseInt(e.target.value) || 10,
+                              },
+                            })}
+                            min="0"
+                            max="180"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="afterDays">Days after birthday</Label>
+                          <Input
+                            id="afterDays"
+                            type="number"
+                            value={formData.dateRestriction.afterDays ?? 20}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              dateRestriction: {
+                                ...formData.dateRestriction!,
+                                afterDays: parseInt(e.target.value) || 20,
+                              },
+                            })}
+                            min="0"
+                            max="180"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Employee can take this leave from {formData.dateRestriction.beforeDays ?? 10} days before to {formData.dateRestriction.afterDays ?? 20} days after their birthday
                       </p>
                     </div>
                   )}

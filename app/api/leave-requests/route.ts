@@ -284,7 +284,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     // Check birthday window restriction for provisional leave types
 
     if (requestedLeaveType?.dateRestriction) {
-      const restriction = requestedLeaveType.dateRestriction as { type?: string; windowDays?: number };
+      const restriction = requestedLeaveType.dateRestriction as { type?: string; windowDays?: number; beforeDays?: number; afterDays?: number };
       if (restriction.type === 'BIRTHDAY_WINDOW') {
         if (!user.dateOfBirth) {
           return NextResponse.json(
@@ -292,7 +292,9 @@ export const POST = asyncHandler(async (request: NextRequest) => {
             { status: 400 }
           );
         }
-        const windowDays = restriction.windowDays || 30;
+        // Support asymmetric window (beforeDays/afterDays) with fallback to legacy symmetric windowDays
+        const beforeDays = restriction.beforeDays ?? restriction.windowDays ?? 10;
+        const afterDays = restriction.afterDays ?? restriction.windowDays ?? 20;
         const requestYear = startDate.getFullYear();
         // Handle leap year: if born Feb 29 and request year is not a leap year, use Feb 28
         const birthMonth = user.dateOfBirth.getMonth();
@@ -303,18 +305,24 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           birthday.setDate(0); // Go to last day of previous month (Feb 28)
         }
 
+        const windowStart = new Date(birthday);
+        windowStart.setDate(windowStart.getDate() - beforeDays);
+        const windowEnd = new Date(birthday);
+        windowEnd.setDate(windowEnd.getDate() + afterDays);
+
         // Check each requested date against the birthday window
         const datesToCheck = validatedData.selectedDates?.length
           ? validatedData.selectedDates.map((d: string) => new Date(d))
           : [startDate, endDate];
 
         for (const date of datesToCheck) {
-          const diffMs = Math.abs(date.getTime() - birthday.getTime());
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          if (diffDays > windowDays) {
+          if (date < windowStart || date > windowEnd) {
+            const formattedBirthday = birthday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+            const formattedStart = windowStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+            const formattedEnd = windowEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
             return NextResponse.json(
               {
-                error: `${requestedLeaveType.name} must be taken within ${windowDays} days of your birthday (${birthday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}).`,
+                error: `${requestedLeaveType.name} must be taken between ${formattedStart} and ${formattedEnd} (${beforeDays} days before to ${afterDays} days after your birthday on ${formattedBirthday}).`,
               },
               { status: 400 }
             );

@@ -294,14 +294,14 @@ async function main() {
       carryForward: false,
       requiresApproval: true,
       requiresDocument: false,
-      description: 'Leave for your birthday (within 30 days of actual birthday)',
+      description: 'Leave for your birthday (10 days before to 20 days after)',
       isActive: true,
       maxDaysPerRequest: 1,
       isSpecialLeave: false,
       requiresHRVerification: false,
       category: 'PROVISIONAL',
       sortOrder: 21,
-      dateRestriction: { type: 'BIRTHDAY_WINDOW', windowDays: 30 },
+      dateRestriction: { type: 'BIRTHDAY_WINDOW', beforeDays: 10, afterDays: 20 },
     },
   ]
 
