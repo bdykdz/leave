@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const rolloverSchema = z.object({
-  fromYear: z.number().int().min(2020).max(2030),
+  fromYear: z.number().int().min(2020).max(new Date().getFullYear()),
   execute: z.boolean().optional().default(false)
 })
 
@@ -21,12 +21,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user has admin/HR permissions
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const currentUser = await prisma.user.findUnique({
-      where: { id: session.user?.id },
+      where: { id: session.user.id },
       select: { role: true }
     })
 
-    if (!currentUser || !['HR', 'ADMIN', 'EXECUTIVE'].includes(currentUser.role)) {
+    if (!currentUser || !['HR', 'ADMIN'].includes(currentUser.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -70,12 +74,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user has admin/HR permissions
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const currentUser = await prisma.user.findUnique({
-      where: { id: session.user?.id },
+      where: { id: session.user.id },
       select: { role: true }
     })
 
-    if (!currentUser || !['HR', 'ADMIN', 'EXECUTIVE'].includes(currentUser.role)) {
+    if (!currentUser || !['HR', 'ADMIN'].includes(currentUser.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -98,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute the rollover
-    const result = await LeaveRolloverService.executeBulkRollover(fromYear, session.user?.id)
+    const result = await LeaveRolloverService.executeBulkRollover(fromYear, session.user.id)
 
     return NextResponse.json({
       message: 'Rollover executed successfully',

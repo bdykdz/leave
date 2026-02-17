@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
+import { z } from 'zod'
 
 export async function GET(
   request: Request,
@@ -9,12 +10,23 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions)
 
-  if (!session || !['ADMIN', 'HR', 'EXECUTIVE'].includes(session.user.role)) {
+  if (!session?.user?.id || !['ADMIN', 'HR', 'EXECUTIVE'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const { userId } = await params
+
+    // Verify target user exists
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }
+    })
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
     const currentYear = new Date().getFullYear()
 
     // Get all leave types
@@ -68,25 +80,48 @@ export async function GET(
   }
 }
 
+const updateBalanceSchema = z.object({
+  leaveTypeId: z.string().min(1),
+  year: z.number().int().min(2020).max(new Date().getFullYear() + 1),
+  entitled: z.number().min(0).max(365),
+  adjustment: z.number().min(-365).max(365).optional(),
+  reason: z.string().max(500).optional()
+})
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
   const session = await getServerSession(authOptions)
 
-  if (!session || !['ADMIN', 'HR', 'EXECUTIVE'].includes(session.user.role)) {
+  if (!session?.user?.id || !['ADMIN', 'HR'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const { userId } = await params
-    const { leaveTypeId, year, entitled, adjustment, reason } = await request.json()
 
-    if (!leaveTypeId || !year || entitled === undefined) {
+    // Validate request body
+    const body = await request.json()
+    const parsed = updateBalanceSchema.safeParse(body)
+
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Validation failed', details: parsed.error.errors },
         { status: 400 }
       )
+    }
+
+    const { leaveTypeId, year, entitled, adjustment, reason } = parsed.data
+
+    // Verify target user exists
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }
+    })
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Find or create the leave balance
@@ -101,12 +136,20 @@ export async function PUT(
     })
 
     let updatedBalance
-    
+
     if (existingBalance) {
       // Update existing balance
       const newEntitled = adjustment ? existingBalance.entitled + adjustment : entitled
-      const newAvailable = newEntitled - existingBalance.used - existingBalance.pending
-      
+      const newAvailable = newEntitled + existingBalance.carriedForward - existingBalance.used - existingBalance.pending
+
+      // Prevent setting entitled below already-used days
+      if (newEntitled < existingBalance.used) {
+        return NextResponse.json(
+          { error: 'Entitled days cannot be less than already used days' },
+          { status: 400 }
+        )
+      }
+
       updatedBalance = await prisma.leaveBalance.update({
         where: { id: existingBalance.id },
         data: {
@@ -144,17 +187,18 @@ export async function PUT(
         entity: 'LeaveBalance',
         entityId: updatedBalance.id,
         newValues: {
-          userId,
+          targetUserId: userId,
           leaveTypeId,
           year,
-          entitled: updatedBalance.entitled,
+          previousEntitled: existingBalance?.entitled,
+          newEntitled: updatedBalance.entitled,
           adjustment,
           reason
         }
       }
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       balance: updatedBalance,
       message: 'Leave balance updated successfully'
     })

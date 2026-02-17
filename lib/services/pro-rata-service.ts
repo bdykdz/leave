@@ -141,6 +141,17 @@ export class ProRataService {
     for (const leaveType of leaveTypes) {
       const calculation = await this.calculateProRataEntitlement(userId, leaveType.id, year)
 
+      // Get existing balance to preserve carriedForward, used, pending
+      const existingBalance = await prisma.leaveBalance.findUnique({
+        where: {
+          userId_leaveTypeId_year: { userId, leaveTypeId: leaveType.id, year }
+        }
+      })
+
+      const carriedForward = existingBalance?.carriedForward || 0
+      const used = existingBalance?.used || 0
+      const pending = existingBalance?.pending || 0
+
       // Update or create leave balance
       await prisma.leaveBalance.upsert({
         where: {
@@ -152,7 +163,7 @@ export class ProRataService {
         },
         update: {
           entitled: calculation.proRataEntitlement,
-          available: calculation.proRataEntitlement, // Will be adjusted by used/pending
+          available: calculation.proRataEntitlement + carriedForward - used - pending,
           updatedAt: new Date()
         },
         create: {

@@ -17,7 +17,7 @@ export class LeaveBalanceService {
     // Default configuration
     this.config = {
       carryForwardEnabled: true,
-      maxCarryForwardDays: 10,
+      maxCarryForwardDays: 5, // Default 5 days; overridden by LeaveType.maxCarryForward when available
       carryForwardExpiryMonths: 3, // Carry forward expires after 3 months
       proRateEnabled: true,
       yearEndProcessingDate: new Date(`${new Date().getFullYear()}-12-31`)
@@ -89,31 +89,31 @@ export class LeaveBalanceService {
         );
       }
 
-      // Check if balance already exists
-      const existingBalance = await prisma.leaveBalance.findUnique({
+      // Use upsert to avoid race conditions from concurrent requests
+      const balance = await prisma.leaveBalance.upsert({
         where: {
           userId_leaveTypeId_year: {
             userId,
             leaveTypeId: leaveType.id,
             year: currentYear
           }
+        },
+        update: {}, // Don't overwrite if already exists
+        create: {
+          userId,
+          leaveTypeId: leaveType.id,
+          year: currentYear,
+          entitled: entitledDays,
+          available: entitledDays,
+          used: 0,
+          pending: 0,
+          carriedForward: 0
         }
       });
 
-      if (!existingBalance) {
-        await prisma.leaveBalance.create({
-          data: {
-            userId,
-            leaveTypeId: leaveType.id,
-            year: currentYear,
-            entitled: entitledDays,
-            available: entitledDays,
-            used: 0,
-            carriedForward: 0
-          }
-        });
-
-        // Create audit log
+      // Only log if this was a new creation (createdAt equals updatedAt approximately)
+      const isNew = Math.abs(balance.createdAt.getTime() - balance.updatedAt.getTime()) < 1000;
+      if (isNew) {
         await prisma.auditLog.create({
           data: {
             userId: 'SYSTEM',
@@ -209,14 +209,14 @@ export class LeaveBalanceService {
 
       // Calculate carry forward if enabled
       if (this.config.carryForwardEnabled && balance.leaveType.carryForward) {
-        // Calculate available balance that can be carried forward
-        const availableForCarryForward = balance.available;
-        
+        // Calculate unused balance that can be carried forward
+        const unusedBalance = Math.max(0, balance.entitled + balance.carriedForward - balance.used);
+
+        // Use leave type's maxCarryForward if set, otherwise fall back to global config
+        const maxCF = balance.leaveType.maxCarryForward ?? this.config.maxCarryForwardDays;
+
         // Apply maximum carry forward limit
-        carryForwardAmount = Math.min(
-          availableForCarryForward,
-          this.config.maxCarryForwardDays
-        );
+        carryForwardAmount = Math.min(unusedBalance, maxCF);
       }
 
       // Check if next year balance already exists
@@ -242,7 +242,7 @@ export class LeaveBalanceService {
           },
           data: {
             carriedForward: carryForwardAmount,
-            available: nextYearBalance.entitled + carryForwardAmount
+            available: nextYearBalance.entitled + carryForwardAmount - nextYearBalance.used - nextYearBalance.pending
           }
         });
       } else {
@@ -317,9 +317,9 @@ export class LeaveBalanceService {
     });
 
     for (const balance of balancesWithCarryForward) {
-      // Deduct expired carry forward from available balance
-      const newAvailable = Math.max(0, balance.available - balance.carriedForward);
-      
+      // Recalculate available without carry forward
+      const newAvailable = Math.max(0, balance.entitled - balance.used - balance.pending);
+
       await prisma.leaveBalance.update({
         where: {
           id: balance.id
@@ -372,7 +372,7 @@ export class LeaveBalanceService {
     operation: 'DEDUCT' | 'RESTORE'
   ): Promise<void> {
     const currentYear = new Date().getFullYear();
-    
+
     const balance = await prisma.leaveBalance.findUnique({
       where: {
         userId_leaveTypeId_year: {
@@ -388,19 +388,21 @@ export class LeaveBalanceService {
     }
 
     if (operation === 'DEDUCT') {
+      const newUsed = balance.used + days;
       await prisma.leaveBalance.update({
         where: { id: balance.id },
         data: {
-          used: balance.used + days,
-          available: Math.max(0, balance.available - days)
+          used: newUsed,
+          available: balance.entitled + balance.carriedForward - newUsed - balance.pending
         }
       });
     } else {
+      const newUsed = Math.max(0, balance.used - days);
       await prisma.leaveBalance.update({
         where: { id: balance.id },
         data: {
-          used: Math.max(0, balance.used - days),
-          available: balance.available + days
+          used: newUsed,
+          available: balance.entitled + balance.carriedForward - newUsed - balance.pending
         }
       });
     }

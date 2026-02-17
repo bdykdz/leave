@@ -33,26 +33,53 @@ export async function POST(request: NextRequest) {
       select: { id: true, email: true, startDate: true }
     });
 
-    // Recalculate balances for each user
-    for (const user of users) {
-      try {
-        // Delete existing balances for current year
-        await prisma.leaveBalance.deleteMany({
-          where: {
-            userId: user.id,
-            year: currentYear
-          }
-        });
+    // Get all leave types
+    const leaveTypes = await prisma.leaveType.findMany({
+      where: { isActive: true }
+    });
 
-        // Re-initialize balances
-        await balanceService.initializeUserBalances(
-          user.id, 
-          user.startDate || new Date()
-        );
+    // Recalculate balances for each user (preserving carriedForward)
+    for (const u of users) {
+      try {
+        for (const leaveType of leaveTypes) {
+          const existing = await prisma.leaveBalance.findUnique({
+            where: {
+              userId_leaveTypeId_year: {
+                userId: u.id,
+                leaveTypeId: leaveType.id,
+                year: currentYear
+              }
+            }
+          });
+
+          if (existing) {
+            // Recalculate available from source fields (preserving carriedForward)
+            const newAvailable = existing.entitled + existing.carriedForward - existing.used - existing.pending;
+            await prisma.leaveBalance.update({
+              where: { id: existing.id },
+              data: { available: newAvailable }
+            });
+          } else {
+            // Initialize missing balance
+            let entitledDays = leaveType.daysAllowed || 0;
+            await prisma.leaveBalance.create({
+              data: {
+                userId: u.id,
+                leaveTypeId: leaveType.id,
+                year: currentYear,
+                entitled: entitledDays,
+                available: entitledDays,
+                used: 0,
+                pending: 0,
+                carriedForward: 0
+              }
+            });
+          }
+        }
 
         processedCount++;
       } catch (error) {
-        const errorMessage = `Failed to recalculate balance for ${user.email}: ${error}`;
+        const errorMessage = `Failed to recalculate balance for ${u.email}: ${error}`;
         errors.push(errorMessage);
         console.error(errorMessage);
       }

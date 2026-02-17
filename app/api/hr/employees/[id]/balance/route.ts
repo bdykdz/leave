@@ -9,23 +9,39 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is HR, ADMIN, EXECUTIVE, or EMPLOYEE with HR department
+    // Only HR and ADMIN can modify balances
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true, department: true }
     })
 
-    const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
-
-    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
+    if (!user || !['HR', 'ADMIN'].includes(user.role)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    // Verify target user exists
+    const targetUser = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: { id: true }
+    })
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
     const { annual, sick } = await request.json()
+
+    // Validate input types
+    if (typeof annual !== 'number' || typeof sick !== 'number') {
+      return NextResponse.json(
+        { error: 'Balance values must be numbers' },
+        { status: 400 }
+      )
+    }
 
     // Validate input - no negative values
     if (annual < 0 || sick < 0) {
@@ -75,7 +91,7 @@ export async function PUT(
           },
           update: {
             entitled: annual,
-            available: Math.max(0, annual - used - pending) // Recalculate available
+            available: Math.max(0, annual + (existing?.carriedForward || 0) - used - pending) // Recalculate available
           },
           create: {
             userId: params.id,
@@ -115,7 +131,7 @@ export async function PUT(
           },
           update: {
             entitled: sick,
-            available: Math.max(0, sick - used - pending) // Recalculate available
+            available: Math.max(0, sick + (existing?.carriedForward || 0) - used - pending) // Recalculate available
           },
           create: {
             userId: params.id,

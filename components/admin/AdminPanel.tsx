@@ -23,6 +23,7 @@ import { AuditLogViewer } from "./AuditLogViewer"
 import { LeaveBalanceSettings } from "./LeaveBalanceSettings"
 import { RequestsResetManager } from "./RequestsResetManager"
 import { SelectedDatesMigration } from "./SelectedDatesMigration"
+import { HistoricalBalanceImport } from "./HistoricalBalanceImport"
 import { 
   FileText,
   Calendar,
@@ -124,7 +125,8 @@ export function AdminPanel() {
         { id: 'templates', title: 'Templates', icon: FileText },
         { id: 'leave-types', title: 'Leave Types', icon: Calendar },
         { id: 'leave-balance', title: 'Balance', icon: Calculator },
-        { id: 'holidays', title: 'Holidays', icon: Calendar }
+        { id: 'holidays', title: 'Holidays', icon: Calendar },
+        { id: 'historical-balance', title: 'Historical Import', icon: History }
       ]
     },
     {
@@ -179,6 +181,8 @@ export function AdminPanel() {
         return <EscalationSettings />
       case 'holidays':
         return <HolidaysManager />
+      case 'historical-balance':
+        return <HistoricalBalanceImport />
       case 'settings':
         return <SystemSettings />
       case 'audit':
