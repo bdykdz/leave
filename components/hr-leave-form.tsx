@@ -97,10 +97,8 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
       // Show success dialog
       setShowSuccessDialog(true)
     } catch (error) {
-      showError(
-        "Submission Failed",
-        "There was an error adding the leave request. Please check your connection and try again.",
-      )
+      const msg = error instanceof Error ? error.message : 'An unexpected error occurred while adding the leave request'
+      showError("Submission Failed", msg)
     } finally {
       setIsSubmitting(false)
     }

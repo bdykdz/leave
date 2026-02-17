@@ -381,7 +381,8 @@ export default function ManagerDashboard() {
         ])
         setShowApprovalDialog(false)
       } else {
-        toast.error(t.messages.failedToDeny)
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.error || errorData.details || t.messages.failedToDeny)
       }
     } catch (error) {
       console.error('Error denying request:', error)

@@ -97,10 +97,8 @@ export function RemoteWorkForm({ onBack }: RemoteWorkFormProps) {
       // Show success dialog
       setShowSuccessDialog(true)
     } catch (error) {
-      showError(
-        "Submission Failed",
-        "There was an error submitting your remote work request. Please check your connection and try again.",
-      )
+      const msg = error instanceof Error ? error.message : 'An unexpected error occurred while submitting your remote work request'
+      showError("Submission Failed", msg)
     } finally {
       setIsSubmitting(false)
     }

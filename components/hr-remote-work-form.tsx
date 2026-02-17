@@ -95,10 +95,8 @@ export function HRRemoteWorkForm({ onBack }: HRRemoteWorkFormProps) {
       // Show success dialog
       setShowSuccessDialog(true)
     } catch (error) {
-      showError(
-        "Submission Failed",
-        "There was an error adding the remote work request. Please check your connection and try again.",
-      )
+      const msg = error instanceof Error ? error.message : 'An unexpected error occurred while adding the remote work request'
+      showError("Submission Failed", msg)
     } finally {
       setIsSubmitting(false)
     }

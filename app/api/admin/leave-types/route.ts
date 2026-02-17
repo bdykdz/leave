@@ -137,16 +137,20 @@ export async function POST(request: NextRequest) {
     })
 
     const currentYear = new Date().getFullYear()
-    
+    // Only STANDARD leave types get entitled = daysAllowed (yearly entitlement).
+    // PERSONAL/PROVISIONAL are event-based — start at 0.
+    const isStandard = leaveType.category === 'STANDARD'
+    const entitledDays = isStandard ? leaveType.daysAllowed : 0
+
     await prisma.leaveBalance.createMany({
       data: users.map(user => ({
         userId: user.id,
         leaveTypeId: leaveType.id,
         year: currentYear,
-        entitled: leaveType.daysAllowed,
+        entitled: entitledDays,
         used: 0,
         pending: 0,
-        available: leaveType.daysAllowed,
+        available: entitledDays,
         carriedForward: 0,
       })),
       skipDuplicates: true,

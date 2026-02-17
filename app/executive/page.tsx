@@ -290,7 +290,8 @@ export default function ExecutiveDashboard() {
         }
         setShowApprovalDialog(false)
       } else {
-        toast.error(t.messages.failedToApprove)
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.error || errorData.details || t.messages.failedToApprove)
       }
     } catch (error) {
       console.error('Error approving request:', error)
@@ -333,7 +334,8 @@ export default function ExecutiveDashboard() {
         }
         setShowApprovalDialog(false)
       } else {
-        toast.error(t.messages.failedToDeny)
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.error || errorData.details || t.messages.failedToDeny)
       }
     } catch (error) {
       console.error('Error denying request:', error)
