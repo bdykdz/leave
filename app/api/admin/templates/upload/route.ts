@@ -25,8 +25,17 @@ export async function POST(request: NextRequest) {
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
     const leaveTypeId = formData.get('leaveTypeId') as string;
+    const leaveTypeIdsRaw = formData.get('leaveTypeIds') as string;
     const category = formData.get('category') as string;
     const isWFHTemplate = formData.get('isWFHTemplate') === 'true';
+
+    // Support both single leaveTypeId and leaveTypeIds array
+    let leaveTypeIds: string[] = [];
+    if (leaveTypeIdsRaw) {
+      try { leaveTypeIds = JSON.parse(leaveTypeIdsRaw); } catch {}
+    } else if (leaveTypeId) {
+      leaveTypeIds = [leaveTypeId];
+    }
 
     // Validate file
     if (!file) {
@@ -42,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    if (!name || (!leaveTypeId && !isWFHTemplate)) {
+    if (!name || (leaveTypeIds.length === 0 && !isWFHTemplate)) {
       return NextResponse.json({ error: 'Name and template category are required' }, { status: 400 });
     }
 
@@ -50,43 +59,58 @@ export async function POST(request: NextRequest) {
     const fileExtension = file.name.split('.').pop();
     const uniqueFilename = `${uuidv4()}.${fileExtension}`;
 
-    // Convert file to buffer and upload to Minio
+    // Convert file to buffer and upload to Minio ONCE
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    
+
     const fileUrl = await uploadToMinio(buffer, uniqueFilename, file.type, undefined, 'templates');
 
-    // Create database entry
-    const templateData: any = {
-      name,
-      description: description || '',
-      fileUrl: fileUrl,
-      fileType: 'pdf',
-      category: category || (isWFHTemplate ? 'wfh' : 'leave_request'),
-      createdBy: session.user.id,
-    };
+    const templateCategory = category || (isWFHTemplate ? 'wfh' : 'leave_request');
 
-    // Only add leaveTypeId if it's not a WFH template
-    if (!isWFHTemplate && leaveTypeId) {
-      templateData.leaveTypeId = leaveTypeId;
+    // Single leave type or WFH: original behavior
+    if (isWFHTemplate || leaveTypeIds.length <= 1) {
+      const templateData: any = {
+        name,
+        description: description || '',
+        fileUrl,
+        fileType: 'pdf',
+        category: templateCategory,
+        createdBy: session.user.id,
+      };
+      if (!isWFHTemplate && leaveTypeIds.length === 1) {
+        templateData.leaveTypeId = leaveTypeIds[0];
+      }
+      const template = await prisma.documentTemplate.create({ data: templateData });
+
+      return NextResponse.json({
+        success: true,
+        template,
+        templates: [template],
+      });
     }
 
-    const template = await prisma.documentTemplate.create({
-      data: templateData,
-    });
+    // Multiple leave types: create one record per leave type, all sharing the same MinIO fileUrl
+    const createdTemplates = await Promise.all(
+      leaveTypeIds.map((ltId) =>
+        prisma.documentTemplate.create({
+          data: {
+            name,
+            description: description || '',
+            fileUrl,
+            fileType: 'pdf',
+            category: templateCategory,
+            createdBy: session.user.id,
+            leaveTypeId: ltId,
+          },
+        })
+      )
+    );
 
     return NextResponse.json({
       success: true,
-      template: {
-        id: template.id,
-        name: template.name,
-        description: template.description,
-        fileUrl: template.fileUrl,
-        fileType: template.fileType,
-        category: template.category,
-        version: template.version,
-        createdAt: template.createdAt,
-      },
+      template: createdTemplates[0],
+      templates: createdTemplates,
+      message: `Template registered for ${createdTemplates.length} leave types. Configure field mappings on one, then use "Copy Fields To" to apply to others.`,
     });
   } catch (error) {
     console.error('Template upload error:', error);

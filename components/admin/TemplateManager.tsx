@@ -38,12 +38,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { 
-  FileText, 
-  Upload, 
-  MoreHorizontal, 
-  Edit, 
-  Trash2, 
+import {
+  FileText,
+  Upload,
+  MoreHorizontal,
+  Edit,
+  Trash2,
   Eye,
   FileCode,
   Download,
@@ -54,7 +54,9 @@ import {
   Signature,
   Shield,
   RefreshCw,
+  Copy,
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { FieldMapperDialog } from "./FieldMapperDialog"
 
@@ -86,6 +88,7 @@ interface LeaveType {
   id: string
   name: string
   code: string
+  category?: string
 }
 
 interface TemplateCategory {
@@ -106,12 +109,15 @@ export function TemplateManager() {
   const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("ALL")
-  
+  const [copyFieldsDialogOpen, setCopyFieldsDialogOpen] = useState(false)
+  const [copyFieldsSourceId, setCopyFieldsSourceId] = useState<string | null>(null)
+  const [copyFieldsTargetIds, setCopyFieldsTargetIds] = useState<string[]>([])
+
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
     name: "",
     description: "",
-    leaveTypeId: "",
+    leaveTypeIds: [] as string[],
     file: null as File | null,
   })
 
@@ -182,8 +188,9 @@ export function TemplateManager() {
   }
 
   const handleFileUpload = async () => {
-    if (!uploadForm.file || !uploadForm.name || !uploadForm.leaveTypeId) {
-      toast.error('Please provide a name, select a template category, and select a file')
+    const isWFH = uploadForm.leaveTypeIds.includes('wfh')
+    if (!uploadForm.file || !uploadForm.name || uploadForm.leaveTypeIds.length === 0) {
+      toast.error('Please provide a name, select at least one leave type, and select a file')
       return
     }
 
@@ -191,13 +198,12 @@ export function TemplateManager() {
     formData.append('file', uploadForm.file)
     formData.append('name', uploadForm.name)
     formData.append('description', uploadForm.description)
-    
-    // Check if this is a WFH template
-    if (uploadForm.leaveTypeId === 'wfh') {
+
+    if (isWFH) {
       formData.append('category', 'wfh')
       formData.append('isWFHTemplate', 'true')
     } else {
-      formData.append('leaveTypeId', uploadForm.leaveTypeId)
+      formData.append('leaveTypeIds', JSON.stringify(uploadForm.leaveTypeIds))
       formData.append('category', 'leave_request')
     }
 
@@ -208,14 +214,14 @@ export function TemplateManager() {
       })
 
       if (response.ok) {
-        toast.success('Template uploaded successfully')
+        const data = await response.json()
+        const count = data.templates?.length ?? 1
+        const msg = count > 1
+          ? `Template registered for ${count} leave types. Configure field mappings on one, then copy to others.`
+          : 'Template uploaded successfully'
+        toast.success(msg)
         setUploadDialogOpen(false)
-        setUploadForm({
-          name: "",
-          description: "",
-          leaveTypeId: "",
-          file: null,
-        })
+        setUploadForm({ name: "", description: "", leaveTypeIds: [], file: null })
         fetchTemplates()
       } else {
         const data = await response.json()
@@ -224,6 +230,30 @@ export function TemplateManager() {
     } catch (error) {
       console.error('Upload error:', error)
       toast.error('Failed to upload template')
+    }
+  }
+
+  const handleCopyFields = async () => {
+    if (!copyFieldsSourceId || copyFieldsTargetIds.length === 0) return
+    try {
+      const response = await fetch('/api/admin/templates/copy-fields', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceTemplateId: copyFieldsSourceId, targetTemplateIds: copyFieldsTargetIds }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(data.message || 'Field mappings copied successfully')
+        setCopyFieldsDialogOpen(false)
+        setCopyFieldsTargetIds([])
+        fetchTemplates()
+      } else {
+        const data = await response.json()
+        toast.error(data.error || 'Failed to copy field mappings')
+      }
+    } catch (error) {
+      console.error('Copy fields error:', error)
+      toast.error('Failed to copy field mappings')
     }
   }
 
@@ -516,6 +546,18 @@ export function TemplateManager() {
                               <MapPin className="mr-2 h-4 w-4" />
                               Configure Fields
                             </DropdownMenuItem>
+                            {template._count.fieldMappings > 0 && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setCopyFieldsSourceId(template.id)
+                                  setCopyFieldsTargetIds([])
+                                  setCopyFieldsDialogOpen(true)
+                                }}
+                              >
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copy Fields To...
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleToggleStatus(template.id, template.isActive)}
@@ -545,7 +587,7 @@ export function TemplateManager() {
 
       {/* Upload Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Upload Document Template</DialogTitle>
             <DialogDescription>
@@ -573,29 +615,162 @@ export function TemplateManager() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="leaveType">Template Category *</Label>
-              <Select
-                value={uploadForm.leaveTypeId}
-                onValueChange={(value) => setUploadForm({ ...uploadForm, leaveTypeId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a template category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templateCategories.length === 0 ? (
-                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                  ) : (
-                    templateCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name} ({category.code})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">
-                Select which type this template is for (Leave types or Work From Home)
+              <Label>Applies To *</Label>
+              <p className="text-xs text-muted-foreground mb-1">
+                Select one or more leave types. The PDF is uploaded once and registered for each selected type.
               </p>
+              <div className="border rounded-md p-3 max-h-64 overflow-y-auto space-y-3">
+                {/* WFH */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="upload-wfh"
+                    checked={uploadForm.leaveTypeIds.includes('wfh')}
+                    onCheckedChange={(checked) => {
+                      setUploadForm(prev => ({
+                        ...prev,
+                        leaveTypeIds: checked
+                          ? ['wfh']
+                          : prev.leaveTypeIds.filter(id => id !== 'wfh'),
+                      }))
+                    }}
+                  />
+                  <label htmlFor="upload-wfh" className="text-sm cursor-pointer">Work From Home (WFH)</label>
+                </div>
+                {/* Standard group */}
+                {leaveTypes.filter(lt => !lt.category || lt.category === 'STANDARD').length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Standard Leave</span>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 hover:underline"
+                        onClick={() => {
+                          const ids = leaveTypes.filter(lt => !lt.category || lt.category === 'STANDARD').map(lt => lt.id)
+                          const allSelected = ids.every(id => uploadForm.leaveTypeIds.includes(id))
+                          setUploadForm(prev => ({
+                            ...prev,
+                            leaveTypeIds: allSelected
+                              ? prev.leaveTypeIds.filter(id => !ids.includes(id))
+                              : [...prev.leaveTypeIds.filter(id => !ids.includes(id)), ...ids],
+                          }))
+                        }}
+                      >
+                        {leaveTypes.filter(lt => !lt.category || lt.category === 'STANDARD').every(lt => uploadForm.leaveTypeIds.includes(lt.id)) ? 'Deselect all' : 'Select all'}
+                      </button>
+                    </div>
+                    <div className="space-y-1 ml-1">
+                      {leaveTypes.filter(lt => !lt.category || lt.category === 'STANDARD').map(lt => (
+                        <div key={lt.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`upload-lt-${lt.id}`}
+                            checked={uploadForm.leaveTypeIds.includes(lt.id)}
+                            onCheckedChange={(checked) => {
+                              setUploadForm(prev => ({
+                                ...prev,
+                                leaveTypeIds: checked
+                                  ? [...prev.leaveTypeIds.filter(id => id !== 'wfh'), lt.id]
+                                  : prev.leaveTypeIds.filter(id => id !== lt.id),
+                              }))
+                            }}
+                          />
+                          <label htmlFor={`upload-lt-${lt.id}`} className="text-sm cursor-pointer">{lt.name} <span className="text-muted-foreground">({lt.code})</span></label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Personal group */}
+                {leaveTypes.filter(lt => lt.category === 'PERSONAL').length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Personal Leave (Collective Contract)</span>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 hover:underline"
+                        onClick={() => {
+                          const ids = leaveTypes.filter(lt => lt.category === 'PERSONAL').map(lt => lt.id)
+                          const allSelected = ids.every(id => uploadForm.leaveTypeIds.includes(id))
+                          setUploadForm(prev => ({
+                            ...prev,
+                            leaveTypeIds: allSelected
+                              ? prev.leaveTypeIds.filter(id => !ids.includes(id))
+                              : [...prev.leaveTypeIds.filter(id => !ids.includes(id)), ...ids],
+                          }))
+                        }}
+                      >
+                        {leaveTypes.filter(lt => lt.category === 'PERSONAL').every(lt => uploadForm.leaveTypeIds.includes(lt.id)) ? 'Deselect all' : 'Select all'}
+                      </button>
+                    </div>
+                    <div className="space-y-1 ml-1">
+                      {leaveTypes.filter(lt => lt.category === 'PERSONAL').map(lt => (
+                        <div key={lt.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`upload-lt-${lt.id}`}
+                            checked={uploadForm.leaveTypeIds.includes(lt.id)}
+                            onCheckedChange={(checked) => {
+                              setUploadForm(prev => ({
+                                ...prev,
+                                leaveTypeIds: checked
+                                  ? [...prev.leaveTypeIds.filter(id => id !== 'wfh'), lt.id]
+                                  : prev.leaveTypeIds.filter(id => id !== lt.id),
+                              }))
+                            }}
+                          />
+                          <label htmlFor={`upload-lt-${lt.id}`} className="text-sm cursor-pointer">{lt.name} <span className="text-muted-foreground">({lt.code})</span></label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Provisional group */}
+                {leaveTypes.filter(lt => lt.category === 'PROVISIONAL').length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Provisional Leave</span>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 hover:underline"
+                        onClick={() => {
+                          const ids = leaveTypes.filter(lt => lt.category === 'PROVISIONAL').map(lt => lt.id)
+                          const allSelected = ids.every(id => uploadForm.leaveTypeIds.includes(id))
+                          setUploadForm(prev => ({
+                            ...prev,
+                            leaveTypeIds: allSelected
+                              ? prev.leaveTypeIds.filter(id => !ids.includes(id))
+                              : [...prev.leaveTypeIds.filter(id => !ids.includes(id)), ...ids],
+                          }))
+                        }}
+                      >
+                        {leaveTypes.filter(lt => lt.category === 'PROVISIONAL').every(lt => uploadForm.leaveTypeIds.includes(lt.id)) ? 'Deselect all' : 'Select all'}
+                      </button>
+                    </div>
+                    <div className="space-y-1 ml-1">
+                      {leaveTypes.filter(lt => lt.category === 'PROVISIONAL').map(lt => (
+                        <div key={lt.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`upload-lt-${lt.id}`}
+                            checked={uploadForm.leaveTypeIds.includes(lt.id)}
+                            onCheckedChange={(checked) => {
+                              setUploadForm(prev => ({
+                                ...prev,
+                                leaveTypeIds: checked
+                                  ? [...prev.leaveTypeIds.filter(id => id !== 'wfh'), lt.id]
+                                  : prev.leaveTypeIds.filter(id => id !== lt.id),
+                              }))
+                            }}
+                          />
+                          <label htmlFor={`upload-lt-${lt.id}`} className="text-sm cursor-pointer">{lt.name} <span className="text-muted-foreground">({lt.code})</span></label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {uploadForm.leaveTypeIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {uploadForm.leaveTypeIds.length} type{uploadForm.leaveTypeIds.length > 1 ? 's' : ''} selected
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="file">Document File</Label>
@@ -715,6 +890,56 @@ export function TemplateManager() {
           setFieldMapperOpen(false)
         }}
       />
+
+      {/* Copy Fields Dialog */}
+      <Dialog open={copyFieldsDialogOpen} onOpenChange={setCopyFieldsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy Field Mappings To...</DialogTitle>
+            <DialogDescription>
+              Select which templates should receive the same field mappings as this one. Existing mappings on the target templates will be replaced.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2 max-h-80 overflow-y-auto">
+            {templates
+              .filter(t => t.id !== copyFieldsSourceId && t.category !== 'wfh')
+              .map(t => (
+                <div key={t.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`copy-target-${t.id}`}
+                    checked={copyFieldsTargetIds.includes(t.id)}
+                    onCheckedChange={(checked) => {
+                      setCopyFieldsTargetIds(prev =>
+                        checked ? [...prev, t.id] : prev.filter(id => id !== t.id)
+                      )
+                    }}
+                  />
+                  <label htmlFor={`copy-target-${t.id}`} className="text-sm cursor-pointer flex-1">
+                    {t.name}
+                    {t.leaveType && (
+                      <span className="text-muted-foreground ml-1">({t.leaveType.name})</span>
+                    )}
+                    {t._count.fieldMappings > 0 && (
+                      <Badge variant="secondary" className="ml-2 text-xs">{t._count.fieldMappings} fields</Badge>
+                    )}
+                  </label>
+                </div>
+              ))}
+            {templates.filter(t => t.id !== copyFieldsSourceId && t.category !== 'wfh').length === 0 && (
+              <p className="text-sm text-muted-foreground">No other templates to copy to.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyFieldsDialogOpen(false)}>Cancel</Button>
+            <Button
+              disabled={copyFieldsTargetIds.length === 0}
+              onClick={handleCopyFields}
+            >
+              Copy to {copyFieldsTargetIds.length} template{copyFieldsTargetIds.length !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
