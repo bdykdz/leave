@@ -14,7 +14,7 @@ interface Employee {
   department: string
   role: string
   manager: string
-  leaveBalance: { vacation: number; personal: number; medical: number }
+  leaveBalance: { vacation: number; collective: number; medical: number }
   status: "active" | "on_leave" | "medical_leave"
 }
 
@@ -38,7 +38,7 @@ export function EmployeeDetailsModal({ isOpen, onClose, employeeId, employees }:
     employeeId: `EMP${employee.id.toString().slice(-4).padStart(4, "0").toUpperCase()}`,
     location: "San Francisco, CA",
     totalVacationDays: 20,
-    totalPersonalDays: 5,
+    totalCollectiveDays: 20,
   }
 
   // Mock recent leave history
@@ -53,7 +53,7 @@ export function EmployeeDetailsModal({ isOpen, onClose, employeeId, employees }:
     },
     {
       id: 2,
-      type: "Personal",
+      type: "Marriage Leave",
       dates: "Nov 15, 2024",
       days: 1,
       status: "approved",
@@ -185,18 +185,18 @@ export function EmployeeDetailsModal({ isOpen, onClose, employeeId, employees }:
 
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-green-900">Personal Days</p>
+                    <p className="font-medium text-green-900">Collective & Provisional</p>
                     <p className="text-sm text-green-600">
-                      {employee.leaveBalance.personal} remaining of {employeeDetails.totalPersonalDays}
+                      {employee.leaveBalance.collective} remaining of {employeeDetails.totalCollectiveDays}
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600">{employee.leaveBalance.personal}</div>
+                    <div className="text-2xl font-bold text-green-600">{employee.leaveBalance.collective}</div>
                     <div className="w-16 bg-green-200 rounded-full h-2 mt-1">
                       <div
                         className="bg-green-600 h-2 rounded-full"
                         style={{
-                          width: `${(employee.leaveBalance.personal / employeeDetails.totalPersonalDays) * 100}%`,
+                          width: `${employeeDetails.totalCollectiveDays > 0 ? (employee.leaveBalance.collective / employeeDetails.totalCollectiveDays) * 100 : 0}%`,
                         }}
                       ></div>
                     </div>

@@ -498,12 +498,12 @@ export default function ExecutiveDashboard() {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Personal Leave Balance */}
+          {/* Left Column - Leave Balance */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>{t.dashboard.leaveBalance}</CardTitle>
-                <CardDescription>{t.dashboard.personalLeaveAllocation}</CardDescription>
+                <CardDescription>{t.dashboard.leaveAllocation}</CardDescription>
               </CardHeader>
               <CardContent>
                 {loadingBalances ? (

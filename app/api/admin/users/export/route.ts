@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
           include: {
             leaveType: {
               select: {
-                name: true
+                name: true,
+                category: true
               }
             }
           }
@@ -76,7 +77,9 @@ export async function GET(request: NextRequest) {
       'Director Email': user.departmentDirector?.email || 'N/A',
       'Annual Leave Balance': user.leaveBalances.find(b => b.leaveType.name === 'Annual Leave')?.available || 0,
       'Sick Leave Balance': user.leaveBalances.find(b => b.leaveType.name === 'Sick Leave')?.available || 0,
-      'Personal Leave Balance': user.leaveBalances.find(b => b.leaveType.name === 'Personal Leave')?.available || 0,
+      'Collective Leave Balance': user.leaveBalances
+        .filter(b => b.leaveType.category === 'PERSONAL' || b.leaveType.category === 'PROVISIONAL')
+        .reduce((sum, b) => sum + (b.available || 0), 0),
       'Created At': new Date(user.createdAt).toLocaleDateString(),
       'Last Updated': new Date(user.updatedAt).toLocaleDateString()
     }));
@@ -105,7 +108,7 @@ export async function GET(request: NextRequest) {
       { wch: 30 }, // Director Email
       { wch: 15 }, // Annual Leave
       { wch: 15 }, // Sick Leave
-      { wch: 15 }, // Personal Leave
+      { wch: 15 }, // Collective Leave
       { wch: 12 }, // Created At
       { wch: 12 }, // Last Updated
     ];

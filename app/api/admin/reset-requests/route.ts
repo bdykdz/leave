@@ -107,19 +107,6 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // Personal Leave: Reset to 5 days (drawer system)
-        await tx.leaveBalance.updateMany({
-          where: {
-            leaveType: { code: 'PL' }
-          },
-          data: {
-            entitled: 5,
-            used: 0,
-            pending: 0,
-            available: 5
-          }
-        })
-
         // Sick Leave: Set to unlimited (999 days as proxy for unlimited)
         await tx.leaveBalance.updateMany({
           where: {
@@ -148,19 +135,6 @@ export async function POST(request: NextRequest) {
             used: 0,
             pending: 0,
             available: 30
-          }
-        })
-
-        // Personal Leave: Reset to 5 days (drawer system)
-        await tx.leaveBalance.updateMany({
-          where: {
-            leaveType: { code: 'PL' }
-          },
-          data: {
-            entitled: 5,
-            used: 0,
-            pending: 0,
-            available: 5
           }
         })
 
@@ -195,19 +169,6 @@ export async function POST(request: NextRequest) {
             used: 0,
             pending: 0,
             available: 30
-          }
-        })
-
-        // Personal Leave: Reset to 5 days (drawer system)
-        await tx.leaveBalance.updateMany({
-          where: {
-            leaveType: { code: 'PL' }
-          },
-          data: {
-            entitled: 5,
-            used: 0,
-            pending: 0,
-            available: 5
           }
         })
 

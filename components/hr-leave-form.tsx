@@ -338,7 +338,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="vacation">Vacation</SelectItem>
-                        <SelectItem value="personal">Personal Day</SelectItem>
+                        <SelectItem value="collective">Collective Leave</SelectItem>
                         <SelectItem value="bereavement">Bereavement</SelectItem>
                         <SelectItem value="maternity">Maternity/Paternity</SelectItem>
                         <SelectItem value="medical">

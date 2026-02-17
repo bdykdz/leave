@@ -81,7 +81,7 @@ const COMMON_DOCUMENT_TYPES = [
 
 const CATEGORY_LABELS: Record<LeaveTypeCategory, string> = {
   STANDARD: 'Standard',
-  PERSONAL: 'Personal (Collective Contract)',
+  PERSONAL: 'Collective Contract',
   PROVISIONAL: 'Provisional (Conditional)',
 }
 
@@ -521,7 +521,7 @@ export function LeaveTypesManager() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="STANDARD">Standard</SelectItem>
-                      <SelectItem value="PERSONAL">Personal (Collective Contract)</SelectItem>
+                      <SelectItem value="PERSONAL">Collective Contract</SelectItem>
                       <SelectItem value="PROVISIONAL">Provisional (Conditional)</SelectItem>
                     </SelectContent>
                   </Select>

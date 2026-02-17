@@ -130,7 +130,7 @@ export interface Translations {
     noRequestsFound: string
     loadingRequests: string
     companyHolidays: string
-    personalLeaveAllocation: string
+    leaveAllocation: string
     myRecentRequests: string
     myRecentRequestsDescription: string
     noRecentRequests: string
@@ -142,7 +142,7 @@ export interface Translations {
     noEscalatedRequests: string
     vacationDays: string
     medicalLeave: string
-    personalDays: string
+    collectiveDays: string
     remoteWorkUsage: string
     myRequestsDescription: string
     pendingTeamApprovals: string
@@ -585,7 +585,7 @@ export interface Translations {
     managerPerformanceReport: string
     exportAllDataCSV: string
     vacation: string
-    personal: string
+    collective: string
     medical: string
     daysUsed: string
     daysRemaining: string
@@ -880,7 +880,7 @@ export const translations: Record<Language, Translations> = {
       noRequestsFound: "No requests found",
       loadingRequests: "Loading requests...",
       companyHolidays: "Company-wide holidays",
-      personalLeaveAllocation: "Your personal leave allocation",
+      leaveAllocation: "Your leave allocation",
       myRecentRequests: "My Recent Requests",
       myRecentRequestsDescription: "Your latest leave and remote work requests",
       noRecentRequests: "No recent requests",
@@ -892,7 +892,7 @@ export const translations: Record<Language, Translations> = {
       noEscalatedRequests: "No escalated requests pending your approval",
       vacationDays: "My Vacation Days",
       medicalLeave: "My Medical Leave",
-      personalDays: "My Personal Days",
+      collectiveDays: "Collective & Provisional",
       remoteWorkUsage: "My Remote Work Usage",
       myRequestsDescription: "Requests submitted to your manager",
       pendingTeamApprovals: "Pending Team Approvals",
@@ -1304,7 +1304,7 @@ export const translations: Record<Language, Translations> = {
       managerPerformanceReport: "Manager Performance Report",
       exportAllDataCSV: "Export All Data (CSV)",
       vacation: "Vacation",
-      personal: "Personal",
+      collective: "Collective",
       medical: "Medical",
       daysUsed: "Days Used",
       daysRemaining: "Days Remaining",
@@ -1573,7 +1573,7 @@ export const translations: Record<Language, Translations> = {
       noRequestsFound: "Nu s-au găsit cereri",
       loadingRequests: "Se încarcă cererile...",
       companyHolidays: "Sărbători la nivel de companie",
-      personalLeaveAllocation: "Alocarea personală de concediu",
+      leaveAllocation: "Alocarea ta de concediu",
       myRecentRequests: "Cererile mele recente",
       myRecentRequestsDescription: "Ultimele cereri de concediu și lucru la distanță",
       noRecentRequests: "Nicio cerere recentă",
@@ -1585,7 +1585,7 @@ export const translations: Record<Language, Translations> = {
       noEscalatedRequests: "Nicio cerere escalată în așteptarea aprobării tale",
       vacationDays: "Zilele mele de vacanță",
       medicalLeave: "Concediul meu medical",
-      personalDays: "Zilele mele personale",
+      collectiveDays: "Colectiv & Provizoriu",
       remoteWorkUsage: "Utilizarea mea de lucru la distanță",
       myRequestsDescription: "Cereri trimise managerului tău",
       pendingTeamApprovals: "Aprobări echipă în așteptare",
@@ -1997,7 +1997,7 @@ export const translations: Record<Language, Translations> = {
       managerPerformanceReport: "Raport performanță manageri",
       exportAllDataCSV: "Exportă toate datele (CSV)",
       vacation: "Vacanță",
-      personal: "Personal",
+      collective: "Colectiv",
       medical: "Medical",
       daysUsed: "Zile folosite",
       daysRemaining: "Zile rămase",

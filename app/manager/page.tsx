@@ -77,7 +77,7 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true)
   const [managerLeaveBalance, setManagerLeaveBalance] = useState({
     vacation: { used: 0, total: 0 },
-    personal: { used: 0, total: 0 },
+    collective: { used: 0, total: 0 },
     medical: { used: 0 },
   })
   const [teamStats, setTeamStats] = useState({
@@ -824,21 +824,21 @@ export default function ManagerDashboard() {
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t.dashboard.personalDays}</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t.dashboard.collectiveDays}</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {managerLeaveBalance.personal.total - managerLeaveBalance.personal.used}
+                      {managerLeaveBalance.collective.total - managerLeaveBalance.collective.used}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {managerLeaveBalance.personal.used} used of {managerLeaveBalance.personal.total}
+                      {managerLeaveBalance.collective.used} used of {managerLeaveBalance.collective.total}
                     </p>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                       <div
                         className="bg-green-600 h-2 rounded-full"
                         style={{
-                          width: `${(managerLeaveBalance.personal.used / managerLeaveBalance.personal.total) * 100}%`,
+                          width: `${managerLeaveBalance.collective.total > 0 ? (managerLeaveBalance.collective.used / managerLeaveBalance.collective.total) * 100 : 0}%`,
                         }}
                       ></div>
                     </div>

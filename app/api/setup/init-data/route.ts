@@ -32,23 +32,57 @@ export async function POST(request: NextRequest) {
           data: {
             name: 'Sick Leave',
             code: 'SL',
-            daysAllowed: 10,
+            daysAllowed: 180,
             carryForward: false,
             requiresApproval: true,
             requiresDocument: true,
             requiresHRVerification: true,
+            isHROnly: true,
             documentTypes: ['medical_certificate', 'doctor_note'],
-            description: 'Paid sick leave with medical certificate - requires HR verification'
+            description: 'Medical leave with doctor certificate - HR managed only'
           }
         }),
         prisma.leaveType.create({
           data: {
-            name: 'Personal Leave',
-            code: 'PL',
+            name: 'Marriage Leave',
+            code: 'MARR',
             daysAllowed: 5,
             carryForward: false,
             requiresApproval: true,
-            description: 'Personal leave'
+            requiresDocument: true,
+            isSpecialLeave: true,
+            requiresHRVerification: true,
+            documentTypes: ['marriage_certificate'],
+            description: 'Leave for employee marriage',
+            category: 'PERSONAL',
+          }
+        }),
+        prisma.leaveType.create({
+          data: {
+            name: 'Bereavement Leave',
+            code: 'BER',
+            daysAllowed: 3,
+            carryForward: false,
+            requiresApproval: true,
+            requiresDocument: true,
+            isSpecialLeave: true,
+            requiresHRVerification: true,
+            documentTypes: ['death_certificate'],
+            description: 'Leave for death of immediate family member',
+            category: 'PERSONAL',
+          }
+        }),
+        prisma.leaveType.create({
+          data: {
+            name: 'Blood Donation Leave',
+            code: 'BDL',
+            daysAllowed: 1,
+            carryForward: false,
+            requiresApproval: true,
+            requiresDocument: true,
+            documentTypes: ['donation_certificate'],
+            description: 'Leave for blood donation',
+            category: 'PROVISIONAL',
           }
         })
       ])

@@ -43,25 +43,33 @@ export async function GET() {
     })
 
     // Transform data to match frontend format
-    const balanceMap = new Map(leaveBalances.map(lb => [lb.leaveType.name.toLowerCase(), lb]))
     const usedMap = new Map(usedLeave.map(ul => [ul.leaveTypeId, ul._sum.totalDays || 0]))
 
-    const vacation = balanceMap.get('vacation') || balanceMap.get('annual leave')
-    const personal = balanceMap.get('personal')
-    const medical = balanceMap.get('medical') || balanceMap.get('sick leave')
+    // Find normal leave (NL or AL)
+    const vacation = leaveBalances.find(lb => lb.leaveType.code === 'NL' || lb.leaveType.code === 'AL')
+
+    // Sum all PERSONAL (collective contract) + PROVISIONAL category leave balances
+    const collectiveBalances = leaveBalances.filter(lb =>
+      lb.leaveType.category === 'PERSONAL' || lb.leaveType.category === 'PROVISIONAL'
+    )
+    const collectiveTotal = collectiveBalances.reduce((sum, lb) => sum + lb.entitled, 0)
+    const collectiveUsed = collectiveBalances.reduce((sum, lb) => sum + (usedMap.get(lb.leaveTypeId) || 0), 0)
+
+    // Medical leave (HR-managed)
+    const medical = leaveBalances.find(lb => lb.leaveType.code === 'SL')
 
     return NextResponse.json({
       vacation: {
         used: vacation ? usedMap.get(vacation.leaveTypeId) || 0 : 0,
         total: vacation ? vacation.entitled : 21
       },
-      personal: {
-        used: personal ? usedMap.get(personal.leaveTypeId) || 0 : 0,
-        total: personal ? personal.entitled : 7
+      collective: {
+        used: collectiveUsed,
+        total: collectiveTotal
       },
       medical: {
         used: medical ? usedMap.get(medical.leaveTypeId) || 0 : 0,
-        total: medical ? medical.entitled : 10
+        total: medical ? medical.entitled : 180
       }
     })
   } catch (error) {

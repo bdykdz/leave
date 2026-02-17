@@ -563,7 +563,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                           const categoryOrder = ['STANDARD', 'PERSONAL', 'PROVISIONAL']
                           const categoryLabels: Record<string, string> = {
                             STANDARD: 'Standard Leave',
-                            PERSONAL: 'Personal Leave (Collective Contract)',
+                            PERSONAL: 'Collective Contract Leave',
                             PROVISIONAL: 'Provisional Leave',
                           }
                           for (const type of leaveTypes) {

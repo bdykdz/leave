@@ -17,7 +17,7 @@ interface Employee {
   department: string
   role: string
   manager: string
-  leaveBalance: { vacation: number; personal: number; medical: number }
+  leaveBalance: { vacation: number; collective: number; medical: number }
   status: "active" | "on_leave" | "medical_leave"
   email?: string
   phone?: string
@@ -65,7 +65,7 @@ export function EmployeeManagementModal({ isOpen, onClose, employee, onSave }: E
     }
   }
 
-  const handleLeaveBalanceChange = (type: "vacation" | "personal" | "medical", value: string) => {
+  const handleLeaveBalanceChange = (type: "vacation" | "collective" | "medical", value: string) => {
     const numValue = Number.parseInt(value) || 0
     setEditedEmployee((prev) => ({
       ...prev,
@@ -322,16 +322,16 @@ export function EmployeeManagementModal({ isOpen, onClose, employee, onSave }: E
                   <p className="text-xs text-gray-500">Remaining vacation days</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="personal">Personal Days</Label>
+                  <Label htmlFor="collective">Collective & Provisional</Label>
                   <Input
-                    id="personal"
+                    id="collective"
                     type="number"
                     min="0"
-                    max="20"
-                    value={editedEmployee.leaveBalance.personal}
-                    onChange={(e) => handleLeaveBalanceChange("personal", e.target.value)}
+                    max="50"
+                    value={editedEmployee.leaveBalance.collective}
+                    onChange={(e) => handleLeaveBalanceChange("collective", e.target.value)}
                   />
-                  <p className="text-xs text-gray-500">Remaining personal days</p>
+                  <p className="text-xs text-gray-500">Remaining collective/provisional days</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="medical">Medical Leave Days</Label>

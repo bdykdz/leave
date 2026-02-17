@@ -119,7 +119,8 @@ export function LeaveCalendar() {
     switch (lowerType) {
       case 'annual leave': return 'bg-blue-100 text-blue-800'
       case 'sick leave': return 'bg-red-100 text-red-800'
-      case 'personal leave': return 'bg-purple-100 text-purple-800'
+      case 'personal leave':
+      case 'collective leave': return 'bg-purple-100 text-purple-800'
       case 'remote work': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
