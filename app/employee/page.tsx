@@ -37,7 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User } from "lucide-react"
+import { LogOut, Settings, User, BookOpen } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -525,6 +525,11 @@ export default function EmployeeDashboard() {
                       <p className="w-[200px] truncate text-sm text-muted-foreground">{session.user.email}</p>
                     </div>
                   </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/wiki')}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>{t.nav.wiki}</span>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />

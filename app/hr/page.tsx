@@ -12,7 +12,7 @@ import { DashboardSummary } from "@/components/dashboard-summary"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeaveTypesManager } from "@/components/admin/LeaveTypesManager"
-import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw, ListChecks } from "lucide-react"
+import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw, ListChecks, BookOpen } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,6 +137,10 @@ export default function HRDashboard() {
                   <DropdownMenuItem onClick={() => router.push('/hr/rollover')}>
                     <RotateCcw className="mr-2 h-4 w-4" />
                     <span>Leave Rollover</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/wiki')}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>{t.nav.wiki}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-red-600" onClick={() => signOut()}>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronDown, Download, Calendar, Users, Home, TrendingUp, Shield, LogOut, Settings, User, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown, Download, Calendar, Users, Home, TrendingUp, Shield, LogOut, Settings, User, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, BookOpen } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -412,8 +412,12 @@ export default function ExecutiveDashboard() {
                   <Settings className="mr-2 h-4 w-4" />
                   <span>{t.nav.settings}</span>
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/wiki')}>
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  <span>{t.nav.wiki}</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-red-600"
                   onClick={() => signOut({ callbackUrl: '/' })}
                 >

@@ -38,7 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User } from "lucide-react"
+import { LogOut, Settings, User, BookOpen } from "lucide-react"
 import { toast } from "sonner"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -421,6 +421,10 @@ export default function ExecutiveDashboard() {
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>{t.nav.settings}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/wiki')}>
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  <span>{t.nav.wiki}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut()}>
