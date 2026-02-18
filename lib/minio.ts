@@ -33,7 +33,7 @@ export async function uploadToMinio(
   fileName: string, 
   contentType: string,
   bucketName: string = MINIO_BUCKET,
-  folder: 'templates' | 'documents/generated' | 'documents/draft' | 'documents/supporting' = 'templates'
+  folder: 'templates' | 'documents/generated' | 'documents/draft' | 'documents/supporting' | 'wiki/images' | 'wiki/attachments' = 'templates'
 ): Promise<string> {
   await ensureBucketExists(bucketName)
   

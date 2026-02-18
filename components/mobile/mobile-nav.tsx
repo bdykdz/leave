@@ -19,7 +19,8 @@ import {
   Check,
   X,
   Building,
-  UserCheck
+  UserCheck,
+  BookOpen
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -72,6 +73,12 @@ export function MobileNav({ pendingCount = 0 }: MobileNavProps) {
       icon: BarChart3,
       href: "/analytics",
       show: ['MANAGER', 'DIRECTOR', 'HR', 'EXECUTIVE'].includes(userRole)
+    },
+    {
+      label: t.nav.wiki,
+      icon: BookOpen,
+      href: "/wiki",
+      show: true
     }
   ]
 

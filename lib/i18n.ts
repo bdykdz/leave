@@ -91,6 +91,7 @@ export interface Translations {
     navigation: string
     quickAccessToAllFeatures: string
     myLeave: string
+    wiki: string
   }
 
   // Dashboard
@@ -752,6 +753,55 @@ export interface Translations {
     onlyAuthorizedAccounts: string
     contactHRForAccess: string
   }
+
+  // Wiki
+  wiki: {
+    title: string
+    description: string
+    newPage: string
+    editPage: string
+    createPage: string
+    categories: string
+    allCategories: string
+    tags: string
+    search: string
+    searchPlaceholder: string
+    searchResults: string
+    searching: string
+    resultsFor: string
+    noSearchResults: string
+    comments: string
+    addComment: string
+    postComment: string
+    noComments: string
+    revisions: string
+    revisionHistory: string
+    noRevisions: string
+    confirmRestore: string
+    publish: string
+    saveDraft: string
+    draft: string
+    published: string
+    archived: string
+    pinned: string
+    pinnedPages: string
+    recentlyUpdated: string
+    noPages: string
+    noPagesDescription: string
+    noPagesInCategory: string
+    createFirstPage: string
+    manage: string
+    manageWiki: string
+    pageSettings: string
+    category: string
+    visibility: string
+    changeNote: string
+    content: string
+    backToWiki: string
+    pageNotFound: string
+    createCategory: string
+    createTag: string
+  }
 }
 
 export const translations: Record<Language, Translations> = {
@@ -843,6 +893,7 @@ export const translations: Record<Language, Translations> = {
       navigation: "Navigation",
       quickAccessToAllFeatures: "Quick access to all features",
       myLeave: "My Leave",
+      wiki: "Wiki",
     },
     dashboard: {
       title: "Dashboard",
@@ -1447,6 +1498,53 @@ export const translations: Record<Language, Translations> = {
       onlyAuthorizedAccounts: "Only authorized company accounts can access this system.",
       contactHRForAccess: "Contact your HR department if you need access.",
     },
+    wiki: {
+      title: "Wiki",
+      description: "Company knowledge base and policies",
+      newPage: "New Page",
+      editPage: "Edit Page",
+      createPage: "Create New Page",
+      categories: "Categories",
+      allCategories: "All Categories",
+      tags: "Tags",
+      search: "Search",
+      searchPlaceholder: "Search wiki...",
+      searchResults: "Search Results",
+      searching: "Searching...",
+      resultsFor: "results for",
+      noSearchResults: "No results found. Try different keywords.",
+      comments: "Comments",
+      addComment: "Add a comment...",
+      postComment: "Post Comment",
+      noComments: "No comments yet. Be the first to comment!",
+      revisions: "History",
+      revisionHistory: "Revision History",
+      noRevisions: "No revisions found.",
+      confirmRestore: "Restore this version? A new revision will be created.",
+      publish: "Publish",
+      saveDraft: "Save as Draft",
+      draft: "Draft",
+      published: "Published",
+      archived: "Archived",
+      pinned: "Pinned",
+      pinnedPages: "Pinned Pages",
+      recentlyUpdated: "Recently Updated",
+      noPages: "No wiki pages yet",
+      noPagesDescription: "HR or Admin can create the first page.",
+      noPagesInCategory: "No pages in this category.",
+      createFirstPage: "Create First Page",
+      manage: "Manage",
+      manageWiki: "Manage Wiki",
+      pageSettings: "Page Settings",
+      category: "Category",
+      visibility: "Visibility",
+      changeNote: "Change Note",
+      content: "Content",
+      backToWiki: "Back to Wiki",
+      pageNotFound: "Page not found",
+      createCategory: "Create Category",
+      createTag: "Create Tag",
+    },
   },
   ro: {
     common: {
@@ -1536,6 +1634,7 @@ export const translations: Record<Language, Translations> = {
       navigation: "Navigare",
       quickAccessToAllFeatures: "Acces rapid la toate funcțiile",
       myLeave: "Concediul meu",
+      wiki: "Wiki",
     },
     dashboard: {
       title: "Tablou de bord",
@@ -2139,6 +2238,53 @@ export const translations: Record<Language, Translations> = {
       developmentLogin: "Autentificare dezvoltare",
       onlyAuthorizedAccounts: "Doar conturile autorizate ale companiei pot accesa acest sistem.",
       contactHRForAccess: "Contactați departamentul HR dacă aveți nevoie de acces.",
+    },
+    wiki: {
+      title: "Wiki",
+      description: "Baza de cunoștințe și politici ale companiei",
+      newPage: "Pagină nouă",
+      editPage: "Editează pagina",
+      createPage: "Creează pagină nouă",
+      categories: "Categorii",
+      allCategories: "Toate categoriile",
+      tags: "Etichete",
+      search: "Căutare",
+      searchPlaceholder: "Caută în wiki...",
+      searchResults: "Rezultate căutare",
+      searching: "Se caută...",
+      resultsFor: "rezultate pentru",
+      noSearchResults: "Niciun rezultat găsit. Încercați cuvinte cheie diferite.",
+      comments: "Comentarii",
+      addComment: "Adaugă un comentariu...",
+      postComment: "Postează comentariu",
+      noComments: "Niciun comentariu încă. Fii primul care comentează!",
+      revisions: "Istoric",
+      revisionHistory: "Istoric versiuni",
+      noRevisions: "Nicio versiune găsită.",
+      confirmRestore: "Restaurezi această versiune? Se va crea o versiune nouă.",
+      publish: "Publică",
+      saveDraft: "Salvează ca ciornă",
+      draft: "Ciornă",
+      published: "Publicat",
+      archived: "Arhivat",
+      pinned: "Fixat",
+      pinnedPages: "Pagini fixate",
+      recentlyUpdated: "Actualizate recent",
+      noPages: "Nicio pagină wiki încă",
+      noPagesDescription: "HR sau Admin pot crea prima pagină.",
+      noPagesInCategory: "Nicio pagină în această categorie.",
+      createFirstPage: "Creează prima pagină",
+      manage: "Gestionează",
+      manageWiki: "Gestionează Wiki",
+      pageSettings: "Setări pagină",
+      category: "Categorie",
+      visibility: "Vizibilitate",
+      changeNote: "Notă de modificare",
+      content: "Conținut",
+      backToWiki: "Înapoi la Wiki",
+      pageNotFound: "Pagina nu a fost găsită",
+      createCategory: "Creează categorie",
+      createTag: "Creează etichetă",
     },
   }
 }

@@ -17,6 +17,10 @@ export interface NotificationTemplates {
   LEAVE_CANCELLED: (params: { leaveType: string; dates: string; requestNumber: string }) => { title: string; message: string }
   APPROVAL_REQUIRED: (params: { employeeName: string; leaveType: string; dates: string; requestNumber: string }) => { title: string; message: string }
   DOCUMENT_READY: (params: { requestNumber: string; documentType: string }) => { title: string; message: string }
+  WIKI_PAGE_PUBLISHED: (params: { pageTitle: string; authorName: string }) => { title: string; message: string }
+  WIKI_PAGE_UPDATED: (params: { pageTitle: string; editorName: string }) => { title: string; message: string }
+  WIKI_COMMENT_ADDED: (params: { pageTitle: string; commenterName: string }) => { title: string; message: string }
+  WIKI_COMMENT_REPLY: (params: { pageTitle: string; replierName: string }) => { title: string; message: string }
 }
 
 const notificationTemplates: NotificationTemplates = {
@@ -48,6 +52,22 @@ const notificationTemplates: NotificationTemplates = {
   DOCUMENT_READY: ({ requestNumber, documentType }) => ({
     title: 'Document Ready',
     message: `Your ${documentType} document is ready for request #${requestNumber}`
+  }),
+  WIKI_PAGE_PUBLISHED: ({ pageTitle, authorName }) => ({
+    title: 'New Wiki Article Published',
+    message: `${authorName} published a new article: "${pageTitle}"`
+  }),
+  WIKI_PAGE_UPDATED: ({ pageTitle, editorName }) => ({
+    title: 'Wiki Article Updated',
+    message: `${editorName} updated the article: "${pageTitle}"`
+  }),
+  WIKI_COMMENT_ADDED: ({ pageTitle, commenterName }) => ({
+    title: 'New Comment on Wiki Article',
+    message: `${commenterName} commented on: "${pageTitle}"`
+  }),
+  WIKI_COMMENT_REPLY: ({ pageTitle, replierName }) => ({
+    title: 'Reply to Your Comment',
+    message: `${replierName} replied to your comment on: "${pageTitle}"`
   })
 }
 

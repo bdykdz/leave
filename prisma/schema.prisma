@@ -73,6 +73,10 @@ model User {
   delegateRelations     ApprovalDelegate[]   @relation("DelegateRelation")
   auditLogs             AuditLog[]
   holidayPlans          HolidayPlan[]
+  wikiPages             WikiPage[]       @relation("WikiPageAuthor")
+  wikiRevisions         WikiRevision[]   @relation("WikiRevisionAuthor")
+  wikiComments          WikiComment[]    @relation("WikiCommentAuthor")
+  wikiAttachments       WikiAttachment[] @relation("WikiAttachmentUploader")
 }
 
 model LeaveType {
@@ -376,6 +380,10 @@ enum NotificationType {
   APPROVAL_REQUIRED
   DOCUMENT_READY
   WFH_CANCELLED
+  WIKI_PAGE_PUBLISHED
+  WIKI_PAGE_UPDATED
+  WIKI_COMMENT_ADDED
+  WIKI_COMMENT_REPLY
 }
 
 enum DocumentStatus {
@@ -580,4 +588,153 @@ enum LeaveTypeCategory {
   STANDARD      // Normal Leave, Sick Leave
   PERSONAL      // Collective contract: Marriage, Bereavement, Moving, etc.
   PROVISIONAL   // Conditional: Blood Donation, Birthday Leave
+}
+
+// ============================================================
+// Wiki Models
+// ============================================================
+
+enum WikiPageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model WikiCategory {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  nameEn      String
+  nameRo      String
+  slug        String         @unique
+  description String?
+  icon        String?
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  parentId    String?
+  parent      WikiCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    WikiCategory[] @relation("CategoryHierarchy")
+  pages       WikiPage[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([parentId])
+  @@index([slug])
+}
+
+model WikiTag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  nameEn    String
+  nameRo    String
+  pages     WikiPageTag[]
+  createdAt DateTime      @default(now())
+}
+
+model WikiPage {
+  id             String              @id @default(cuid())
+  slug           String              @unique
+  categoryId     String?
+  authorId       String
+  status         WikiPageStatus      @default(DRAFT)
+  isPinned       Boolean             @default(false)
+  sortOrder      Int                 @default(0)
+  viewCount      Int                 @default(0)
+  visibleToRoles Role[]
+  publishedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  category     WikiCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author       User                   @relation("WikiPageAuthor", fields: [authorId], references: [id])
+  translations WikiPageTranslation[]
+  revisions    WikiRevision[]
+  comments     WikiComment[]
+  tags         WikiPageTag[]
+  attachments  WikiAttachment[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([status])
+}
+
+model WikiPageTranslation {
+  id          String   @id @default(cuid())
+  pageId      String
+  language    String
+  title       String
+  content     Json
+  contentText String
+  excerpt     String?
+  updatedAt   DateTime @updatedAt
+
+  page WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, language])
+  @@index([pageId])
+}
+
+model WikiRevision {
+  id         String   @id @default(cuid())
+  pageId     String
+  language   String
+  version    Int
+  title      String
+  content    Json
+  authorId   String
+  changeNote String?
+  createdAt  DateTime @default(now())
+
+  page   WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  author User     @relation("WikiRevisionAuthor", fields: [authorId], references: [id])
+
+  @@unique([pageId, language, version])
+  @@index([pageId, language])
+  @@index([authorId])
+}
+
+model WikiComment {
+  id        String        @id @default(cuid())
+  pageId    String
+  userId    String
+  content   String
+  parentId  String?
+  isEdited  Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  page    WikiPage      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user    User          @relation("WikiCommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  parent  WikiComment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies WikiComment[] @relation("CommentThread")
+
+  @@index([pageId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model WikiPageTag {
+  pageId String
+  tagId  String
+  page   WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  tag    WikiTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, tagId])
+  @@index([tagId])
+}
+
+model WikiAttachment {
+  id          String   @id @default(cuid())
+  pageId      String
+  fileName    String
+  fileUrl     String
+  contentType String
+  fileSize    Int
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  page     WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  uploader User     @relation("WikiAttachmentUploader", fields: [uploadedBy], references: [id])
+
+  @@index([pageId])
 }

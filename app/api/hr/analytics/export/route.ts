@@ -123,7 +123,6 @@ export async function GET(request: NextRequest) {
         _count: { id: true },
         where: {
           isActive: true,
-          department: { not: null }
         }
       }),
 
