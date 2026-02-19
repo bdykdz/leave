@@ -22,9 +22,7 @@ import {
   Plus,
   Heart,
   AlertTriangle,
-  CalendarDays,
   Building,
-  BarChart3,
   ChevronDown,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
@@ -75,11 +73,7 @@ export default function ManagerDashboard() {
 
   // State for real data
   const [loading, setLoading] = useState(true)
-  const [managerLeaveBalance, setManagerLeaveBalance] = useState({
-    vacation: { used: 0, total: 0 },
-    collective: { used: 0, total: 0 },
-    medical: { used: 0 },
-  })
+  const [leaveBalances, setLeaveBalances] = useState<any[]>([])
   const [teamStats, setTeamStats] = useState({
     totalMembers: 0,
     onLeaveToday: 0,
@@ -189,10 +183,10 @@ export default function ManagerDashboard() {
 
   const fetchManagerLeaveBalance = async () => {
     try {
-      const response = await fetch('/api/manager/leave-balance')
+      const response = await fetch('/api/employee/leave-balance')
       if (response.ok) {
         const data = await response.json()
-        setManagerLeaveBalance(data)
+        setLeaveBalances(data.leaveBalances || [])
       }
     } catch (error) {
       console.error('Error fetching leave balance:', error)
@@ -578,26 +572,6 @@ export default function ManagerDashboard() {
             </div>
             <div className="flex items-center gap-2 md:gap-3">
               {/* Hide text on mobile for these buttons */}
-              <Button 
-                onClick={() => router.push(getDashboardRoute())} 
-                variant="outline" 
-                className="hidden md:flex items-center gap-2"
-              >
-                <CalendarDays className="h-4 w-4" />
-                {t.nav.myDashboard}
-              </Button>
-              
-              {/* Mobile-only button - icon only */}
-              <Button 
-                onClick={() => router.push(getDashboardRoute())} 
-                variant="outline" 
-                size="icon"
-                className="md:hidden"
-                title="My Dashboard"
-              >
-                <CalendarDays className="h-4 w-4" />
-              </Button>
-
               {(session.user.role === "HR" || (session.user.role === "MANAGER" && (session.user.department?.toLowerCase() === "hr" || session.user.department?.toLowerCase() === "human resources"))) && (
                 <>
                   <Button onClick={() => router.push("/hr")} variant="outline" className="hidden md:flex items-center gap-2">
@@ -755,16 +729,6 @@ export default function ManagerDashboard() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/analytics')}
-            size="sm"
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.nav.analytics}</span>
-            <span className="sm:hidden">{t.nav.analytics}</span>
-          </Button>
         </div>
 
         {activeTab === "dashboard" && (
@@ -792,65 +756,71 @@ export default function ManagerDashboard() {
             {/* Manager's Personal Dashboard */}
             <div className="lg:col-span-2 space-y-6">
               {/* Manager's Leave Balance Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t.dashboard.vacationDays}</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {managerLeaveBalance.vacation.total - managerLeaveBalance.vacation.used}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {managerLeaveBalance.vacation.used} used of {managerLeaveBalance.vacation.total}
-                    </p>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{
-                          width: `${(managerLeaveBalance.vacation.used / managerLeaveBalance.vacation.total) * 100}%`,
-                        }}
-                      ></div>
-                    </div>
-                  </CardContent>
-                </Card>
+              {(() => {
+                const normalLeave = leaveBalances.find((b: any) => b.leaveTypeCode === 'AL' || b.leaveTypeCode === 'NL')
+                const sickLeave = leaveBalances.find((b: any) => b.leaveTypeCode === 'SL')
+                const specialLeaves = leaveBalances.filter((b: any) => !['AL', 'NL', 'SL'].includes(b.leaveTypeCode))
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Normal Leave Card */}
+                    {normalLeave && (
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">{normalLeave.leaveTypeName}</CardTitle>
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{normalLeave.available || 0}</div>
+                          <p className="text-xs text-muted-foreground">
+                            {normalLeave.used || 0} {t.leaveForm.used} of {normalLeave.entitled || 0} {t.leaveForm.days}
+                          </p>
+                          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full"
+                              style={{ width: `${normalLeave.entitled > 0 ? ((normalLeave.used / normalLeave.entitled) * 100) : 0}%` }}
+                            ></div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t.dashboard.medicalLeave}</CardTitle>
-                    <Heart className="h-4 w-4 text-red-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{managerLeaveBalance.medical.used}</div>
-                    <p className="text-xs text-muted-foreground">{t.labels.daysUsedThisYear}</p>
-                    <p className="text-xs text-gray-500 mt-2">{t.labels.managedByHR}</p>
-                  </CardContent>
-                </Card>
+                    {/* Sick Leave Card */}
+                    {sickLeave && (
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">{sickLeave.leaveTypeName}</CardTitle>
+                          <Heart className="h-4 w-4 text-red-500" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{sickLeave.used || 0}</div>
+                          <p className="text-xs text-muted-foreground">{t.labels.daysUsedThisYear}</p>
+                          <p className="text-xs text-gray-500 mt-2">{t.labels.noLimitTrackedByHr}</p>
+                        </CardContent>
+                      </Card>
+                    )}
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t.dashboard.collectiveDays}</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {managerLeaveBalance.collective.total - managerLeaveBalance.collective.used}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {managerLeaveBalance.collective.used} used of {managerLeaveBalance.collective.total}
-                    </p>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full"
-                        style={{
-                          width: `${managerLeaveBalance.collective.total > 0 ? (managerLeaveBalance.collective.used / managerLeaveBalance.collective.total) * 100 : 0}%`,
-                        }}
-                      ></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    {/* Special Leave Summary Card */}
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{t.leaveTypes.special}</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{specialLeaves.reduce((sum: number, leave: any) => sum + (leave.used || 0), 0)}</div>
+                        <p className="text-xs text-muted-foreground">{t.labels.totalSpecialLeave}</p>
+                        <div className="text-xs text-gray-500 mt-2 space-y-1">
+                          {specialLeaves.filter((leave: any) => leave.used > 0).map((leave: any) => (
+                            <div key={leave.leaveTypeId}>{leave.leaveTypeName}: {leave.used} {t.leaveForm.days}</div>
+                          ))}
+                          {specialLeaves.filter((leave: any) => leave.used > 0).length === 0 && (
+                            <div>{t.labels.noSpecialLeaveTaken}</div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )
+              })()}
 
               {/* Manager's WFH Usage */}
               <Card>

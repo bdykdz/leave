@@ -136,7 +136,8 @@ export async function POST(request: NextRequest) {
         managerId: (data.managerId === 'none' || !data.managerId) ? null : data.managerId,
         departmentDirectorId: (data.departmentDirectorId === 'none' || !data.departmentDirectorId) ? null : data.departmentDirectorId,
         isActive: data.isActive !== undefined ? data.isActive : true,
-        joiningDate: data.joiningDate ? new Date(data.joiningDate) : new Date()
+        joiningDate: data.joiningDate ? new Date(data.joiningDate) : new Date(),
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null
       },
       select: {
         id: true,
@@ -211,10 +212,15 @@ export async function POST(request: NextRequest) {
       user: newUser,
       temporaryPassword: data.password ? undefined : password // Only return if we generated it
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating user:', error);
+    const message = error?.meta?.target
+      ? `Failed to create user: duplicate ${error.meta.target}`
+      : error?.message?.includes('Invalid')
+        ? `Failed to create user: ${error.message}`
+        : 'Failed to create user';
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: message },
       { status: 500 }
     );
   }

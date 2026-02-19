@@ -206,10 +206,15 @@ export async function PATCH(
       message: 'User updated successfully',
       user: updatedUser
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating user:', error);
+    const message = error?.meta?.target
+      ? `Failed to update user: duplicate ${error.meta.target}`
+      : error?.message?.includes('Invalid')
+        ? `Failed to update user: ${error.message}`
+        : 'Failed to update user';
     return NextResponse.json(
-      { error: 'Failed to update user' },
+      { error: message },
       { status: 500 }
     );
   }

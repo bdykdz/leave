@@ -259,8 +259,8 @@ export function UserManagementEnhanced() {
         setIsEditDialogOpen(false)
         setIsNewUserDialogOpen(false)
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to save user')
+        const errorData = await response.json()
+        toast.error(errorData.error || errorData.message || 'Failed to save user')
       }
     } catch (error) {
       toast.error('An error occurred while saving')
