@@ -141,6 +141,7 @@ model LeaveRequest {
   hrVerifiedBy        String?
   hrVerifiedAt        DateTime?
   hrVerificationNotes String?
+  createdByHrId       String?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   approvals           Approval[]
@@ -419,9 +420,10 @@ model WorkFromHomeRequest {
   totalDays     Int
   location      String                // "home" or specific location
   status        RequestStatus         @default(PENDING)
+  createdByHrId String?
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
-  
+
   // Relations
   user          User                  @relation(fields: [userId], references: [id])
   approvals     WFHApproval[]
