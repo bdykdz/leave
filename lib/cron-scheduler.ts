@@ -41,17 +41,17 @@ export function scheduleCronJobs() {
     }
   }, { timezone: 'UTC' })
 
-  // Document cleanup: Every Monday at 03:00 UTC
-  cron.schedule('0 3 * * 1', async () => {
-    console.log('[CRON] Running document cleanup...')
-    try {
-      const res = await fetch(`${baseUrl}/api/cron/document-cleanup`, { headers })
-      const data = await res.json()
-      console.log('[CRON] Document cleanup result:', data)
-    } catch (error) {
-      console.error('[CRON] Document cleanup failed:', error)
-    }
-  }, { timezone: 'UTC' })
+  // Document cleanup: DISABLED — documents should be retained indefinitely
+  // cron.schedule('0 3 * * 1', async () => {
+  //   console.log('[CRON] Running document cleanup...')
+  //   try {
+  //     const res = await fetch(`${baseUrl}/api/cron/document-cleanup`, { headers })
+  //     const data = await res.json()
+  //     console.log('[CRON] Document cleanup result:', data)
+  //   } catch (error) {
+  //     console.error('[CRON] Document cleanup failed:', error)
+  //   }
+  // }, { timezone: 'UTC' })
 
   // Admin cleanup: Daily at 02:00 UTC
   cron.schedule('0 2 * * *', async () => {
@@ -68,6 +68,6 @@ export function scheduleCronJobs() {
   console.log('[CRON] Scheduled jobs:')
   console.log('  - WFH auto-cancel: Friday 16:00 UTC (18:00 Bucharest)')
   console.log('  - Escalation check: every 4 hours')
-  console.log('  - Document cleanup: Monday 03:00 UTC')
+  console.log('  - Document cleanup: DISABLED')
   console.log('  - Admin cleanup: daily 02:00 UTC')
 }
