@@ -5,11 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
 import { emailService } from '@/lib/email-service';
 import { format } from 'date-fns';
-
-// Fix #13: Sanitize comment — strip HTML tags, limit length, trim
-function sanitizeComment(raw: string): string {
-  return raw.replace(/<[^>]*>/g, '').trim().slice(0, 1000);
-}
+import { sanitizeComment } from '@/lib/utils/sanitize';
 
 export async function POST(
   request: NextRequest,

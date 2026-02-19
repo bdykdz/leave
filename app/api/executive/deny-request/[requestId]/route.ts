@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-
-// Fix #13: Sanitize comment — strip HTML tags, limit length, trim
-function sanitizeComment(raw: string): string {
-  return raw.replace(/<[^>]*>/g, '').trim().slice(0, 1000);
-}
+import { emailService } from '@/lib/email-service';
+import { format } from 'date-fns';
+import { sanitizeComment } from '@/lib/utils/sanitize';
 
 export async function POST(
   request: NextRequest,
@@ -206,6 +204,26 @@ export async function POST(
       });
     } catch (notifError) {
       console.error('Warning: Failed to create denial notification:', notifError);
+    }
+
+    // Send rejection email to employee
+    try {
+      if (updatedRequest.user?.email) {
+        await emailService.sendApprovalNotification(updatedRequest.user.email, {
+          employeeName: `${updatedRequest.user.firstName} ${updatedRequest.user.lastName}`,
+          leaveType: updatedRequest.leaveType?.name || 'Leave',
+          startDate: format(updatedRequest.startDate, 'dd MMMM yyyy'),
+          endDate: format(updatedRequest.endDate, 'dd MMMM yyyy'),
+          days: updatedRequest.totalDays,
+          approverName: `${session.user.firstName} ${session.user.lastName}`,
+          status: 'rejected',
+          comments: comment || undefined,
+          companyName: process.env.COMPANY_NAME || 'TPF',
+          requestId: params.requestId
+        });
+      }
+    } catch (emailError) {
+      console.error('Error sending executive rejection email:', emailError);
     }
 
     return NextResponse.json({

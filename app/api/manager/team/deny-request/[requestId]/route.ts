@@ -6,6 +6,7 @@ import { emailService } from "@/lib/email-service"
 import { format } from "date-fns"
 import { WFHValidationService } from "@/lib/wfh-validation-service"
 import { log } from "@/lib/logger"
+import { sanitizeComment } from "@/lib/utils/sanitize"
 
 export async function POST(
   request: Request,
@@ -13,16 +14,16 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const comment = body.comment || ''
+    const comment = sanitizeComment(body.comment || '')
     const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
     const requestId = params.requestId
-    
+
     console.log('Deny request:', { requestId, requestType, comment, userId: session.user.id })
 
     // Handle WFH requests separately
@@ -47,81 +48,98 @@ export async function POST(
       return NextResponse.json({ error: "Request not found" }, { status: 404 })
     }
 
+    // Status pre-check: only PENDING requests can be denied
+    if (leaveRequest.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: "Request is not in pending status" },
+        { status: 400 }
+      )
+    }
+
     // Verify the current user is the manager of the requester
     if (leaveRequest.user.managerId !== session.user.id) {
       return NextResponse.json({ error: "Not authorized to deny this request" }, { status: 403 })
     }
 
-    // Verify there's a pending approval for this manager
-    let pendingApproval = leaveRequest.approvals.find(a => a.status === 'PENDING')
-    
-    // If no approval record exists, create one
-    if (!pendingApproval) {
-      console.log(`Creating approval record for request ${requestId}`)
-      pendingApproval = await prisma.approval.create({
+    // Wrap all mutations in a transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      // Find or create the pending approval for this manager (avoid duplicates)
+      let pendingApproval = leaveRequest.approvals.find(a => a.status === 'PENDING')
+
+      if (!pendingApproval) {
+        // Check if any approval exists for this approver to avoid duplicates
+        const existingApproval = leaveRequest.approvals[0]
+        if (existingApproval) {
+          // Update the existing approval instead of creating a duplicate
+          pendingApproval = existingApproval
+        } else {
+          console.log(`Creating approval record for request ${requestId}`)
+          pendingApproval = await tx.approval.create({
+            data: {
+              leaveRequestId: requestId,
+              approverId: session.user.id,
+              level: 1, // Manager level
+              status: 'PENDING'
+            }
+          })
+        }
+      }
+
+      // Update the approval
+      await tx.approval.update({
+        where: { id: pendingApproval.id },
         data: {
-          leaveRequestId: requestId,
-          approverId: session.user.id,
-          level: 1, // Manager level
-          status: 'PENDING'
+          status: 'REJECTED',
+          comments: comment,
+          approvedAt: new Date()
         }
       })
-    }
 
-    // Update the approval
-    await prisma.approval.update({
-      where: { id: pendingApproval.id },
-      data: {
-        status: 'REJECTED',
-        comments: comment,
-        approvedAt: new Date()
-      }
-    })
+      // Update leave request status to denied
+      await tx.leaveRequest.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' }
+      })
 
-    // Update leave request status to denied
-    await prisma.leaveRequest.update({
-      where: { id: requestId },
-      data: { status: 'REJECTED' }
-    })
-
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'REQUEST_DENIED',
-        entity: 'LEAVE_REQUEST',
-        entityId: requestId,
-        oldValues: { status: leaveRequest.status },
-        newValues: { status: 'REJECTED', reason: comment }
-      }
-    })
-
-    // Restore leave balance (move from pending back to available)
-    const currentYear = new Date().getFullYear()
-    try {
-      await prisma.leaveBalance.update({
-        where: {
-          userId_leaveTypeId_year: {
-            userId: leaveRequest.userId,
-            leaveTypeId: leaveRequest.leaveTypeId,
-            year: currentYear
-          }
-        },
+      // Create audit log
+      await tx.auditLog.create({
         data: {
-          pending: {
-            decrement: leaveRequest.totalDays
+          userId: session.user.id,
+          action: 'REQUEST_DENIED',
+          entity: 'LEAVE_REQUEST',
+          entityId: requestId,
+          oldValues: { status: leaveRequest.status },
+          newValues: { status: 'REJECTED', reason: comment }
+        }
+      })
+
+      // Restore leave balance (move from pending back to available)
+      const currentYear = new Date().getFullYear()
+      try {
+        await tx.leaveBalance.update({
+          where: {
+            userId_leaveTypeId_year: {
+              userId: leaveRequest.userId,
+              leaveTypeId: leaveRequest.leaveTypeId,
+              year: currentYear
+            }
           },
-          available: {
-            increment: leaveRequest.totalDays
+          data: {
+            pending: {
+              decrement: leaveRequest.totalDays
+            },
+            available: {
+              increment: leaveRequest.totalDays
+            }
           }
-        }
-      })
-    } catch (balanceError) {
-      console.error("Warning: Could not restore leave balance:", balanceError)
-      // Continue with the denial even if balance update fails
-    }
+        })
+      } catch (balanceError) {
+        console.error("Warning: Could not restore leave balance:", balanceError)
+        // Continue with the denial even if balance update fails
+      }
+    })
 
-    // Send email notification to employee
+    // Send email notification to employee (outside transaction — non-critical)
     try {
       const updatedLeaveRequest = await prisma.leaveRequest.findUnique({
         where: { id: requestId },
@@ -130,7 +148,7 @@ export async function POST(
           leaveType: true
         }
       });
-      
+
       const approver = await prisma.user.findUnique({
         where: { id: session.user.id }
       });
@@ -155,7 +173,7 @@ export async function POST(
       // Don't fail the denial if email fails
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       message: "Request denied successfully"
     })
@@ -171,7 +189,7 @@ export async function POST(
 async function handleWFHDenial(session: any, requestId: string, comment: string) {
   // Extract signature from comment if present (though usually not needed for denials)
   let cleanComment = comment
-  
+
   if (comment && comment.includes('[SIGNATURE:')) {
     cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
   }
@@ -265,8 +283,8 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
     })
   } catch (error) {
     console.error("Error rejecting WFH request:", error)
-    return NextResponse.json({ 
-      error: "Internal server error", 
+    return NextResponse.json({
+      error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }

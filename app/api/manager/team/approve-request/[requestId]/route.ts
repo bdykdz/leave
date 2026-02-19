@@ -9,6 +9,7 @@ import { format } from "date-fns"
 import { ValidationService } from "@/lib/validation-service"
 import { WFHValidationService } from "@/lib/wfh-validation-service"
 import { log } from "@/lib/logger"
+import { sanitizeComment } from "@/lib/utils/sanitize"
 
 export async function POST(
   request: Request,
@@ -16,16 +17,16 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const comment = body.comment || ''
+    const comment = sanitizeComment(body.comment || '')
     const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
     const requestId = params.requestId
-    
+
     log.info('Processing approval request', { requestId, requestType, comment, userId: session.user.id })
 
     // Handle WFH requests separately
@@ -33,15 +34,13 @@ export async function POST(
       return handleWFHApproval(session, requestId, comment)
     }
 
-    // Get the leave request and verify manager has permission
+    // Get the leave request and verify manager has permission — fetch ALL approvals for sequential check
     const leaveRequest = await prisma.leaveRequest.findUnique({
       where: { id: requestId },
       include: {
         user: true,
         approvals: {
-          where: {
-            approverId: session.user.id
-          }
+          orderBy: { level: 'asc' }
         }
       }
     })
@@ -50,13 +49,21 @@ export async function POST(
       return NextResponse.json({ error: "Request not found" }, { status: 404 })
     }
 
+    // Status pre-check: only PENDING requests can be approved
+    if (leaveRequest.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: "Request is not in pending status" },
+        { status: 400 }
+      )
+    }
+
     // Check for self-approval
     const validationErrors = await ValidationService.validateApprovalPermission(
       session.user.id,
       leaveRequest.userId,
       requestId
     )
-    
+
     if (validationErrors.length > 0) {
       log.warn('Approval validation failed', {
         approverId: session.user.id,
@@ -64,9 +71,9 @@ export async function POST(
         requestId,
         errors: validationErrors
       })
-      
+
       return NextResponse.json(
-        { 
+        {
           error: validationErrors[0].message,
           code: validationErrors[0].code
         },
@@ -79,9 +86,11 @@ export async function POST(
       return NextResponse.json({ error: "Not authorized to approve this request" }, { status: 403 })
     }
 
-    // Verify there's a pending approval for this manager
-    let pendingApproval = leaveRequest.approvals.find(a => a.status === 'PENDING')
-    
+    // Find the pending approval for this manager
+    let pendingApproval = leaveRequest.approvals.find(
+      a => a.approverId === session.user.id && a.status === 'PENDING'
+    )
+
     // If no approval record exists, create one
     if (!pendingApproval) {
       console.log(`Creating approval record for request ${requestId}`)
@@ -95,10 +104,22 @@ export async function POST(
       })
     }
 
+    // Sequential approval order check: all lower-level approvals must be APPROVED first
+    const lowerLevelApprovals = leaveRequest.approvals.filter(
+      a => a.level < pendingApproval!.level && a.id !== pendingApproval!.id
+    )
+    const hasUnapprovedPrior = lowerLevelApprovals.some(a => a.status !== 'APPROVED')
+    if (hasUnapprovedPrior) {
+      return NextResponse.json(
+        { error: "Previous approval levels must be completed first" },
+        { status: 400 }
+      )
+    }
+
     // Extract signature from comment if present
     let signature = null
     let cleanComment = comment
-    
+
     if (comment && comment.includes('[SIGNATURE:')) {
       const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/)
       if (signatureMatch) {
@@ -107,24 +128,73 @@ export async function POST(
       }
     }
 
-    // Update the approval
-    await prisma.approval.update({
-      where: { id: pendingApproval.id },
-      data: {
-        status: 'APPROVED',
-        comments: cleanComment,
-        signature: signature,
-        approvedAt: new Date(),
-        signedAt: signature ? new Date() : null
+    // Wrap approval update + status check + balance update in a transaction
+    const { allApproved } = await prisma.$transaction(async (tx) => {
+      // Update the approval
+      await tx.approval.update({
+        where: { id: pendingApproval!.id },
+        data: {
+          status: 'APPROVED',
+          comments: cleanComment,
+          signature: signature,
+          approvedAt: new Date(),
+          signedAt: signature ? new Date() : null
+        }
+      })
+
+      // Check if all approvals are complete (inside transaction)
+      const allApprovals = await tx.approval.findMany({
+        where: { leaveRequestId: requestId }
+      })
+
+      const isAllApproved = allApprovals.every(a => a.status === 'APPROVED')
+
+      // Update leave request status if all approvals are done
+      if (isAllApproved) {
+        await tx.leaveRequest.update({
+          where: { id: requestId },
+          data: { status: 'APPROVED' }
+        })
+
+        // Update leave balance (move from pending to used)
+        const currentYear = new Date().getFullYear()
+        try {
+          await tx.leaveBalance.update({
+            where: {
+              userId_leaveTypeId_year: {
+                userId: leaveRequest.userId,
+                leaveTypeId: leaveRequest.leaveTypeId,
+                year: currentYear
+              }
+            },
+            data: {
+              pending: {
+                decrement: leaveRequest.totalDays
+              },
+              used: {
+                increment: leaveRequest.totalDays
+              }
+            }
+          })
+        } catch (balanceError) {
+          console.error('Warning: Could not update leave balance:', balanceError)
+        }
       }
-    })
 
-    // Check if all approvals are complete
-    const allApprovals = await prisma.approval.findMany({
-      where: { leaveRequestId: requestId }
-    })
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'REQUEST_APPROVED',
+          entity: 'LEAVE_REQUEST',
+          entityId: requestId,
+          oldValues: { status: 'PENDING' },
+          newValues: { status: isAllApproved ? 'APPROVED' : 'PENDING', comment: cleanComment || null }
+        }
+      })
 
-    const allApproved = allApprovals.every(a => a.status === 'APPROVED')
+      return { allApproved: isAllApproved }
+    })
 
     // Add current approver's signature to document immediately (before checking allApproved)
     try {
@@ -184,33 +254,8 @@ export async function POST(
       // Don't fail the approval if document handling fails
     }
 
-    // Update leave request status if all approvals are done
+    // When fully approved, regenerate document and send emails
     if (allApproved) {
-      await prisma.leaveRequest.update({
-        where: { id: requestId },
-        data: { status: 'APPROVED' }
-      })
-
-      // Update leave balance (move from pending to used)
-      const currentYear = new Date().getFullYear()
-      await prisma.leaveBalance.update({
-        where: {
-          userId_leaveTypeId_year: {
-            userId: leaveRequest.userId,
-            leaveTypeId: leaveRequest.leaveTypeId,
-            year: currentYear
-          }
-        },
-        data: {
-          pending: {
-            decrement: leaveRequest.totalDays
-          },
-          used: {
-            increment: leaveRequest.totalDays
-          }
-        }
-      })
-
       // Regenerate document with all signatures included
       try {
         const existingDoc = await prisma.generatedDocument.findUnique({
@@ -235,7 +280,7 @@ export async function POST(
             leaveType: true
           }
         });
-        
+
         const approver = await prisma.user.findUnique({
           where: { id: session.user.id }
         });
@@ -295,10 +340,10 @@ export async function POST(
       // Don't fail approval if cache invalidation fails
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       message: "Request approved successfully",
-      allApproved 
+      allApproved
     })
   } catch (error) {
     console.error("Error approving request:", error)
@@ -313,7 +358,7 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
   // Extract signature from comment if present
   let signature = null
   let cleanComment = comment
-  
+
   if (comment && comment.includes('[SIGNATURE:')) {
     const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/);
     if (signatureMatch) {
@@ -345,7 +390,7 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       wfhRequest.userId,
       requestId
     )
-    
+
     if (validationErrors.length > 0) {
       log.warn('WFH approval validation failed', {
         approverId: session.user.id,
@@ -353,9 +398,9 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
         requestId,
         errors: validationErrors
       })
-      
+
       return NextResponse.json(
-        { 
+        {
           error: validationErrors[0].message,
           code: validationErrors[0].code
         },
@@ -427,8 +472,8 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
     })
   } catch (error) {
     console.error("Error approving WFH request:", error)
-    return NextResponse.json({ 
-      error: "Internal server error", 
+    return NextResponse.json({
+      error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }

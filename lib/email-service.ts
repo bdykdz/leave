@@ -80,6 +80,18 @@ export interface SubstituteAssignmentEmailData {
   companyName: string
 }
 
+export interface LeaveStatusEmailData {
+  employeeName: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  days: number
+  status: 'VERIFIED' | 'REJECTED'
+  approverName: string
+  approverComments?: string
+  companyName: string
+}
+
 export interface HolidayPlanSubmissionEmailData {
   employeeName: string
   managerName: string
@@ -890,6 +902,107 @@ Vă mulțumim pentru flexibilitate și colaborare!
   async sendSubstituteAssignmentEmail(substituteEmail: string, data: SubstituteAssignmentEmailData): Promise<boolean> {
     const template = this.generateSubstituteAssignmentEmail(data)
     return await this.sendEmail(substituteEmail, template.subject, template.html, template.text)
+  }
+
+  generateLeaveStatusEmail(data: LeaveStatusEmailData): EmailTemplate {
+    const isVerified = data.status === 'VERIFIED'
+    const subject = `Documente ${isVerified ? 'verificate' : 'respinse'} - ${data.leaveType}`
+    const h = escapeHtml
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: ${isVerified ? '#059669' : '#dc2626'}; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .status { padding: 10px; border-radius: 5px; text-align: center; margin: 15px 0; }
+        .verified { background-color: #d1fae5; color: #065f46; border: 1px solid #059669; }
+        .rejected { background-color: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Documente ${isVerified ? 'Verificate' : 'Respinse'}</h1>
+        </div>
+
+        <div class="content">
+            <p>Bună ziua <strong>${h(data.employeeName)}</strong>,</p>
+
+            <div class="status ${isVerified ? 'verified' : 'rejected'}">
+                <h3>Documentele dvs. au fost ${isVerified ? 'VERIFICATE' : 'RESPINSE'}</h3>
+            </div>
+
+            <div class="details">
+                <h3>Detalii Cerere:</h3>
+                <ul>
+                    <li><strong>Tip concediu:</strong> ${h(data.leaveType)}</li>
+                    <li><strong>Data început:</strong> ${h(data.startDate)}</li>
+                    <li><strong>Data sfârșit:</strong> ${h(data.endDate)}</li>
+                    <li><strong>Numărul de zile:</strong> ${data.days}</li>
+                    <li><strong>Verificat de:</strong> ${h(data.approverName)}</li>
+                    ${data.approverComments ? `<li><strong>Comentarii:</strong> ${h(data.approverComments)}</li>` : ''}
+                </ul>
+            </div>
+
+            ${isVerified
+              ? '<p>Documentele dvs. au fost verificate cu succes. Cererea dvs. urmează acum procesul de aprobare.</p>'
+              : '<p>Documentele dvs. nu au putut fi verificate. Vă rugăm să contactați departamentul HR pentru mai multe informații.</p>'
+            }
+
+            <p style="text-align: center;">
+                <a href="${process.env.NEXTAUTH_URL}/employee" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    Vezi Cererile Mele
+                </a>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Documente ${isVerified ? 'Verificate' : 'Respinse'}
+
+Bună ziua ${data.employeeName},
+
+Documentele dvs. au fost ${isVerified ? 'VERIFICATE' : 'RESPINSE'}.
+
+Detalii Cerere:
+- Tip concediu: ${data.leaveType}
+- Data început: ${data.startDate}
+- Data sfârșit: ${data.endDate}
+- Numărul de zile: ${data.days}
+- Verificat de: ${data.approverName}
+${data.approverComments ? `- Comentarii: ${data.approverComments}` : ''}
+
+${isVerified
+  ? 'Documentele dvs. au fost verificate cu succes. Cererea dvs. urmează acum procesul de aprobare.'
+  : 'Documentele dvs. nu au putut fi verificate. Vă rugăm să contactați departamentul HR pentru mai multe informații.'
+}
+
+Pentru a vedea cererile dvs.: ${process.env.NEXTAUTH_URL}/employee
+
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
+    `
+
+    return { subject, html, text }
+  }
+
+  async sendLeaveStatusEmail(employeeEmail: string, data: LeaveStatusEmailData): Promise<boolean> {
+    const template = this.generateLeaveStatusEmail(data)
+    return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
   }
 
   generateHolidayPlanSubmissionEmail(data: HolidayPlanSubmissionEmailData): EmailTemplate {
