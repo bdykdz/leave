@@ -29,7 +29,7 @@ export async function POST(
     let reason: string | undefined;
     try {
       const body = await request.json();
-      reason = body?.reason;
+      reason = typeof body?.reason === 'string' ? body.reason.slice(0, 500) : undefined;
     } catch {
       reason = undefined;
     }
@@ -66,6 +66,15 @@ export async function POST(
 
     // Perform all database operations in a transaction
     const updatedRequest = await prisma.$transaction(async (tx) => {
+      // Re-check status inside transaction to prevent TOCTOU race condition
+      const current = await tx.workFromHomeRequest.findUnique({
+        where: { id: params.id },
+        select: { status: true }
+      });
+      if (current?.status !== 'APPROVED') {
+        throw new Error('ALREADY_CANCELLED');
+      }
+
       // Cancel the request
       const cancelledRequest = await tx.workFromHomeRequest.update({
         where: { id: params.id },
@@ -214,7 +223,13 @@ export async function POST(
       message: 'WFH request cancelled successfully',
       requestId: updatedRequest.id
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message === 'ALREADY_CANCELLED') {
+      return NextResponse.json(
+        { error: 'Request was already cancelled or status changed' },
+        { status: 409 }
+      );
+    }
     console.error('Error cancelling WFH request:', error);
     return NextResponse.json(
       { error: 'Failed to cancel WFH request' },
