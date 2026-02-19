@@ -29,12 +29,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { 
+import {
   FileText,
-  Download,
   CheckCircle,
   XCircle,
-  Eye,
   Clock,
   AlertCircle,
   Shield,
@@ -43,6 +41,7 @@ import {
   ChevronDown,
   CheckSquare,
   Loader2,
+  Info,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -86,53 +85,6 @@ export function DocumentVerification() {
   const [requests, setRequests] = useState<LeaveRequestForVerification[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Helper function to extract document URLs from supportingDocuments
-  const getDocumentUrls = (supportingDocs: any): { url: string; name: string }[] => {
-    try {
-      if (Array.isArray(supportingDocs)) {
-        // Backward compatibility: treat as string array
-        return supportingDocs
-          .filter(doc => typeof doc === 'string' && doc.trim().length > 0)
-          .map((doc, index) => ({
-            url: doc,
-            name: `Document ${index + 1}`
-          }))
-      } else if (supportingDocs?.uploadedDocuments && Array.isArray(supportingDocs.uploadedDocuments)) {
-        // New format: extract from uploadedDocuments
-        return supportingDocs.uploadedDocuments
-          .filter((url: any) => typeof url === 'string' && url.trim().length > 0)
-          .map((url: string, index: number) => {
-            try {
-              const fileName = url.split('/').pop() || `document_${index + 1}`
-              // Safely remove prefix and sanitize display name
-              const displayName = fileName
-                .replace(/^[^-]+-[^-]+-[^-]+-/, '') // Remove prefix
-                .replace(/[<>"/\\|?*]/g, '_') // Sanitize potentially dangerous characters
-                .substring(0, 50) // Limit length
-              
-              return {
-                url,
-                name: displayName || `Document ${index + 1}`
-              }
-            } catch (error) {
-              console.warn('Error processing document URL:', url, error)
-              return {
-                url,
-                name: `Document ${index + 1}`
-              }
-            }
-          })
-      }
-    } catch (error) {
-      console.error('Error extracting document URLs:', error)
-    }
-    return []
-  }
-
-  // Helper function to get document count for display
-  const getDocumentCount = (supportingDocs: any): number => {
-    return getDocumentUrls(supportingDocs).length
-  }
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequestForVerification | null>(null)
   const [verificationNotes, setVerificationNotes] = useState("")
   const [verifying, setVerifying] = useState(false)
@@ -194,33 +146,6 @@ export function DocumentVerification() {
       toast.error('Failed to process verification')
     } finally {
       setVerifying(false)
-    }
-  }
-
-  const downloadDocument = async (url: string, filename: string) => {
-    try {
-      // Convert MinIO URL to API endpoint
-      const apiUrl = url.startsWith('minio://') 
-        ? `/api/documents/${url.replace('minio://', '').replace('leave-management/', '')}`
-        : url
-
-      const response = await fetch(apiUrl)
-      if (!response.ok) {
-        throw new Error(`Failed to download: ${response.statusText}`)
-      }
-      
-      const blob = await response.blob()
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(downloadUrl)
-    } catch (error) {
-      console.error('Download error:', error)
-      toast.error('Failed to download document')
     }
   }
 
@@ -319,18 +244,14 @@ export function DocumentVerification() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium text-amber-900 mb-1">Document Privacy Notice</p>
-                <p className="text-amber-800">
-                  These documents contain sensitive information. Only HR personnel can view them.
-                  After verification, managers will only see "HR Verified" status, not the actual documents.
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Documents are retained according to the configured retention policy and may be 
-                  automatically deleted after approval or based on age.
+                <p className="font-medium text-blue-900 mb-1">External Document Verification</p>
+                <p className="text-blue-800">
+                  Employees submit supporting documents to HR directly (email, paper, etc.).
+                  Review documents received externally and verify or reject each request below.
                 </p>
               </div>
             </div>
@@ -401,7 +322,7 @@ export function DocumentVerification() {
                   <TableHead>Employee</TableHead>
                   <TableHead>Leave Type</TableHead>
                   <TableHead>Dates</TableHead>
-                  <TableHead className="text-center">Documents</TableHead>
+                  <TableHead className="text-center">Days</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -455,7 +376,7 @@ export function DocumentVerification() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary">
-                          {getDocumentCount(request.supportingDocuments)} file{getDocumentCount(request.supportingDocuments) !== 1 && 's'}
+                          {request.totalDays}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
@@ -479,7 +400,7 @@ export function DocumentVerification() {
                           className="flex items-center gap-1"
                           disabled={request.status === 'APPROVED'}
                         >
-                          <Eye className="h-3 w-3" />
+                          <FileText className="h-3 w-3" />
                           Review
                         </Button>
                       </TableCell>
@@ -499,7 +420,7 @@ export function DocumentVerification() {
           <DialogHeader>
             <DialogTitle>Document Verification</DialogTitle>
             <DialogDescription>
-              Review supporting documents for this special leave request
+              Verify this special leave request based on documents received externally (email, paper, etc.)
             </DialogDescription>
           </DialogHeader>
 
@@ -546,63 +467,16 @@ export function DocumentVerification() {
                 </div>
               </div>
 
-              {/* Supporting Documents */}
-              <div>
-                <h4 className="font-medium mb-2">Supporting Documents</h4>
-                <div className="space-y-2">
-                  {getDocumentUrls(selectedRequest.supportingDocuments).map((doc, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm" title={doc.name}>{doc.name}</span>
-                        {selectedRequest.leaveType.code === 'SL' && (
-                          <Badge variant="outline" className="text-xs">Medical Certificate</Badge>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => downloadDocument(doc.url, doc.name)}
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(doc.url, '_blank')}
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          View
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {getDocumentUrls(selectedRequest.supportingDocuments).length === 0 && (
-                    <p className="text-sm text-gray-500 italic">No documents uploaded</p>
-                  )}
+              {/* External Document Note */}
+              <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">External Document Verification</p>
+                  <p>
+                    Verify this request based on supporting documents received from the employee
+                    externally (email, paper, etc.). Required: {selectedRequest.leaveType.documentTypes.join(', ')}.
+                  </p>
                 </div>
-                
-                {/* Show upload date for sick leave */}
-                {selectedRequest.leaveType.code === 'SL' && 
-                 typeof selectedRequest.supportingDocuments === 'object' && 
-                 selectedRequest.supportingDocuments.documentUploadDate && (() => {
-                   try {
-                     const uploadDate = new Date(selectedRequest.supportingDocuments.documentUploadDate)
-                     if (isNaN(uploadDate.getTime())) {
-                       return null // Invalid date
-                     }
-                     return (
-                       <div className="mt-2 text-xs text-gray-500">
-                         Documents uploaded: {format(uploadDate, 'PPp')}
-                       </div>
-                     )
-                   } catch (error) {
-                     console.warn('Error parsing upload date:', error)
-                     return null
-                   }
-                 })()}
               </div>
 
               {/* Verification Notes */}
@@ -638,7 +512,7 @@ export function DocumentVerification() {
               className="flex items-center gap-2"
             >
               <XCircle className="h-4 w-4" />
-              Reject Documents
+              Reject
             </Button>
             <Button
               variant="default"

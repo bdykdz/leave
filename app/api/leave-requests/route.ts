@@ -11,7 +11,6 @@ import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
 import { checkSelectedDatesOverlap, checkHolidayConflicts } from '@/lib/utils/date-validation';
-import { uploadToMinio, generateSupportingDocumentName, deleteFromMinio } from '@/lib/minio';
 const documentGenerator = new SmartDocumentGenerator();
 
 // Validation schema for leave request
@@ -165,60 +164,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check content type to handle both JSON and FormData
-    const contentType = request.headers.get('content-type') || '';
-    let body: any;
-    let uploadedFiles: File[] = [];
-
-    if (contentType.includes('multipart/form-data')) {
-      // Handle FormData (file uploads)
-      const formData = await request.formData();
-      body = {};
-      
-      // Extract form fields
-      for (const [key, value] of formData.entries()) {
-        if (key.startsWith('supportingDocument_')) {
-          uploadedFiles.push(value as File);
-        } else if (key === 'substituteIds' || key === 'selectedDates') {
-          body[key] = JSON.parse(value as string);
-        } else {
-          body[key] = value;
-        }
-      }
-      
-      // Server-side file validation
-      if (uploadedFiles.length > 0) {
-        const fileErrors: string[] = [];
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-        const maxFileSize = 5 * 1024 * 1024; // 5MB
-        
-        uploadedFiles.forEach((file, index) => {
-          if (!allowedTypes.includes(file.type)) {
-            fileErrors.push(`File ${index + 1}: Invalid file type. Only JPEG, PNG, and PDF files are allowed.`);
-          }
-          if (file.size > maxFileSize) {
-            fileErrors.push(`File ${index + 1}: File size too large. Maximum size is 5MB.`);
-          }
-          if (file.size === 0) {
-            fileErrors.push(`File ${index + 1}: Empty file detected.`);
-          }
-        });
-        
-        if (fileErrors.length > 0) {
-          log.warn('File validation failed', { errors: fileErrors, userId: session.user.id });
-          return NextResponse.json(
-            { 
-              error: 'File validation failed',
-              details: fileErrors
-            },
-            { status: 400 }
-          );
-        }
-      }
-    } else {
-      // Handle JSON
-      body = await request.json();
-    }
+    const body = await request.json();
     
     // Validate request body
     let validatedData;
@@ -477,58 +423,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     // Format leave dates for display
     const formattedDates = formatLeaveDates(startDate, endDate, validatedData.selectedDates);
 
-    // Handle file uploads for supporting documents
-    let uploadedDocumentUrls: string[] = [];
-    if (uploadedFiles.length > 0) {
-      try {
-        log.info('Uploading supporting documents', { 
-          requestNumber, 
-          fileCount: uploadedFiles.length,
-          userEmail: user.email 
-        });
-        
-        const uploadPromises = uploadedFiles.map(async (file, index) => {
-          const fileBuffer = Buffer.from(await file.arrayBuffer());
-          const fileName = generateSupportingDocumentName(
-            requestNumber,
-            user.email,
-            file.name
-          );
-          
-          return await uploadToMinio(
-            fileBuffer,
-            fileName,
-            file.type,
-            undefined, // use default bucket
-            'documents/supporting'
-          );
-        });
-        
-        uploadedDocumentUrls = await Promise.all(uploadPromises);
-        log.info('Supporting documents uploaded', { 
-          requestNumber,
-          uploadedUrls: uploadedDocumentUrls 
-        });
-      } catch (uploadError) {
-        log.error('Failed to upload supporting documents', { 
-          requestNumber,
-          error: uploadError 
-        });
-        // Clean up any partially uploaded files
-        if (uploadedDocumentUrls.length > 0) {
-          await safeAsync(async () => {
-            for (const url of uploadedDocumentUrls) {
-              const filePath = url.replace('minio://', '').replace('leave-management/', '');
-              await deleteFromMinio(filePath);
-            }
-          }, undefined, 'Failed to cleanup uploaded files after error');
-        }
-        return NextResponse.json(
-          { error: 'Failed to upload supporting documents' },
-          { status: 500 }
-        );
-      }
-    }
+    const uploadedDocumentUrls: string[] = [];
 
     // Create leave request with approval workflow
     let leaveRequest;
@@ -592,22 +487,11 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       },
     });
     } catch (dbError) {
-      log.error('Database operation failed, cleaning up uploaded files', { 
+      log.error('Database operation failed', {
         requestNumber,
-        uploadedUrls: uploadedDocumentUrls,
-        error: dbError 
+        error: dbError
       });
-      
-      // Rollback: Delete uploaded files if database creation failed
-      if (uploadedDocumentUrls.length > 0) {
-        await safeAsync(async () => {
-          for (const url of uploadedDocumentUrls) {
-            const filePath = url.replace('minio://', '').replace('leave-management/', '');
-            await deleteFromMinio(filePath);
-          }
-        }, undefined, 'Failed to cleanup files after database error');
-      }
-      
+
       throw dbError; // Re-throw to be handled by outer catch
     }
 
@@ -682,7 +566,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
               userId: hrUser.id,
               type: 'APPROVAL_REQUIRED',
               title: 'Sick Leave Verification Required',
-              message: `${user.firstName} ${user.lastName} has submitted sick leave with medical documents`,
+              message: `${user.firstName} ${user.lastName} has submitted sick leave requiring verification`,
               link: `/hr?tab=verification&request=${leaveRequest.id}`,
             },
           });
@@ -696,7 +580,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
             startDate: format(startDate, 'dd MMMM yyyy'),
             endDate: format(endDate, 'dd MMMM yyyy'),
             days: actualDays,
-            reason: `Medical leave with ${uploadedDocumentUrls.length} document(s) for verification`,
+            reason: `Medical leave requiring document verification`,
             managerName: `${hrUser.firstName} ${hrUser.lastName}`,
             companyName: process.env.COMPANY_NAME || 'TPF',
             requestId: leaveRequest.id
@@ -707,6 +591,76 @@ export const POST = asyncHandler(async (request: NextRequest) => {
             requestNumber 
           });
         }, undefined, `Failed to send sick leave email to ${hrUser.email}`);
+      }
+    }
+
+    // Notify all HR users for non-sick special leave types that require HR verification
+    const isSpecialLeaveNotSick = !isSickLeave && leaveRequest.leaveType.requiresHRVerification;
+    if (isSpecialLeaveNotSick) {
+      const hrUsers = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { role: 'HR' },
+            {
+              role: 'EMPLOYEE',
+              department: { contains: 'hr', mode: 'insensitive' }
+            }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true
+        }
+      });
+
+      log.info('Special leave submitted - notifying all HR users', {
+        requestId: leaveRequest.id,
+        requestNumber,
+        leaveType: leaveRequest.leaveType.code,
+        hrUserCount: hrUsers.length,
+        documentsUploaded: uploadedDocumentUrls.length
+      });
+
+      for (const hrUser of hrUsers) {
+        // Skip the first approver — they already get notified above
+        if (firstApprover && hrUser.id === firstApprover.approverId) continue;
+
+        // Create in-app notification
+        await safeAsync(async () => {
+          await prisma.notification.create({
+            data: {
+              userId: hrUser.id,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Document Verification Required',
+              message: `${user.firstName} ${user.lastName} has submitted ${leaveRequest.leaveType.name} requiring verification`,
+              link: `/hr?tab=verification&request=${leaveRequest.id}`,
+            },
+          });
+        }, undefined, `Failed to create notification for HR user ${hrUser.id}`);
+
+        // Send email
+        await safeAsync(async () => {
+          await emailService.sendLeaveRequestNotification(hrUser.email, {
+            employeeName: `${user.firstName} ${user.lastName}`,
+            leaveType: `${leaveRequest.leaveType.name} - Document Verification Required`,
+            startDate: format(startDate, 'dd MMMM yyyy'),
+            endDate: format(endDate, 'dd MMMM yyyy'),
+            days: actualDays,
+            reason: `${leaveRequest.leaveType.name} requiring document verification`,
+            managerName: `${hrUser.firstName} ${hrUser.lastName}`,
+            companyName: process.env.COMPANY_NAME || 'TPF',
+            requestId: leaveRequest.id
+          });
+
+          log.info('Special leave email sent to HR', {
+            to: hrUser.email,
+            requestNumber,
+            leaveType: leaveRequest.leaveType.code
+          });
+        }, undefined, `Failed to send special leave email to ${hrUser.email}`);
       }
     }
 

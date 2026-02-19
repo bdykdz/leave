@@ -69,6 +69,9 @@ export async function POST(request: NextRequest) {
           select: {
             name: true
           }
+        },
+        approvals: {
+          orderBy: { level: 'asc' as const }
         }
       }
     })
@@ -102,6 +105,50 @@ export async function POST(request: NextRequest) {
             })
           }
         })
+
+          // Update the HR Approval record
+          const hrApproval = request.approvals.find(
+            (a: any) => a.approverId === session.user.id && a.status === 'PENDING'
+          ) || request.approvals.find(
+            (a: any) => a.level === 1 && a.status === 'PENDING'
+          )
+
+          if (hrApproval) {
+            await tx.approval.update({
+              where: { id: hrApproval.id },
+              data: {
+                status: approved ? 'APPROVED' : 'REJECTED',
+                comments: notes || null,
+                approvedAt: new Date(),
+              },
+            })
+          }
+
+          // If rejected, restore leave balance (pending → available)
+          if (!approved && request.leaveTypeId && request.totalDays > 0) {
+            const currentYear = new Date().getFullYear()
+            try {
+              await tx.leaveBalance.update({
+                where: {
+                  userId_leaveTypeId_year: {
+                    userId: request.userId,
+                    leaveTypeId: request.leaveTypeId,
+                    year: currentYear
+                  }
+                },
+                data: {
+                  pending: {
+                    decrement: request.totalDays
+                  },
+                  available: {
+                    increment: request.totalDays
+                  }
+                }
+              })
+            } catch (balanceError) {
+              console.error('Warning: Could not restore leave balance on bulk HR rejection:', balanceError)
+            }
+          }
 
           // Create audit log
           await createAuditLog({
