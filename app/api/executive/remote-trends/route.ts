@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         startDate: { lte: currentMonthEnd },
         endDate: { gte: sixMonthsAgo }
       },
-      select: { userId: true, startDate: true, endDate: true }
+      select: { userId: true, startDate: true, endDate: true, totalDays: true }
     });
 
     // Build trends per month per department
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       for (const req of wfhRequests) {
         if (req.startDate <= monthEnd && req.endDate >= monthStart) {
           const dept = userDeptMap.get(req.userId) || 'Unassigned';
-          entry[dept] = (entry[dept] || 0) + 1;
+          entry[dept] = (entry[dept] || 0) + req.totalDays;
         }
       }
 

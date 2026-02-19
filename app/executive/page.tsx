@@ -80,6 +80,8 @@ export default function ExecutiveDashboard() {
   const [directReportPage, setDirectReportPage] = useState(1)
   const [totalDirectReportPages, setTotalDirectReportPages] = useState(0)
   const [loadingDirectReports, setLoadingDirectReports] = useState(true)
+  const [companyMetrics, setCompanyMetrics] = useState<any>(null)
+  const [departmentStats, setDepartmentStats] = useState<any[]>([])
 
   useEffect(() => {
     if (status === "loading") return
@@ -117,6 +119,8 @@ export default function ExecutiveDashboard() {
       fetchMyRequests()
       fetchEscalatedRequests()
       fetchDirectReportRequests()
+      fetchCompanyMetrics()
+      fetchDepartmentStats()
     }
   }, [session, status, router])
 
@@ -254,6 +258,30 @@ export default function ExecutiveDashboard() {
       console.error('Error fetching direct report requests:', error)
     } finally {
       setLoadingDirectReports(false)
+    }
+  }
+
+  const fetchCompanyMetrics = async () => {
+    try {
+      const response = await fetch('/api/executive/company-metrics')
+      if (response.ok) {
+        const data = await response.json()
+        setCompanyMetrics(data)
+      }
+    } catch (error) {
+      console.error('Error fetching company metrics:', error)
+    }
+  }
+
+  const fetchDepartmentStats = async () => {
+    try {
+      const response = await fetch('/api/executive/department-stats')
+      if (response.ok) {
+        const data = await response.json()
+        setDepartmentStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching department stats:', error)
     }
   }
 
@@ -481,9 +509,107 @@ export default function ExecutiveDashboard() {
         {/* Dashboard Tab Content */}
         {activeTab === "dashboard" && (
           <>
+            {/* Company Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Workforce Today</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{companyMetrics?.inOfficeToday ?? '—'}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {companyMetrics?.totalEmployees > 0
+                      ? `${Math.round((companyMetrics.inOfficeToday / companyMetrics.totalEmployees) * 100)}% in office`
+                      : 'Loading...'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">On Leave Today</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{companyMetrics?.onLeaveToday ?? '—'}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {companyMetrics?.totalEmployees > 0
+                      ? `${Math.round((companyMetrics.onLeaveToday / companyMetrics.totalEmployees) * 100)}% of workforce`
+                      : 'Loading...'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Working Remote</CardTitle>
+                  <Home className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{companyMetrics?.workingRemoteToday ?? '—'}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {companyMetrics?.totalEmployees > 0
+                      ? `${Math.round((companyMetrics.workingRemoteToday / companyMetrics.totalEmployees) * 100)}% remote today`
+                      : 'Loading...'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Leave Utilization</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{companyMetrics?.leaveUtilizationRate ?? '—'}%</div>
+                  <p className="text-xs text-muted-foreground">of allocated leave used YTD</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Department Quick Stats */}
+            {departmentStats.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building className="h-5 w-5 text-blue-500" />
+                    Department Overview
+                  </CardTitle>
+                  <CardDescription>Current capacity across departments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {departmentStats.map((dept) => {
+                      const capacity = dept.employees > 0
+                        ? Math.round(((dept.employees - dept.onLeaveToday) / dept.employees) * 100)
+                        : 0
+                      return (
+                        <div key={dept.department} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{dept.department}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {dept.employees} staff &middot; {dept.onLeaveToday} on leave &middot; {dept.remoteToday} remote
+                            </p>
+                          </div>
+                          <Badge
+                            className={
+                              capacity < 75 ? "bg-red-500" : capacity < 85 ? "bg-yellow-500" : "bg-green-500"
+                            }
+                          >
+                            {capacity}%
+                          </Badge>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Dashboard Summary */}
             <DashboardSummary userRole="EXECUTIVE" />
-            
+
             {/* Quick Actions */}
             <Card>
           <CardHeader>

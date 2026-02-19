@@ -34,24 +34,30 @@ export async function GET(request: NextRequest) {
         select: { totalDays: true }
       });
 
-      // Get WFH requests for this month
-      const wfhCount = await prisma.workFromHomeRequest.count({
+      // Get WFH requests for this month — sum actual days, not request count
+      const wfhRequests = await prisma.workFromHomeRequest.findMany({
         where: {
           status: 'APPROVED',
           startDate: { lte: monthEnd },
           endDate: { gte: monthStart }
-        }
+        },
+        select: { totalDays: true }
       });
 
       const totalLeaveDays = leaveRequests.reduce(
-        (sum, req) => sum + req.totalDays, 
+        (sum, req) => sum + req.totalDays,
+        0
+      );
+
+      const wfhDays = wfhRequests.reduce(
+        (sum, req) => sum + req.totalDays,
         0
       );
 
       patterns.push({
         month: format(monthDate, 'MMM'),
         leave: totalLeaveDays,
-        remote: wfhCount
+        remote: wfhDays
       });
     }
 

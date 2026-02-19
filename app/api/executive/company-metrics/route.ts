@@ -114,11 +114,28 @@ export async function GET(request: NextRequest) {
       ? (totalLeaveDaysThisMonth / totalEmployees).toFixed(1) 
       : 0;
 
-    // Calculate leave utilization rate
-    // Assuming 21 working days per month and each employee has leave entitlement
-    const totalAvailableLeaveDays = totalEmployees * 21; // Working days in month
+    // Calculate leave utilization rate using real entitled days from DB
+    const currentYear = today.getFullYear();
+    const entitledAgg = await prisma.leaveBalance.aggregate({
+      _sum: { entitled: true },
+      where: {
+        year: currentYear,
+        user: { isActive: true }
+      }
+    });
+    const totalAvailableLeaveDays = entitledAgg._sum.entitled || 0;
+
+    const usedAgg = await prisma.leaveBalance.aggregate({
+      _sum: { used: true },
+      where: {
+        year: currentYear,
+        user: { isActive: true }
+      }
+    });
+    const usedYTD = usedAgg._sum.used || 0;
+
     const leaveUtilizationRate = totalAvailableLeaveDays > 0
-      ? ((totalLeaveDaysThisMonth / totalAvailableLeaveDays) * 100).toFixed(1)
+      ? ((usedYTD / totalAvailableLeaveDays) * 100).toFixed(1)
       : 0;
 
     return NextResponse.json({
@@ -129,8 +146,8 @@ export async function GET(request: NextRequest) {
       pendingApprovals,
       totalLeaveDaysThisMonth,
       totalRemoteDaysThisMonth,
-      averageLeaveDaysPerEmployee: parseFloat(averageLeaveDaysPerEmployee as string),
-      leaveUtilizationRate: parseFloat(leaveUtilizationRate as string)
+      averageLeaveDaysPerEmployee: Number(averageLeaveDaysPerEmployee),
+      leaveUtilizationRate: Number(leaveUtilizationRate)
     });
   } catch (error) {
     console.error('Error fetching company metrics:', error);

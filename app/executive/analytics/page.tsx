@@ -286,8 +286,12 @@ export default function ExecutiveDashboard() {
   const departmentCapacity = departmentLeaveData.map((dept) => ({
     ...dept,
     availableToday: dept.employees - dept.onLeaveToday,
-    capacityPercentage: Math.round(((dept.employees - dept.onLeaveToday) / dept.employees) * 100),
-    remotePercentage: Math.round((dept.remoteToday / dept.employees) * 100),
+    capacityPercentage: dept.employees > 0
+      ? Math.round(((dept.employees - dept.onLeaveToday) / dept.employees) * 100)
+      : 0,
+    remotePercentage: dept.employees > 0
+      ? Math.round((dept.remoteToday / dept.employees) * 100)
+      : 0,
   }))
 
   // Generate report function
@@ -441,7 +445,9 @@ export default function ExecutiveDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{companyMetrics.inOfficeToday}</div>
               <p className="text-xs text-muted-foreground">
-                {Math.round((companyMetrics.inOfficeToday / companyMetrics.totalEmployees) * 100)}% in office
+                {companyMetrics.totalEmployees > 0
+                  ? `${Math.round((companyMetrics.inOfficeToday / companyMetrics.totalEmployees) * 100)}% in office`
+                  : '—'}
               </p>
             </CardContent>
           </Card>
@@ -454,7 +460,9 @@ export default function ExecutiveDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{companyMetrics.onLeaveToday}</div>
               <p className="text-xs text-muted-foreground">
-                {Math.round((companyMetrics.onLeaveToday / companyMetrics.totalEmployees) * 100)}% of workforce
+                {companyMetrics.totalEmployees > 0
+                  ? `${Math.round((companyMetrics.onLeaveToday / companyMetrics.totalEmployees) * 100)}% of workforce`
+                  : '—'}
               </p>
             </CardContent>
           </Card>
@@ -467,7 +475,9 @@ export default function ExecutiveDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{companyMetrics.workingRemoteToday}</div>
               <p className="text-xs text-muted-foreground">
-                {Math.round((companyMetrics.workingRemoteToday / companyMetrics.totalEmployees) * 100)}% remote today
+                {companyMetrics.totalEmployees > 0
+                  ? `${Math.round((companyMetrics.workingRemoteToday / companyMetrics.totalEmployees) * 100)}% remote today`
+                  : '—'}
               </p>
             </CardContent>
           </Card>
