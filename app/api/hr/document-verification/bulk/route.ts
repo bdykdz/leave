@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
-import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 
 interface BulkVerificationRequest {
   requestIds: string[]
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
     
-    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
+    if (!user || (!['HR', 'ADMIN'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
@@ -126,14 +125,14 @@ export async function POST(request: NextRequest) {
 
           // If rejected, restore leave balance (pending → available)
           if (!approved && request.leaveTypeId && request.totalDays > 0) {
-            const currentYear = new Date().getFullYear()
+            const balanceYear = new Date(request.startDate).getFullYear()
             try {
               await tx.leaveBalance.update({
                 where: {
                   userId_leaveTypeId_year: {
                     userId: request.userId,
                     leaveTypeId: request.leaveTypeId,
-                    year: currentYear
+                    year: balanceYear
                   }
                 },
                 data: {
@@ -146,28 +145,31 @@ export async function POST(request: NextRequest) {
                 }
               })
             } catch (balanceError) {
-              console.error('Warning: Could not restore leave balance on bulk HR rejection:', balanceError)
+              console.error('Failed to restore leave balance on bulk HR rejection:', balanceError)
+              throw balanceError // Abort transaction — balance must stay consistent with request status
             }
           }
 
-          // Create audit log
-          await createAuditLog({
-            userId: session.user.id,
-            action: approved ? AuditAction.VERIFY_DOCUMENT : AuditAction.REJECT_DOCUMENT,
-            entity: 'LEAVE_REQUEST',
-            entityId: request.id,
-            oldValues: { 
-              hrDocumentVerified: request.hrDocumentVerified,
-              status: request.status 
-            },
-            newValues: { 
-              hrDocumentVerified: approved,
-              status: approved ? request.status : 'REJECTED'
-            },
-            metadata: {
-              reason: notes || (approved ? 'Bulk document verification - approved' : 'Bulk document verification - rejected'),
-              affectedUserId: request.userId,
-              bulkOperation: true
+          // Create audit log (inside transaction so it rolls back if tx fails)
+          await tx.auditLog.create({
+            data: {
+              userId: session.user.id,
+              action: approved ? 'HR_DOCUMENT_APPROVED' : 'HR_DOCUMENT_REJECTED',
+              entity: 'LEAVE_REQUEST',
+              entityId: request.id,
+              oldValues: {
+                hrDocumentVerified: request.hrDocumentVerified,
+                status: request.status
+              },
+              newValues: {
+                hrDocumentVerified: approved,
+                status: approved ? request.status : 'REJECTED'
+              },
+              details: {
+                reason: notes || (approved ? 'Bulk document verification - approved' : 'Bulk document verification - rejected'),
+                affectedUserId: request.userId,
+                bulkOperation: true
+              }
             }
           })
 
@@ -243,7 +245,7 @@ export async function GET(request: NextRequest) {
 
     const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
     
-    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
+    if (!user || (!['HR', 'ADMIN'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 

@@ -1065,15 +1065,15 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
     }
   }
 
-  // Critical check: For sick leave requiring HR verification, ensure HR approver exists
-  if (leaveType?.code === 'SL' && leaveType?.requiresHRVerification) {
-    const hasHRApproval = approvals.some(approval => 
+  // Critical check: For ALL leave types requiring HR verification, ensure HR approver exists
+  if (leaveType?.requiresHRVerification) {
+    const hasHRApproval = approvals.some(approval =>
       approval.approverId // Has valid approver ID
     );
-    
+
     if (!hasHRApproval) {
-      console.error('[generateApprovalWorkflow] Critical: No HR approver available for sick leave verification');
-      throw new Error('No HR personnel available for sick leave verification. Please contact your administrator.');
+      console.error('[generateApprovalWorkflow] Critical: No HR approver available for special leave verification', { leaveType: leaveType.code });
+      throw new Error(`No HR personnel available for ${leaveType.code === 'SL' ? 'sick leave' : 'special leave'} verification. Please contact your administrator.`);
     }
   }
 

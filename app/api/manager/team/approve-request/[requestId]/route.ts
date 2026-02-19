@@ -157,14 +157,15 @@ export async function POST(
         })
 
         // Update leave balance (move from pending to used)
-        const currentYear = new Date().getFullYear()
+        // Use request's start date year — balance was deducted in that year at submission time
+        const balanceYear = new Date(leaveRequest.startDate).getFullYear()
         try {
           await tx.leaveBalance.update({
             where: {
               userId_leaveTypeId_year: {
                 userId: leaveRequest.userId,
                 leaveTypeId: leaveRequest.leaveTypeId,
-                year: currentYear
+                year: balanceYear
               }
             },
             data: {
@@ -177,7 +178,8 @@ export async function POST(
             }
           })
         } catch (balanceError) {
-          console.error('Warning: Could not update leave balance:', balanceError)
+          console.error('Failed to update leave balance:', balanceError)
+          throw balanceError // Abort transaction — balance must stay consistent with request status
         }
       }
 

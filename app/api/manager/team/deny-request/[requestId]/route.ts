@@ -31,15 +31,13 @@ export async function POST(
       return handleWFHDenial(session, requestId, comment)
     }
 
-    // Get the leave request and verify manager has permission
+    // Get the leave request and verify manager has permission — fetch ALL approvals for chain integrity
     const leaveRequest = await prisma.leaveRequest.findUnique({
       where: { id: requestId },
       include: {
         user: true,
         approvals: {
-          where: {
-            approverId: session.user.id
-          }
+          orderBy: { level: 'asc' }
         }
       }
     })
@@ -63,14 +61,22 @@ export async function POST(
 
     // Wrap all mutations in a transaction for atomicity
     await prisma.$transaction(async (tx) => {
-      // Find or create the pending approval for this manager (avoid duplicates)
-      let pendingApproval = leaveRequest.approvals.find(a => a.status === 'PENDING')
+      // Find the pending approval for this manager specifically
+      let pendingApproval = leaveRequest.approvals.find(
+        a => a.approverId === session.user.id && a.status === 'PENDING'
+      ) || leaveRequest.approvals.find(
+        a => a.approverId === session.user.id
+      )
 
       if (!pendingApproval) {
-        // Check if any approval exists for this approver to avoid duplicates
+        // Fallback: find any pending approval this manager can act on
+        pendingApproval = leaveRequest.approvals.find(a => a.status === 'PENDING')
+      }
+
+      if (!pendingApproval) {
+        // Last resort: create approval record if none exists at all
         const existingApproval = leaveRequest.approvals[0]
         if (existingApproval) {
-          // Update the existing approval instead of creating a duplicate
           pendingApproval = existingApproval
         } else {
           console.log(`Creating approval record for request ${requestId}`)
@@ -114,14 +120,15 @@ export async function POST(
       })
 
       // Restore leave balance (move from pending back to available)
-      const currentYear = new Date().getFullYear()
+      // Use request's start date year — balance was deducted in that year at submission time
+      const balanceYear = new Date(leaveRequest.startDate).getFullYear()
       try {
         await tx.leaveBalance.update({
           where: {
             userId_leaveTypeId_year: {
               userId: leaveRequest.userId,
               leaveTypeId: leaveRequest.leaveTypeId,
-              year: currentYear
+              year: balanceYear
             }
           },
           data: {
@@ -134,8 +141,8 @@ export async function POST(
           }
         })
       } catch (balanceError) {
-        console.error("Warning: Could not restore leave balance:", balanceError)
-        // Continue with the denial even if balance update fails
+        console.error("Failed to restore leave balance:", balanceError)
+        throw balanceError // Abort transaction — balance must stay consistent with request status
       }
     })
 

@@ -127,8 +127,9 @@ export async function POST(
       });
 
       // Restore leave balance based on current status
+      // Use request's start date year — balance was deducted in that year at submission time
       if (leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
-        const currentYear = new Date().getFullYear();
+        const balanceYear = new Date(leaveRequest.startDate).getFullYear();
 
         try {
           if (leaveRequest.status === 'APPROVED') {
@@ -138,7 +139,7 @@ export async function POST(
                 userId_leaveTypeId_year: {
                   userId: leaveRequest.userId,
                   leaveTypeId: leaveRequest.leaveTypeId,
-                  year: currentYear
+                  year: balanceYear
                 }
               },
               data: {
@@ -157,7 +158,7 @@ export async function POST(
                 userId_leaveTypeId_year: {
                   userId: leaveRequest.userId,
                   leaveTypeId: leaveRequest.leaveTypeId,
-                  year: currentYear
+                  year: balanceYear
                 }
               },
               data: {
@@ -171,8 +172,8 @@ export async function POST(
             });
           }
         } catch (balanceError) {
-          console.error('Warning: Could not restore leave balance:', balanceError);
-          // Continue with rejection even if balance update fails
+          console.error('Failed to restore leave balance:', balanceError);
+          throw balanceError; // Abort transaction — balance must stay consistent with request status
         }
       }
 

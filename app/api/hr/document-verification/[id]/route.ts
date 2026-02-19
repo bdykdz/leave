@@ -32,7 +32,7 @@ export async function POST(
 
     const isHREmployee = user?.role === 'EMPLOYEE' && (user?.department?.toLowerCase() === 'hr' || user?.department?.toLowerCase() === 'human resources')
 
-    if (!user || (!['HR', 'ADMIN', 'EXECUTIVE'].includes(user.role) && !isHREmployee)) {
+    if (!user || (!['HR', 'ADMIN'].includes(user.role) && !isHREmployee)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
@@ -61,6 +61,21 @@ export async function POST(
     if (!leaveRequest.leaveType.requiresHRVerification) {
       return NextResponse.json(
         { error: 'This leave type does not require HR verification' },
+        { status: 400 }
+      )
+    }
+
+    // Guard: prevent double-processing of already-verified or non-pending requests
+    if (leaveRequest.hrDocumentVerified) {
+      return NextResponse.json(
+        { error: 'This request has already been verified' },
+        { status: 400 }
+      )
+    }
+
+    if (leaveRequest.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: 'Request is not in pending status' },
         { status: 400 }
       )
     }
@@ -100,14 +115,14 @@ export async function POST(
 
       // If HR rejects, restore leave balance (pending → available)
       if (!approved && leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
-        const currentYear = new Date().getFullYear()
+        const balanceYear = new Date(leaveRequest.startDate).getFullYear()
         try {
           await tx.leaveBalance.update({
             where: {
               userId_leaveTypeId_year: {
                 userId: leaveRequest.userId,
                 leaveTypeId: leaveRequest.leaveTypeId,
-                year: currentYear
+                year: balanceYear
               }
             },
             data: {
@@ -120,7 +135,8 @@ export async function POST(
             }
           })
         } catch (balanceError) {
-          console.error('Warning: Could not restore leave balance on HR rejection:', balanceError)
+          console.error('Failed to restore leave balance on HR rejection:', balanceError)
+          throw balanceError // Abort transaction — balance must stay consistent with request status
         }
       }
 

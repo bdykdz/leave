@@ -412,7 +412,7 @@ export class LeaveRolloverService {
         const carriedForward = year === startYear ? bal.carriedForward : prevCarry
         const entitled = bal.entitled
         const used = bal.used
-        const available = entitled + carriedForward - used
+        const available = entitled + carriedForward - used - bal.pending
         const unused = Math.max(0, available)
         const carryToNext = Math.min(unused, maxCarry)
         const lost = unused - carryToNext
