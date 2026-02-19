@@ -113,6 +113,19 @@ export interface HolidayPlanApprovalEmailData {
   planId: string
 }
 
+export interface CancellationEmailData {
+  employeeName: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  totalDays: number
+  cancelledBy: string
+  reason?: string
+  recipientType: 'employee' | 'manager' | 'hr'
+  recipientName: string
+  companyName: string
+}
+
 class EmailService {
   private resend: Resend | null = null
 
@@ -1207,6 +1220,102 @@ Pentru a vedea planul de concediu: ${process.env.NEXTAUTH_URL}/holiday-planning
   async sendHolidayPlanApprovalNotification(employeeEmail: string, data: HolidayPlanApprovalEmailData): Promise<boolean> {
     const template = this.generateHolidayPlanApprovalEmail(data)
     return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
+  }
+
+  generateCancellationEmail(data: CancellationEmailData): EmailTemplate {
+    const h = escapeHtml
+    const isEmployee = data.recipientType === 'employee'
+
+    const subject = isEmployee
+      ? `Cererea de concediu a fost anulată - ${h(data.leaveType)}`
+      : `Concediul angajatului ${h(data.employeeName)} a fost anulat`
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .status { padding: 10px; border-radius: 5px; text-align: center; margin: 15px 0; background-color: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Concediu Anulat</h1>
+        </div>
+
+        <div class="content">
+            <p>Bună ziua <strong>${h(data.recipientName)}</strong>,</p>
+
+            ${isEmployee
+              ? `<div class="status"><h3>Cererea dvs. de concediu a fost ANULATĂ de către ${h(data.cancelledBy)}</h3></div>`
+              : `<div class="status"><h3>Concediul angajatului ${h(data.employeeName)} a fost anulat de către ${h(data.cancelledBy)}</h3></div>`
+            }
+
+            <div class="details">
+                <h3>Detalii Cerere:</h3>
+                <ul>
+                    <li><strong>Angajat:</strong> ${h(data.employeeName)}</li>
+                    <li><strong>Tip concediu:</strong> ${h(data.leaveType)}</li>
+                    <li><strong>Data început:</strong> ${h(data.startDate)}</li>
+                    <li><strong>Data sfârșit:</strong> ${h(data.endDate)}</li>
+                    <li><strong>Numărul de zile:</strong> ${data.totalDays}</li>
+                    <li><strong>Anulat de:</strong> ${h(data.cancelledBy)}</li>
+                    ${data.reason ? `<li><strong>Motiv:</strong> ${h(data.reason)}</li>` : ''}
+                </ul>
+            </div>
+
+            <p style="text-align: center;">
+                <a href="${process.env.NEXTAUTH_URL}/${isEmployee ? 'employee' : data.recipientType === 'hr' ? 'hr' : 'manager'}" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    Vezi Dashboard
+                </a>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+
+    const text = `
+Concediu Anulat
+
+Bună ziua ${data.recipientName},
+
+${isEmployee
+  ? `Cererea dvs. de concediu a fost ANULATĂ de către ${data.cancelledBy}.`
+  : `Concediul angajatului ${data.employeeName} a fost anulat de către ${data.cancelledBy}.`
+}
+
+Detalii Cerere:
+- Angajat: ${data.employeeName}
+- Tip concediu: ${data.leaveType}
+- Data început: ${data.startDate}
+- Data sfârșit: ${data.endDate}
+- Numărul de zile: ${data.totalDays}
+- Anulat de: ${data.cancelledBy}
+${data.reason ? `- Motiv: ${data.reason}` : ''}
+
+© ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
+    `
+
+    return { subject, html, text }
+  }
+
+  async sendCancellationNotification(recipientEmail: string, data: CancellationEmailData): Promise<boolean> {
+    const template = this.generateCancellationEmail(data)
+    return await this.sendEmail(recipientEmail, template.subject, template.html, template.text)
   }
 }
 

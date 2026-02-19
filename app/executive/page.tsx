@@ -24,7 +24,17 @@ import {
   Shield,
   Building,
   UserCog,
+  Search,
+  Ban,
 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { TeamCalendar } from "@/components/team-calendar"
 import { ExecutiveLeaveRequestForm } from "@/components/executive-leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
@@ -82,6 +92,18 @@ export default function ExecutiveDashboard() {
   const [loadingDirectReports, setLoadingDirectReports] = useState(true)
   const [companyMetrics, setCompanyMetrics] = useState<any>(null)
   const [departmentStats, setDepartmentStats] = useState<any[]>([])
+
+  // Leave Management tab state
+  const [approvedLeaves, setApprovedLeaves] = useState<any[]>([])
+  const [approvedLeavesPage, setApprovedLeavesPage] = useState(1)
+  const [totalApprovedPages, setTotalApprovedPages] = useState(0)
+  const [totalApprovedCount, setTotalApprovedCount] = useState(0)
+  const [loadingApprovedLeaves, setLoadingApprovedLeaves] = useState(false)
+  const [leaveSearchTerm, setLeaveSearchTerm] = useState('')
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [showCancelDialog, setShowCancelDialog] = useState<{ id: string; type: 'leave' | 'wfh'; name: string } | null>(null)
 
   useEffect(() => {
     if (status === "loading") return
@@ -284,6 +306,77 @@ export default function ExecutiveDashboard() {
       console.error('Error fetching department stats:', error)
     }
   }
+
+  const fetchApprovedLeaves = async () => {
+    setLoadingApprovedLeaves(true)
+    try {
+      const params = new URLSearchParams({
+        page: approvedLeavesPage.toString(),
+        limit: '10',
+        type: leaveTypeFilter,
+        ...(leaveSearchTerm && { search: leaveSearchTerm })
+      })
+      const response = await fetch(`/api/executive/approved-leaves?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setApprovedLeaves(data.requests)
+        setTotalApprovedPages(data.pagination.totalPages)
+        setTotalApprovedCount(data.pagination.totalCount)
+      }
+    } catch (error) {
+      console.error('Error fetching approved leaves:', error)
+    } finally {
+      setLoadingApprovedLeaves(false)
+    }
+  }
+
+  const handleExecutiveCancel = async (requestId: string, requestType: 'leave' | 'wfh', reason?: string) => {
+    setCancellingId(requestId)
+    try {
+      const endpoint = requestType === 'wfh'
+        ? `/api/executive/cancel-wfh/${requestId}`
+        : `/api/executive/cancel-leave/${requestId}`
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      })
+      if (response.ok) {
+        toast.success('Leave cancelled successfully')
+        fetchApprovedLeaves()
+        fetchCompanyMetrics()
+      } else {
+        const err = await response.json()
+        toast.error(err.error || 'Failed to cancel')
+      }
+    } catch (error) {
+      toast.error('Failed to cancel request')
+    } finally {
+      setCancellingId(null)
+      setShowCancelDialog(null)
+      setCancelReason('')
+    }
+  }
+
+  // Fetch approved leaves when manage tab is active or filters change
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (session?.user?.role === "EXECUTIVE" && activeTab === "manage") {
+      fetchApprovedLeaves()
+    }
+  }, [activeTab, approvedLeavesPage, leaveTypeFilter, session, status])
+
+  // Debounced search for leave management
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (session?.user?.role === "EXECUTIVE" && activeTab === "manage") {
+      const timer = setTimeout(() => {
+        setApprovedLeavesPage(1)
+        fetchApprovedLeaves()
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [leaveSearchTerm])
 
   const handleApprove = async (requestId: string, comment?: string, isDirectReport: boolean = false, requestType?: string) => {
     try {
@@ -493,6 +586,19 @@ export default function ExecutiveDashboard() {
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 {t.nav.companyCalendar}
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab("manage")}
+              className={`pb-3 px-1 border-b-2 transition-colors ${
+                activeTab === "manage"
+                  ? "border-purple-600 text-purple-600 font-medium"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Ban className="h-4 w-4" />
+                Leave Management
               </div>
             </button>
           </div>
@@ -1053,6 +1159,181 @@ export default function ExecutiveDashboard() {
 
         {/* Calendar Tab Content */}
         {activeTab === "calendar" && <TeamCalendar key={calendarKey} />}
+
+        {/* Leave Management Tab Content */}
+        {activeTab === "manage" && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Ban className="h-5 w-5 text-red-500" />
+                  Cancel Approved Leave & WFH
+                </CardTitle>
+                <CardDescription>
+                  Cancel future approved Normal Leave and Work From Home requests for any employee. Special/protected leave types cannot be cancelled.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by employee name..."
+                      value={leaveSearchTerm}
+                      onChange={(e) => setLeaveSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={leaveTypeFilter} onValueChange={(value) => { setLeaveTypeFilter(value); setApprovedLeavesPage(1) }}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="leave">Normal Leave</SelectItem>
+                      <SelectItem value="wfh">Work From Home</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Results */}
+                {loadingApprovedLeaves ? (
+                  <div className="space-y-3">
+                    <div className="animate-pulse bg-gray-200 h-16 rounded"></div>
+                    <div className="animate-pulse bg-gray-200 h-16 rounded"></div>
+                    <div className="animate-pulse bg-gray-200 h-16 rounded"></div>
+                  </div>
+                ) : approvedLeaves.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                    <p className="text-gray-500">No cancellable approved requests found</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500 mb-3">{totalApprovedCount} request{totalApprovedCount !== 1 ? 's' : ''} found</p>
+                    <div className="space-y-3">
+                      {approvedLeaves.map((request) => (
+                        <div key={`${request.requestType}-${request.id}`} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback>
+                                    {request.employee?.name?.split(' ').map((n: string) => n[0]).join('') || 'NA'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <h3 className="font-medium">{request.employee?.name}</h3>
+                                  <p className="text-sm text-gray-600">{request.employee?.department}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant={request.requestType === 'wfh' ? 'secondary' : 'default'}>
+                                  {request.type}
+                                </Badge>
+                                <span className="text-sm text-gray-600">
+                                  {format(new Date(request.startDate), 'MMM d, yyyy')} - {format(new Date(request.endDate), 'MMM d, yyyy')}
+                                </span>
+                                <span className="text-sm font-medium">({request.totalDays} day{request.totalDays !== 1 ? 's' : ''})</span>
+                              </div>
+                              {request.reason && (
+                                <p className="text-sm text-gray-500 italic mt-1">"{request.reason}"</p>
+                              )}
+                            </div>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={cancellingId === request.id}
+                              onClick={() => setShowCancelDialog({ id: request.id, type: request.requestType, name: request.employee?.name })}
+                            >
+                              {cancellingId === request.id ? (
+                                <Clock className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <XCircle className="h-4 w-4 mr-1" />
+                              )}
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalApprovedPages > 1 && (
+                      <div className="flex items-center justify-center space-x-2 pt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setApprovedLeavesPage(Math.max(1, approvedLeavesPage - 1))}
+                          disabled={approvedLeavesPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          {t.common.previous}
+                        </Button>
+                        <span className="text-sm text-gray-600">
+                          Page {approvedLeavesPage} of {totalApprovedPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setApprovedLeavesPage(Math.min(totalApprovedPages, approvedLeavesPage + 1))}
+                          disabled={approvedLeavesPage === totalApprovedPages}
+                        >
+                          {t.common.next}
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Cancel Confirmation Dialog */}
+            {showCancelDialog && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <Card className="w-full max-w-md mx-4">
+                  <CardHeader>
+                    <CardTitle className="text-red-600 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Confirm Cancellation
+                    </CardTitle>
+                    <CardDescription>
+                      Cancel {showCancelDialog.name}&apos;s approved request? This will restore their leave balance and notify the employee, their manager, and HR.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">Reason (optional)</label>
+                      <textarea
+                        className="w-full border rounded-md p-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="Enter reason for cancellation..."
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => { setShowCancelDialog(null); setCancelReason('') }}
+                      >
+                        Go Back
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        disabled={cancellingId === showCancelDialog.id}
+                        onClick={() => handleExecutiveCancel(showCancelDialog.id, showCancelDialog.type, cancelReason || undefined)}
+                      >
+                        {cancellingId === showCancelDialog.id ? 'Cancelling...' : 'Cancel Request'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Approval Dialog */}
