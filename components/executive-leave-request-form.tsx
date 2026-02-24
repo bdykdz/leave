@@ -173,7 +173,10 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
         } else if (data.message) {
           throw new Error(data.message)
         } else if (data.errors && Array.isArray(data.errors)) {
-          throw new Error(data.errors.join('\n'))
+          const errorMessages = data.errors.map((e: any) =>
+            typeof e === 'string' ? e : e.message || String(e)
+          ).join('\n')
+          throw new Error(errorMessages)
         } else {
           throw new Error(data.error || 'Failed to submit leave request')
         }
