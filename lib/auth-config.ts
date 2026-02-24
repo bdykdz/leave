@@ -10,6 +10,45 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 8 * 60 * 60, // 8 hours - appropriate for HR system with sensitive data
   },
+  logger: {
+    error(code, metadata) {
+      const meta = metadata as any
+      const errorInfo = {
+        code,
+        message: meta?.error?.message || meta?.message || 'Unknown error',
+        provider: meta?.providerId || 'unknown',
+        timestamp: new Date().toISOString(),
+      }
+      console.error('[AUTH ERROR]', JSON.stringify(errorInfo))
+    },
+    warn(code) {
+      console.warn('[AUTH WARN]', code)
+    },
+    debug(code, metadata) {
+      // Only log debug in non-production for verbosity control
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[AUTH DEBUG]', code, metadata)
+      }
+    },
+  },
+  events: {
+    async signIn({ user, account }) {
+      console.log('[AUTH EVENT] Sign-in success:', {
+        email: user?.email,
+        provider: account?.provider,
+        timestamp: new Date().toISOString(),
+      })
+    },
+    async signOut({ token }) {
+      console.log('[AUTH EVENT] Sign-out:', {
+        email: (token as any)?.email,
+        timestamp: new Date().toISOString(),
+      })
+    },
+    async session({ token }) {
+      // Log session refresh only in debug scenarios — too noisy for production
+    },
+  },
   providers: [
     // Development and UAT credentials provider — requires NODE_ENV or APP_ENV, SHOW_DEV_LOGIN alone is insufficient
     ...((process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat") && process.env.SHOW_DEV_LOGIN === "true" ? [
@@ -113,10 +152,11 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log('Sign in attempt:', { 
+      console.log('[AUTH] Sign-in attempt:', {
         provider: account?.provider,
         email: user?.email,
-        hasProfile: !!profile 
+        hasProfile: !!profile,
+        timestamp: new Date().toISOString(),
       })
       
       // Allow development credentials provider in development and UAT
@@ -128,19 +168,19 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "azure-ad") {
         try {
           if (!user.email) {
-            console.error('No email provided by Azure AD')
+            console.error('[AUTH] Azure AD returned no email — rejecting sign-in')
             return false
           }
 
           // Check if user exists in our database
-          console.log(`Looking for user with email: ${user.email.toLowerCase()}`)
+          console.log(`[AUTH] Looking for user with email: ${user.email.toLowerCase()}`)
           
           const existingUser = await prisma.user.findUnique({
             where: { email: user.email.toLowerCase() }
           })
 
           if (existingUser) {
-            console.log(`Found user: ${existingUser.email} with role: ${existingUser.role}`)
+            console.log(`[AUTH] Found user: ${existingUser.email} with role: ${existingUser.role}`)
             
             // Update user info from Azure AD if available
             const updates: any = {}
@@ -157,24 +197,18 @@ export const authOptions: NextAuthOptions = {
                 where: { email: user.email.toLowerCase() },
                 data: updates
               })
-              console.log('Updated user profile from Azure AD')
+              console.log('[AUTH] Updated user profile from Azure AD')
             }
             
             return true
           } else {
             // User not in database - reject login
-            console.log(`User ${user.email} not found in database`)
-            
-            // List all users in database for debugging
-            const allUsers = await prisma.user.findMany({
-              select: { email: true }
-            })
-            console.log('Users in database:', allUsers.map(u => u.email))
-            
+            console.error(`[AUTH] REJECTED: ${user.email} not found in database`)
+
             return '/login?error=AccessDenied'
           }
         } catch (error) {
-          console.error("Error during sign in:", error)
+          console.error("[AUTH] Error during sign-in for", user?.email, ":", error)
           return false
         }
       }
@@ -238,5 +272,25 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
     error: '/login',
-  }
+  },
+  cookies: {
+    state: {
+      name: `next-auth.state`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
+      },
+    },
+    pkceCodeVerifier: {
+      name: `next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,
+      },
+    },
+  },
 }
