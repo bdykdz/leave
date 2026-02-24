@@ -517,9 +517,25 @@ export class SmartDocumentGenerator {
     }
 
     sig.employee.name = `${leaveRequest.user.firstName || ''} ${leaveRequest.user.lastName || ''}`.trim()
-    
+
+    // Check if this is an HR manual entry (no employee signature expected)
+    const isHrManualEntry = leaveRequest.supportingDocuments &&
+      typeof leaveRequest.supportingDocuments === 'object' &&
+      leaveRequest.supportingDocuments.createdByHr === true
+
+    if (isHrManualEntry) {
+      sig.employee.signature = 'HR MANUAL ENTRY'
+      sig.employee.date = format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy')
+      // Also populate HR signature with the HR user who created the entry
+      const hrEmail = leaveRequest.supportingDocuments.hrUserEmail || ''
+      sig.hr.name = hrEmail ? `HR (${hrEmail})` : 'HR Manual Entry'
+      sig.hr.date = format(new Date(leaveRequest.createdAt), 'dd.MM.yyyy')
+      sig.hr.signature = 'HR MANUAL ENTRY'
+      console.log('HR manual entry detected - marking signatures accordingly')
+    }
+
     // Check for employee signature in supportingDocuments
-    if (leaveRequest.supportingDocuments && typeof leaveRequest.supportingDocuments === 'object') {
+    if (!isHrManualEntry && leaveRequest.supportingDocuments && typeof leaveRequest.supportingDocuments === 'object') {
       const supportingDocs = leaveRequest.supportingDocuments
       if (supportingDocs.employeeSignature) {
         sig.employee.signature = supportingDocs.employeeSignature
@@ -830,7 +846,8 @@ export class SmartDocumentGenerator {
       },
       calculated: {
         currentDate: format(new Date(), 'dd.MM.yyyy'),
-        workingDays: String(leaveRequest.totalDays)
+        workingDays: String(leaveRequest.totalDays),
+        isManualEntry: leaveRequest.supportingDocuments?.createdByHr ? 'HR Manual Entry' : '',
       },
       balance: {
         entitled: String(leaveBalance?.entitled || 0),

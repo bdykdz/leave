@@ -4,6 +4,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 import { sanitizeComment } from '@/lib/utils/sanitize'
+import { WorkingDaysService } from '@/lib/services/working-days-service'
+import { eachDayOfInterval } from 'date-fns'
 
 export async function POST(request: NextRequest) {
   try {
@@ -100,6 +102,16 @@ export async function POST(request: NextRequest) {
     const startDateISO = parsedStartDate.toISOString().split('T')[0]
     const endDateISO = parsedEndDate.toISOString().split('T')[0]
 
+    // Compute working days (selected dates) for document generation
+    const workingDaysService = WorkingDaysService.getInstance()
+    const allDaysInRange = eachDayOfInterval({ start: parsedStartDate, end: parsedEndDate })
+    const workingDatesList: Date[] = []
+    for (const day of allDaysInRange) {
+      if (await workingDaysService.isWorkingDay(day)) {
+        workingDatesList.push(day)
+      }
+    }
+
     // Execute everything in a transaction (including request number generation to prevent duplicates)
     const result = await prisma.$transaction(async (tx) => {
       // Generate request number inside transaction to prevent race conditions
@@ -124,7 +136,7 @@ export async function POST(request: NextRequest) {
           totalDays: parsedTotalDays,
           reason: sanitizedReason,
           status: requestStatus,
-          selectedDates: [],
+          selectedDates: workingDatesList,
           createdByHrId: session.user.id,
           supportingDocuments: {
             createdByHr: true,

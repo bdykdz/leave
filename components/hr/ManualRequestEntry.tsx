@@ -37,7 +37,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
-import { differenceInDays, parseISO } from "date-fns"
+import { parseISO } from "date-fns"
 
 interface Employee {
   id: string
@@ -109,28 +109,51 @@ export function ManualRequestEntry() {
     fetchLeaveTypes()
   }, [])
 
-  // Auto-calculate totalDays for leave form — only if not manually edited (#9)
+  // Auto-calculate totalDays for leave form using working days API (excludes weekends + holidays)
   useEffect(() => {
     if (leaveDaysManuallyEdited.current) return
     if (leaveForm.startDate && leaveForm.endDate) {
       const start = parseISO(leaveForm.startDate)
       const end = parseISO(leaveForm.endDate)
-      const days = differenceInDays(end, start) + 1
-      if (days > 0) {
-        setLeaveForm(prev => ({ ...prev, totalDays: String(days) }))
+      if (end >= start) {
+        fetch(`/api/working-days?startDate=${leaveForm.startDate}&endDate=${leaveForm.endDate}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data && !leaveDaysManuallyEdited.current) {
+              setLeaveForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
+            }
+          })
+          .catch(() => {
+            // Fallback: simple calendar days if API fails
+            const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+            if (days > 0 && !leaveDaysManuallyEdited.current) {
+              setLeaveForm(prev => ({ ...prev, totalDays: String(days) }))
+            }
+          })
       }
     }
   }, [leaveForm.startDate, leaveForm.endDate])
 
-  // Auto-calculate totalDays for WFH form — only if not manually edited (#9)
+  // Auto-calculate totalDays for WFH form using working days API (excludes weekends + holidays)
   useEffect(() => {
     if (wfhDaysManuallyEdited.current) return
     if (wfhForm.startDate && wfhForm.endDate) {
       const start = parseISO(wfhForm.startDate)
       const end = parseISO(wfhForm.endDate)
-      const days = differenceInDays(end, start) + 1
-      if (days > 0) {
-        setWfhForm(prev => ({ ...prev, totalDays: String(days) }))
+      if (end >= start) {
+        fetch(`/api/working-days?startDate=${wfhForm.startDate}&endDate=${wfhForm.endDate}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data && !wfhDaysManuallyEdited.current) {
+              setWfhForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
+            }
+          })
+          .catch(() => {
+            const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+            if (days > 0 && !wfhDaysManuallyEdited.current) {
+              setWfhForm(prev => ({ ...prev, totalDays: String(days) }))
+            }
+          })
       }
     }
   }, [wfhForm.startDate, wfhForm.endDate])
@@ -533,7 +556,7 @@ export function ManualRequestEntry() {
                     placeholder="e.g. 1, 0.5, 3"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Auto-calculated from dates. Edit for half-days (0.5).
+                    Auto-calculated working days (excl. weekends &amp; holidays). Edit for half-days (0.5).
                   </p>
                 </div>
 

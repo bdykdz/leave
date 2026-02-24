@@ -45,6 +45,27 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // If no explicit balance record, fall back to the leave type's daysAllowed
+    if (!balance) {
+      const leaveType = await prisma.leaveType.findUnique({
+        where: { id: leaveTypeId },
+        select: { daysAllowed: true, name: true },
+      })
+
+      if (leaveType) {
+        return NextResponse.json({
+          balance: {
+            entitled: leaveType.daysAllowed,
+            used: 0,
+            pending: 0,
+            available: leaveType.daysAllowed,
+            carriedForward: 0,
+          },
+          isDefault: true,
+        })
+      }
+    }
+
     return NextResponse.json({ balance: balance || null })
   } catch (error) {
     console.error('Error fetching leave balance:', error)
