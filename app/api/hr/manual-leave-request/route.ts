@@ -97,6 +97,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 })
     }
 
+    // Cap date range to prevent DoS via eachDayOfInterval memory exhaustion
+    const daySpan = Math.round((parsedEndDate.getTime() - parsedStartDate.getTime()) / (1000 * 60 * 60 * 24))
+    if (daySpan > 366) {
+      return NextResponse.json({ error: 'Date range cannot exceed 366 days' }, { status: 400 })
+    }
+
     // Balance year from startDate, not current year
     const balanceYear = parsedStartDate.getFullYear()
     const startDateISO = parsedStartDate.toISOString().split('T')[0]

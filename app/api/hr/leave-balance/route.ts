@@ -28,6 +28,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'userId and leaveTypeId are required' }, { status: 400 })
     }
 
+    if (isNaN(year) || year < 2000 || year > 2100) {
+      return NextResponse.json({ error: 'Invalid year parameter' }, { status: 400 })
+    }
+
     const balance = await prisma.leaveBalance.findUnique({
       where: {
         userId_leaveTypeId_year: {

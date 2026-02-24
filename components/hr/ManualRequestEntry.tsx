@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -112,83 +112,84 @@ export function ManualRequestEntry() {
   // Auto-calculate totalDays for leave form using working days API (excludes weekends + holidays)
   useEffect(() => {
     if (leaveDaysManuallyEdited.current) return
-    if (leaveForm.startDate && leaveForm.endDate) {
-      const start = parseISO(leaveForm.startDate)
-      const end = parseISO(leaveForm.endDate)
-      if (end >= start) {
-        fetch(`/api/working-days?startDate=${leaveForm.startDate}&endDate=${leaveForm.endDate}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data && !leaveDaysManuallyEdited.current) {
-              setLeaveForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
-            }
-          })
-          .catch(() => {
-            // Fallback: simple calendar days if API fails
-            const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-            if (days > 0 && !leaveDaysManuallyEdited.current) {
-              setLeaveForm(prev => ({ ...prev, totalDays: String(days) }))
-            }
-          })
-      }
-    }
+    if (!leaveForm.startDate || !leaveForm.endDate) return
+    const start = parseISO(leaveForm.startDate)
+    const end = parseISO(leaveForm.endDate)
+    if (end < start) return
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({ startDate: leaveForm.startDate, endDate: leaveForm.endDate })
+    fetch(`/api/working-days?${params}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && !leaveDaysManuallyEdited.current) {
+          setLeaveForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
+        }
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return
+        // Fallback: simple calendar days if API fails
+        const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        if (days > 0 && !leaveDaysManuallyEdited.current) {
+          setLeaveForm(prev => ({ ...prev, totalDays: String(days) }))
+        }
+      })
+    return () => controller.abort()
   }, [leaveForm.startDate, leaveForm.endDate])
 
   // Auto-calculate totalDays for WFH form using working days API (excludes weekends + holidays)
   useEffect(() => {
     if (wfhDaysManuallyEdited.current) return
-    if (wfhForm.startDate && wfhForm.endDate) {
-      const start = parseISO(wfhForm.startDate)
-      const end = parseISO(wfhForm.endDate)
-      if (end >= start) {
-        fetch(`/api/working-days?startDate=${wfhForm.startDate}&endDate=${wfhForm.endDate}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data && !wfhDaysManuallyEdited.current) {
-              setWfhForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
-            }
-          })
-          .catch(() => {
-            const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-            if (days > 0 && !wfhDaysManuallyEdited.current) {
-              setWfhForm(prev => ({ ...prev, totalDays: String(days) }))
-            }
-          })
-      }
-    }
+    if (!wfhForm.startDate || !wfhForm.endDate) return
+    const start = parseISO(wfhForm.startDate)
+    const end = parseISO(wfhForm.endDate)
+    if (end < start) return
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({ startDate: wfhForm.startDate, endDate: wfhForm.endDate })
+    fetch(`/api/working-days?${params}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && !wfhDaysManuallyEdited.current) {
+          setWfhForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
+        }
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return
+        const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        if (days > 0 && !wfhDaysManuallyEdited.current) {
+          setWfhForm(prev => ({ ...prev, totalDays: String(days) }))
+        }
+      })
+    return () => controller.abort()
   }, [wfhForm.startDate, wfhForm.endDate])
 
   // Fetch balance when employee + leave type + valid date selected (#11 — guard against empty date)
-  const fetchBalance = useCallback(async (userId: string, leaveTypeId: string, startDate: string) => {
-    if (!userId || !leaveTypeId) {
+  useEffect(() => {
+    if (!leaveForm.userId || !leaveForm.leaveTypeId) {
       setCurrentBalance(null)
       return
     }
     // Guard: only fetch if startDate produces a valid year (#11)
-    const parsedDate = startDate ? new Date(startDate) : null
+    const parsedDate = leaveForm.startDate ? new Date(leaveForm.startDate) : null
     const year = parsedDate && !isNaN(parsedDate.getTime())
       ? parsedDate.getFullYear()
       : new Date().getFullYear()
 
+    const controller = new AbortController()
     setLoadingBalance(true)
-    try {
-      const response = await fetch(`/api/hr/leave-balance?userId=${encodeURIComponent(userId)}&leaveTypeId=${encodeURIComponent(leaveTypeId)}&year=${year}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCurrentBalance(data.balance ?? null)
-      } else {
+    fetch(`/api/hr/leave-balance?userId=${encodeURIComponent(leaveForm.userId)}&leaveTypeId=${encodeURIComponent(leaveForm.leaveTypeId)}&year=${year}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setCurrentBalance(data?.balance ?? null)
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return
         setCurrentBalance(null)
-      }
-    } catch {
-      setCurrentBalance(null)
-    } finally {
-      setLoadingBalance(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchBalance(leaveForm.userId, leaveForm.leaveTypeId, leaveForm.startDate)
-  }, [leaveForm.userId, leaveForm.leaveTypeId, leaveForm.startDate, fetchBalance])
+      })
+      .finally(() => setLoadingBalance(false))
+    return () => controller.abort()
+  }, [leaveForm.userId, leaveForm.leaveTypeId, leaveForm.startDate])
 
   const fetchEmployees = async () => {
     try {
@@ -548,6 +549,7 @@ export function ManualRequestEntry() {
                     type="number"
                     step="0.5"
                     min="0.5"
+                    max="366"
                     value={leaveForm.totalDays}
                     onChange={(e) => {
                       leaveDaysManuallyEdited.current = true
@@ -712,6 +714,8 @@ export function ManualRequestEntry() {
                   <Input
                     type="number"
                     min="1"
+                    max="366"
+                    step="1"
                     value={wfhForm.totalDays}
                     onChange={(e) => {
                       wfhDaysManuallyEdited.current = true

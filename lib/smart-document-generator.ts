@@ -618,20 +618,26 @@ export class SmartDocumentGenerator {
         else if (approverRole === 'manager') role = 'manager'
 
         if (role) {
+          // For HR manual entries, preserve the employee and HR markers set earlier
+          if (isHrManualEntry && (role === 'employee' || role === 'hr')) {
+            console.log(`Skipping approval overwrite for ${role} — HR manual entry`)
+            continue
+          }
+
           const approverName = `${approval.approver.firstName || ''} ${approval.approver.lastName || ''}`.trim()
           const signatureDate = approval.signedAt
             ? format(new Date(approval.signedAt), 'dd.MM.yyyy')
             : (approval.approvedAt ? format(new Date(approval.approvedAt), 'dd.MM.yyyy') : '')
-          
+
           // Use actual signature data if available, otherwise mark as APPROVED
           const signatureData = approval.signature || 'APPROVED'
-          
+
           sig[role] = {
             name: approverName,
             date: signatureDate,
             signature: signatureData
           }
-          
+
           console.log(`Mapped approval signature: ${role} -> ${approverName} (${signatureDate})`)
         }
       }

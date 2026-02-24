@@ -29,6 +29,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 })
     }
 
+    // Cap date range to prevent DoS via eachDayOfInterval memory exhaustion
+    const daySpan = Math.round((parsedEnd.getTime() - parsedStart.getTime()) / (1000 * 60 * 60 * 24))
+    if (daySpan > 366) {
+      return NextResponse.json({ error: 'Date range cannot exceed 366 days' }, { status: 400 })
+    }
+
     const workingDaysService = WorkingDaysService.getInstance()
     const breakdown = await workingDaysService.getWorkingDaysBreakdown(parsedStart, parsedEnd)
 
