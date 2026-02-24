@@ -378,10 +378,10 @@ export default function ExecutiveDashboard() {
     }
   }, [leaveSearchTerm])
 
-  const handleApprove = async (requestId: string, comment?: string, isDirectReport: boolean = false, requestType?: string) => {
+  const handleApprove = async (requestId: string, comment?: string, isDirectReport: boolean = false, requestType?: string, signature?: string) => {
     try {
       let endpoint: string
-      
+
       if (isDirectReport) {
         // For direct reports, check if it's a WFH request
         if (requestType === 'wfh') {
@@ -393,11 +393,11 @@ export default function ExecutiveDashboard() {
         // For escalated requests
         endpoint = `/api/executive/approve-request/${requestId}`
       }
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment: comment || '' })
+        body: JSON.stringify({ comment: comment || '', signature })
       })
       
       if (response.ok) {
@@ -1346,9 +1346,9 @@ export default function ExecutiveDashboard() {
           }}
           action={approvalDetails.action}
           request={approvalDetails.request}
-          onConfirm={(comment) => {
+          onConfirm={(comment, signature) => {
             if (approvalDetails.action === 'approve') {
-              handleApprove(approvalDetails.request.id, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)
+              handleApprove(approvalDetails.request.id, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType, signature)
             } else {
               handleDeny(approvalDetails.request.id, comment, approvalDetails.isDirectReport || false, approvalDetails.requestType)
             }

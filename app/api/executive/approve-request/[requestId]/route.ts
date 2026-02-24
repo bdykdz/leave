@@ -22,24 +22,31 @@ export async function POST(
     }
 
     const body = await request.json();
-    let comment = sanitizeComment(body.comment || '');
-    let signature: string | null = null;
+    const rawComment = body.comment || '';
 
-    // Extract signature from comment if present
-    if (comment && comment.includes('[SIGNATURE:')) {
-      const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/);
+    // Prefer signature as a separate field (new pattern)
+    let signature: string | null = body.signature || null;
+
+    // Backward compat: extract from comment if clients still embed [SIGNATURE:...] (deprecated)
+    let commentForSanitize = rawComment;
+    if (!signature && rawComment.includes('[SIGNATURE:')) {
+      const signatureMatch = rawComment.match(/\[SIGNATURE:(data:image\/[^\]]+)\]/);
       if (signatureMatch) {
         signature = signatureMatch[1];
-        // Fix #16: Validate signature size (max 50KB)
-        if (signature && signature.length > 50000) {
-          return NextResponse.json(
-            { error: 'Signature data exceeds maximum allowed size' },
-            { status: 400 }
-          );
-        }
-        comment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
+        commentForSanitize = rawComment.replace(/\[SIGNATURE:data:image\/[^\]]+\]/, '');
+        console.warn('[DEPRECATED] Signature embedded in comment — clients should send body.signature instead');
       }
     }
+
+    // Validate signature size (max 50KB)
+    if (signature && signature.length > 50000) {
+      return NextResponse.json(
+        { error: 'Signature data exceeds maximum allowed size' },
+        { status: 400 }
+      );
+    }
+
+    let comment = sanitizeComment(commentForSanitize);
 
     // Verify the request exists and get details
     const leaveRequest = await prisma.leaveRequest.findUnique({

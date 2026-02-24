@@ -20,7 +20,10 @@ export async function POST(
     }
 
     const body = await request.json()
-    const comment = sanitizeComment(body.comment || '')
+    const rawComment = body.comment || ''
+    // Strip signature data before sanitizing — sanitizeComment truncates to 1000 chars
+    const commentForSanitize = rawComment.replace(/\[SIGNATURE:data:image\/[^\]]+\]/, '')
+    const comment = sanitizeComment(commentForSanitize)
     const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
     const requestId = params.requestId
 
@@ -194,12 +197,8 @@ export async function POST(
 
 // Helper function to handle WFH denials
 async function handleWFHDenial(session: any, requestId: string, comment: string) {
-  // Extract signature from comment if present (though usually not needed for denials)
-  let cleanComment = comment
-
-  if (comment && comment.includes('[SIGNATURE:')) {
-    cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
-  }
+  // Signature data already stripped by caller before sanitization
+  const cleanComment = comment
   try {
     // Get the WFH request
     const wfhRequest = await prisma.workFromHomeRequest.findUnique({

@@ -21,7 +21,9 @@ export async function POST(
     }
 
     const body = await request.json();
-    const comment = sanitizeComment(body.comment || '');
+    // Strip any embedded signature data before sanitizing (denials don't need signatures)
+    const rawComment = (body.comment || '').replace(/\[SIGNATURE:data:image\/[^\]]+\]/, '');
+    const comment = sanitizeComment(rawComment);
 
     if (!comment || comment.trim() === '') {
       return NextResponse.json(

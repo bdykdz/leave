@@ -25,6 +25,14 @@ export async function POST(
       );
     }
 
+    // Validate signature size (max 50KB)
+    if (typeof signatureData === 'string' && signatureData.length > 50000) {
+      return NextResponse.json(
+        { error: 'Signature data exceeds maximum allowed size' },
+        { status: 400 }
+      );
+    }
+
     // Get document details
     const document = await prisma.generatedDocument.findUnique({
       where: { id: params.documentId },

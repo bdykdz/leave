@@ -327,13 +327,13 @@ export default function ManagerDashboard() {
     }
   }
 
-  const handleApprove = async (requestId: string, comment?: string) => {
+  const handleApprove = async (requestId: string, comment?: string, signature?: string) => {
     try {
       const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/approve-request/${requestId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment, requestType })
+        body: JSON.stringify({ comment, signature, requestType })
       })
       
       if (response.ok) {
@@ -1547,9 +1547,9 @@ export default function ManagerDashboard() {
           }}
           action={approvalDetails.action}
           request={approvalDetails.request}
-          onConfirm={(comment) => {
+          onConfirm={(comment, signature) => {
             if (approvalDetails.action === 'approve') {
-              handleApprove(approvalDetails?.request?.id || '', comment)
+              handleApprove(approvalDetails?.request?.id || '', comment, signature)
             } else {
               handleDeny(approvalDetails?.request?.id || '', comment)
             }

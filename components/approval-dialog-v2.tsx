@@ -19,7 +19,7 @@ interface ApprovalDialogProps {
     dates: string
     days: number
   }
-  onConfirm?: (comment: string) => void
+  onConfirm?: (comment: string, signature?: string) => void
 }
 
 export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }: ApprovalDialogProps) {
@@ -39,11 +39,8 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
     setShowConfirmation(true)
     setTimeout(() => {
       if (onConfirm) {
-        // For approvals, include the signature in the comment
-        const finalComment = isApproval && signature
-          ? `${comment ? comment + '\n\n' : ''}[SIGNATURE:${signature}]`
-          : comment
-        onConfirm(finalComment)
+        // Send signature as a separate argument — never embed in comment
+        onConfirm(comment, isApproval ? signature || undefined : undefined)
       }
       handleClose()
     }, 2000)

@@ -23,15 +23,39 @@ export async function POST(
     }
 
     const body = await request.json()
-    const comment = sanitizeComment(body.comment || '')
+    const rawComment = body.comment || ''
     const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
     const requestId = params.requestId
+
+    // Prefer signature as a separate field (new pattern)
+    let signature: string | null = body.signature || null
+
+    // Backward compat: extract from comment if clients still embed [SIGNATURE:...] (deprecated)
+    let commentForSanitize = rawComment
+    if (!signature && rawComment.includes('[SIGNATURE:')) {
+      const signatureMatch = rawComment.match(/\[SIGNATURE:(data:image\/[^\]]+)\]/)
+      if (signatureMatch) {
+        signature = signatureMatch[1]
+        commentForSanitize = rawComment.replace(/\[SIGNATURE:data:image\/[^\]]+\]/, '')
+        console.warn('[DEPRECATED] Signature embedded in comment — clients should send body.signature instead')
+      }
+    }
+
+    // Validate signature size (max 50KB)
+    if (signature && signature.length > 50000) {
+      return NextResponse.json(
+        { error: 'Signature data exceeds maximum allowed size' },
+        { status: 400 }
+      )
+    }
+
+    const comment = sanitizeComment(commentForSanitize)
 
     log.info('Processing approval request', { requestId, requestType, comment, userId: session.user.id })
 
     // Handle WFH requests separately
     if (requestType === 'wfh') {
-      return handleWFHApproval(session, requestId, comment)
+      return handleWFHApproval(session, requestId, comment, signature)
     }
 
     // Get the leave request and verify manager has permission — fetch ALL approvals for sequential check
@@ -116,17 +140,8 @@ export async function POST(
       )
     }
 
-    // Extract signature from comment if present
-    let signature = null
-    let cleanComment = comment
-
-    if (comment && comment.includes('[SIGNATURE:')) {
-      const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/)
-      if (signatureMatch) {
-        signature = signatureMatch[1]
-        cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim()
-      }
-    }
+    // comment is already sanitized, signature already extracted above
+    const cleanComment = comment
 
     // Wrap approval update + status check + balance update in a transaction
     const { allApproved } = await prisma.$transaction(async (tx) => {
@@ -356,18 +371,9 @@ export async function POST(
 }
 
 // Helper function to handle WFH approvals
-async function handleWFHApproval(session: any, requestId: string, comment: string) {
-  // Extract signature from comment if present
-  let signature = null
-  let cleanComment = comment
-
-  if (comment && comment.includes('[SIGNATURE:')) {
-    const signatureMatch = comment.match(/\[SIGNATURE:(.*?)\]/);
-    if (signatureMatch) {
-      signature = signatureMatch[1];
-      cleanComment = comment.replace(/\[SIGNATURE:.*?\]/, '').trim();
-    }
-  }
+async function handleWFHApproval(session: any, requestId: string, comment: string, signature: string | null = null) {
+  // Signature is already extracted before sanitization by the caller
+  const cleanComment = comment
   try {
     // Get the WFH request
     const wfhRequest = await prisma.workFromHomeRequest.findUnique({

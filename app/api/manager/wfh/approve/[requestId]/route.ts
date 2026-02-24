@@ -7,6 +7,7 @@ import { emailService } from "@/lib/email-service";
 import { format } from "date-fns";
 import { log } from "@/lib/logger";
 import { asyncHandler } from "@/lib/async-handler";
+import { sanitizeComment } from "@/lib/utils/sanitize";
 
 // Format WFH dates for display
 function formatWFHDates(startDate: Date, endDate: Date, selectedDates?: string[] | null): string {
@@ -68,18 +69,32 @@ export const POST = asyncHandler(async (
   }
 
   const body = await request.json();
-  let comment = body.comment || '';
-  
-  // Extract signature from comment if it exists
+  const rawComment = body.comment || '';
+
+  // Prefer signature as a separate field (new pattern)
   let signature = body.signature || null;
-  if (comment.includes('[SIGNATURE:')) {
-    const signatureMatch = comment.match(/\[SIGNATURE:([^\]]+)\]/);
+
+  // Backward compat: extract from comment if clients still embed [SIGNATURE:...] (deprecated)
+  let commentForSanitize = rawComment;
+  if (!signature && rawComment.includes('[SIGNATURE:')) {
+    const signatureMatch = rawComment.match(/\[SIGNATURE:(data:image\/[^\]]+)\]/);
     if (signatureMatch) {
       signature = signatureMatch[1];
-      // Remove signature from comment
-      comment = comment.replace(/\[SIGNATURE:[^\]]+\]/, '').trim();
+      commentForSanitize = rawComment.replace(/\[SIGNATURE:data:image\/[^\]]+\]/, '').trim();
+      console.warn('[DEPRECATED] Signature embedded in comment — clients should send body.signature instead');
     }
   }
+
+  // Validate signature size (max 50KB)
+  if (signature && signature.length > 50000) {
+    return NextResponse.json(
+      { error: 'Signature data exceeds maximum allowed size' },
+      { status: 400 }
+    );
+  }
+
+  // Sanitize comment — strip HTML tags, trim whitespace, limit length
+  const comment = sanitizeComment(commentForSanitize);
   
   const requestId = params.requestId;
   
