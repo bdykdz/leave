@@ -40,6 +40,7 @@ export class AuditService {
       await prisma.auditLog.create({
         data: {
           action,
+          entity: entityType,
           entityType,
           entityId,
           userId: userId || context?.userId,

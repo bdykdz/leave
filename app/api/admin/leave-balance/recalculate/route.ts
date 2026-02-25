@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: 'BALANCE_RECALCULATION',
+        entity: 'LeaveBalance',
         entityType: 'LEAVE_BALANCE',
         entityId: 'ALL',
         details: {

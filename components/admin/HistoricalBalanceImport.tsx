@@ -164,7 +164,7 @@ function CsvImportTab() {
       const used = parseFloat(cols[idxUsed])
 
       if (!employeeId) { errors.push(`Row ${i + 1}: Missing employeeId`); continue }
-      if (isNaN(year) || year < 2020 || year > 2025) { errors.push(`Row ${i + 1}: Invalid year "${cols[idxYear]}"`); continue }
+      if (isNaN(year) || year < 2020 || year > new Date().getFullYear()) { errors.push(`Row ${i + 1}: Invalid year "${cols[idxYear]}"`); continue }
       if (isNaN(entitled) || entitled < 0) { errors.push(`Row ${i + 1}: Invalid entitled "${cols[idxEntitled]}"`); continue }
       if (isNaN(used) || used < 0) { errors.push(`Row ${i + 1}: Invalid used "${cols[idxUsed]}"`); continue }
 
@@ -317,9 +317,10 @@ function ManualEntryTab() {
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [year, setYear] = useState(2025)
+  const [year, setYear] = useState(new Date().getFullYear())
   const [entitled, setEntitled] = useState('')
   const [used, setUsed] = useState('')
+  const [carriedForward, setCarriedForward] = useState('')
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
   const [existingBalance, setExistingBalance] = useState<any>(null)
@@ -376,6 +377,7 @@ function ManualEntryTab() {
     setResult(null)
     setEntitled('')
     setUsed('')
+    setCarriedForward('')
     fetchExistingBalance(user.id, year)
   }
 
@@ -384,6 +386,7 @@ function ManualEntryTab() {
     setResult(null)
     setEntitled('')
     setUsed('')
+    setCarriedForward('')
     if (selectedUser) {
       fetchExistingBalance(selectedUser.id, yr)
     }
@@ -396,6 +399,11 @@ function ManualEntryTab() {
 
     if (isNaN(entitledNum) || entitledNum < 0) { setResult({ success: false, message: 'Invalid entitled days' }); return }
     if (isNaN(usedNum) || usedNum < 0) { setResult({ success: false, message: 'Invalid used days' }); return }
+
+    const carriedForwardNum = carriedForward ? parseFloat(carriedForward) : undefined
+    if (carriedForwardNum !== undefined && (isNaN(carriedForwardNum) || carriedForwardNum < 0)) {
+      setResult({ success: false, message: 'Invalid carried forward days' }); return
+    }
 
     setSaving(true)
     setResult(null)
@@ -410,6 +418,7 @@ function ManualEntryTab() {
           year,
           entitled: entitledNum,
           used: usedNum,
+          ...(carriedForwardNum !== undefined && { carriedForward: carriedForwardNum }),
         }),
       })
       const data = await res.json()
@@ -491,8 +500,8 @@ function ManualEntryTab() {
 
                 <div>
                   <Label>Year</Label>
-                  <div className="flex gap-2 mt-1">
-                    {[2023, 2024, 2025].map((yr) => (
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i).map((yr) => (
                       <Button
                         key={yr}
                         variant={year === yr ? 'default' : 'outline'}
@@ -521,7 +530,7 @@ function ManualEntryTab() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label htmlFor="entitled">Entitled Days</Label>
                     <Input
@@ -546,11 +555,24 @@ function ManualEntryTab() {
                       placeholder="e.g. 15"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="carriedForward">Carried Forward</Label>
+                    <Input
+                      id="carriedForward"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={carriedForward}
+                      onChange={(e) => setCarriedForward(e.target.value)}
+                      placeholder="e.g. 5"
+                    />
+                  </div>
                 </div>
 
                 {entitled && used && (
                   <p className="text-sm text-muted-foreground">
-                    Unused: {Math.max(0, parseFloat(entitled || '0') - parseFloat(used || '0'))} days
+                    Unused: {Math.max(0, parseFloat(entitled || '0') + parseFloat(carriedForward || '0') - parseFloat(used || '0'))} days
+                    {carriedForward && ` (incl. ${carriedForward} carried forward)`}
                   </p>
                 )}
 
@@ -586,6 +608,9 @@ function ManualEntryTab() {
 // ============================================================
 
 function ChainCarryForwardTab() {
+  const currentYear = new Date().getFullYear()
+  const [startYear, setStartYear] = useState(currentYear - 3)
+  const [endYear, setEndYear] = useState(currentYear - 1)
   const [preview, setPreview] = useState<ChainResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [executing, setExecuting] = useState(false)
@@ -600,7 +625,7 @@ function ChainCarryForwardTab() {
     setExecuteResult(null)
 
     try {
-      const res = await fetch('/api/admin/historical-balances/chain-rollover?startYear=2023&endYear=2025')
+      const res = await fetch(`/api/admin/historical-balances/chain-rollover?startYear=${startYear}&endYear=${endYear}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to preview')
       setPreview(data)
@@ -620,7 +645,7 @@ function ChainCarryForwardTab() {
       const res = await fetch('/api/admin/historical-balances/chain-rollover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startYear: 2023, endYear: 2025 }),
+        body: JSON.stringify({ startYear, endYear }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to execute')
@@ -649,7 +674,7 @@ function ChainCarryForwardTab() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <RefreshCw className="h-5 w-5" />
-          Chain Carry-Forward (2023 &rarr; 2024 &rarr; 2025 &rarr; 2026)
+          Chain Carry-Forward ({startYear} &rarr; ... &rarr; {endYear} &rarr; {endYear + 1})
         </CardTitle>
         <CardDescription>
           Compute and apply carry-forward amounts across years. Only Normal Leave (NL) with carryForward=true is processed.
@@ -657,7 +682,29 @@ function ChainCarryForwardTab() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
+        <div className="flex items-end gap-4 flex-wrap">
+          <div>
+            <Label className="text-sm">Start Year</Label>
+            <Input
+              type="number"
+              value={startYear}
+              onChange={(e) => { setStartYear(parseInt(e.target.value) || currentYear - 3); setPreview(null); setExecuteResult(null) }}
+              className="w-24 mt-1"
+              min={2020}
+              max={endYear}
+            />
+          </div>
+          <div>
+            <Label className="text-sm">End Year</Label>
+            <Input
+              type="number"
+              value={endYear}
+              onChange={(e) => { setEndYear(parseInt(e.target.value) || currentYear - 1); setPreview(null); setExecuteResult(null) }}
+              className="w-24 mt-1"
+              min={startYear}
+              max={currentYear}
+            />
+          </div>
           <Button onClick={handlePreview} disabled={loading} variant="outline">
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Preview Chain Rollover
@@ -807,7 +854,7 @@ function ChainCarryForwardTab() {
             <AlertDialogHeader>
               <AlertDialogTitle>Execute Chain Rollover?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will update carry-forward amounts for all users across 2023&rarr;2024&rarr;2025&rarr;2026.
+                This will update carry-forward amounts for all users across {startYear}&rarr;...&rarr;{endYear}&rarr;{endYear + 1}.
                 Existing carry-forward values will be overwritten with the computed chain amounts.
                 This action is logged but cannot be automatically undone.
               </AlertDialogDescription>

@@ -10,9 +10,10 @@ export const dynamic = 'force-dynamic'
 const singleEntrySchema = z.object({
   mode: z.literal('single'),
   userId: z.string(),
-  year: z.number().int().min(2020).max(new Date().getFullYear()),
+  year: z.number().int().min(2020).max(new Date().getFullYear() + 1),
   entitled: z.number().min(0).max(365),
   used: z.number().min(0).max(365),
+  carriedForward: z.number().min(0).max(365).optional(),
 })
 
 const bulkEntrySchema = z.object({
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
     const errors: string[] = []
 
     if (parsed.mode === 'single') {
-      const { userId, year, entitled, used } = parsed
+      const { userId, year, entitled, used, carriedForward: cfInput } = parsed
 
       // Verify user exists
       const user = await prisma.user.findUnique({ where: { id: userId } })
@@ -144,8 +145,8 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Preserve existing carriedForward and pending if balance already exists
-      const existingCF = existing?.carriedForward || 0
+      // Use provided carriedForward, or preserve existing, or default to 0
+      const cfValue = cfInput !== undefined ? cfInput : (existing?.carriedForward || 0)
       const existingPending = existing?.pending || 0
 
       await prisma.leaveBalance.upsert({
@@ -155,7 +156,8 @@ export async function POST(request: NextRequest) {
         update: {
           entitled,
           used,
-          available: entitled + existingCF - used - existingPending,
+          carriedForward: cfValue,
+          available: entitled + cfValue - used - existingPending,
           updatedAt: new Date()
         },
         create: {
@@ -164,8 +166,8 @@ export async function POST(request: NextRequest) {
           year,
           entitled,
           used,
-          carriedForward: 0,
-          available: entitled - used,
+          carriedForward: cfValue,
+          available: entitled + cfValue - used,
           pending: 0
         }
       })

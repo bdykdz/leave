@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: 'YEAR_END_PROCESSING_TRIGGERED',
+        entity: 'LeaveBalance',
         entityType: 'LEAVE_BALANCE',
         entityId: 'ALL',
         details: {

@@ -60,7 +60,7 @@ export function LeaveBalanceSettings() {
     proRateMethod: 'DAYS_REMAINING',
     carryForwardEnabled: true,
     maxCarryForwardDays: 10,
-    carryForwardExpiryMonths: 3,
+    carryForwardExpiryMonths: 18,
     autoExpireCarryForward: true,
     allowNegativeBalance: false,
     maxNegativeBalanceDays: 0,
@@ -352,15 +352,15 @@ export function LeaveBalanceSettings() {
                         <Input
                           type="number"
                           value={config.carryForwardExpiryMonths}
-                          onChange={(e) => setConfig({ ...config, carryForwardExpiryMonths: parseInt(e.target.value) || 3 })}
+                          onChange={(e) => setConfig({ ...config, carryForwardExpiryMonths: parseInt(e.target.value) || 18 })}
                           className="w-24"
                           min="1"
-                          max="12"
+                          max="24"
                         />
                         <span className="text-sm text-gray-500">months</span>
                       </div>
                       <p className="text-xs text-gray-500">
-                        How long carried forward days remain valid (1-12 months)
+                        How long carried forward days remain valid (1-24 months)
                       </p>
                     </div>
 

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       proRateMethod: 'DAYS_REMAINING',
       carryForwardEnabled: true,
       maxCarryForwardDays: 10,
-      carryForwardExpiryMonths: 3,
+      carryForwardExpiryMonths: 18,
       autoExpireCarryForward: true,
       allowNegativeBalance: false,
       maxNegativeBalanceDays: 0,
@@ -87,9 +87,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    if (settings.carryForwardExpiryMonths < 1 || settings.carryForwardExpiryMonths > 12) {
+    if (settings.carryForwardExpiryMonths < 1 || settings.carryForwardExpiryMonths > 24) {
       return NextResponse.json(
-        { error: 'Carry forward expiry must be between 1 and 12 months' },
+        { error: 'Carry forward expiry must be between 1 and 24 months' },
         { status: 400 }
       );
     }
@@ -124,6 +124,7 @@ export async function PUT(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: 'SETTINGS_UPDATE',
+        entity: 'CompanySetting',
         entityType: 'LEAVE_BALANCE_SETTINGS',
         entityId: 'CONFIG',
         details: {

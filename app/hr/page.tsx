@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeaveTypesManager } from "@/components/admin/LeaveTypesManager"
 import { ManualRequestEntry } from "@/components/hr/ManualRequestEntry"
-import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw, ListChecks, BookOpen, FileText } from "lucide-react"
+import { HistoricalBalanceImport } from "@/components/admin/HistoricalBalanceImport"
+import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw, ListChecks, BookOpen, FileText, Calculator } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -158,7 +159,7 @@ export default function HRDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="employees">{t.tabs.employees}</TabsTrigger>
           <TabsTrigger value="calendar">{t.tabs.calendar}</TabsTrigger>
           <TabsTrigger value="analytics">{t.tabs.analytics}</TabsTrigger>
@@ -173,6 +174,10 @@ export default function HRDashboard() {
           <TabsTrigger value="leave-types" className="flex items-center gap-1">
             <ListChecks className="h-3 w-3" />
             Leave Types
+          </TabsTrigger>
+          <TabsTrigger value="balances" className="flex items-center gap-1">
+            <Calculator className="h-3 w-3" />
+            Balances
           </TabsTrigger>
           <TabsTrigger value="manual-entry" className="flex items-center gap-1">
             <FileText className="h-3 w-3" />
@@ -205,6 +210,10 @@ export default function HRDashboard() {
 
         <TabsContent value="leave-types" className="space-y-4">
           <LeaveTypesManager />
+        </TabsContent>
+
+        <TabsContent value="balances" className="space-y-4">
+          <HistoricalBalanceImport />
         </TabsContent>
 
         <TabsContent value="manual-entry" className="space-y-4">
