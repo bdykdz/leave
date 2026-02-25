@@ -339,10 +339,9 @@ export function LeaveBalanceSettings() {
                         onChange={(e) => setConfig({ ...config, maxCarryForwardDays: parseInt(e.target.value) || 0 })}
                         className="w-24"
                         min="0"
-                        max="30"
                       />
                       <p className="text-xs text-gray-500">
-                        Maximum days that can be carried forward (0-30)
+                        Maximum days that can be carried forward (0 = unlimited)
                       </p>
                     </div>
 
@@ -493,7 +492,7 @@ export function LeaveBalanceSettings() {
               <div>
                 <p className="text-gray-500">Carry Forward</p>
                 <p className="font-medium">
-                  {config.carryForwardEnabled ? `Max ${config.maxCarryForwardDays} days` : 'Disabled'}
+                  {config.carryForwardEnabled ? (config.maxCarryForwardDays === 0 ? 'Unlimited' : `Max ${config.maxCarryForwardDays} days`) : 'Disabled'}
                 </p>
               </div>
               <div>

@@ -61,10 +61,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (leaveBalance) {
+        // FIFO: deduct from carried forward first
+        const remainingCF = leaveBalance.carriedForward - leaveBalance.carriedForwardUsed;
+        const cfDeduction = Math.min(data.totalDays, remainingCF);
         await prisma.leaveBalance.update({
           where: { id: leaveBalance.id },
           data: {
             used: leaveBalance.used + data.totalDays,
+            carriedForwardUsed: leaveBalance.carriedForwardUsed + cfDeduction,
             available: Math.max(0, leaveBalance.available - data.totalDays),
           }
         });

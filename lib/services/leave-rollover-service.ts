@@ -59,7 +59,8 @@ export class LeaveRolloverService {
       // Calculate how much can be carried forward
       const carryForwardPercentage = config.carryForwardPercentage || 100
       const eligibleForCarryForward = (unused * carryForwardPercentage) / 100
-      const carriedForward = Math.min(eligibleForCarryForward, config.maxCarryForward)
+      // 0 = unlimited carry forward
+      const carriedForward = config.maxCarryForward > 0 ? Math.min(eligibleForCarryForward, config.maxCarryForward) : eligibleForCarryForward
       const lost = unused - carriedForward
 
       let reason = ''
@@ -231,7 +232,7 @@ export class LeaveRolloverService {
     // Use the maxCarryForward from the leave type, or default rules
     return {
       leaveTypeId: leaveType.id,
-      maxCarryForward: leaveType.maxCarryForward || 5, // Default 5 days if not specified
+      maxCarryForward: leaveType.maxCarryForward ?? 0, // 0 = unlimited
       carryForwardPercentage: 100, // Can be customized per leave type
       requiresApproval: false // Can be customized per leave type
     }
@@ -414,7 +415,8 @@ export class LeaveRolloverService {
         const used = bal.used
         const available = entitled + carriedForward - used - bal.pending
         const unused = Math.max(0, available)
-        const carryToNext = Math.min(unused, maxCarry)
+        // 0 = unlimited carry forward
+        const carryToNext = maxCarry > 0 ? Math.min(unused, maxCarry) : unused
         const lost = unused - carryToNext
 
         yearResults.push({

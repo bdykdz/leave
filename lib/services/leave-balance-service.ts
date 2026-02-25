@@ -213,10 +213,11 @@ export class LeaveBalanceService {
         const unusedBalance = Math.max(0, balance.entitled + balance.carriedForward - balance.used);
 
         // Use leave type's maxCarryForward if set, otherwise fall back to global config
+        // 0 means unlimited
         const maxCF = balance.leaveType.maxCarryForward ?? this.config.maxCarryForwardDays;
 
-        // Apply maximum carry forward limit
-        carryForwardAmount = Math.min(unusedBalance, maxCF);
+        // Apply maximum carry forward limit (0 = unlimited)
+        carryForwardAmount = maxCF > 0 ? Math.min(unusedBalance, maxCF) : unusedBalance;
       }
 
       // Check if next year balance already exists

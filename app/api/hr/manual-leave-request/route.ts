@@ -177,17 +177,15 @@ export async function POST(request: NextRequest) {
         })
 
         if (existingBalance) {
+          // FIFO: deduct from carried forward first
+          const remainingCF = existingBalance.carriedForward - existingBalance.carriedForwardUsed;
+          const cfDeduction = Math.min(parsedTotalDays, remainingCF);
           await tx.leaveBalance.update({
-            where: {
-              userId_leaveTypeId_year: {
-                userId,
-                leaveTypeId,
-                year: balanceYear,
-              },
-            },
+            where: { id: existingBalance.id },
             data: {
-              used: { increment: parsedTotalDays },
-              available: { decrement: parsedTotalDays },
+              used: existingBalance.used + parsedTotalDays,
+              carriedForwardUsed: existingBalance.carriedForwardUsed + cfDeduction,
+              available: existingBalance.available - parsedTotalDays,
             },
           })
         } else {

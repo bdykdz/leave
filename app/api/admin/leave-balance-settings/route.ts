@@ -80,9 +80,9 @@ export async function PUT(request: NextRequest) {
     const settings = await request.json();
 
     // Validate settings
-    if (settings.maxCarryForwardDays < 0 || settings.maxCarryForwardDays > 30) {
+    if (settings.maxCarryForwardDays < 0) {
       return NextResponse.json(
-        { error: 'Max carry forward days must be between 0 and 30' },
+        { error: 'Max carry forward days cannot be negative' },
         { status: 400 }
       );
     }

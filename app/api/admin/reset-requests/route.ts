@@ -103,7 +103,9 @@ export async function POST(request: NextRequest) {
             entitled: 30,
             used: 0,
             pending: 0,
-            available: 30
+            available: 30,
+            carriedForward: 0,
+            carriedForwardUsed: 0
           }
         })
 
@@ -116,7 +118,9 @@ export async function POST(request: NextRequest) {
             entitled: 999,
             used: 0,
             pending: 0,
-            available: 999
+            available: 999,
+            carriedForward: 0,
+            carriedForwardUsed: 0
           }
         })
       } else if (resetType === 'WFH_ONLY') {
@@ -134,7 +138,9 @@ export async function POST(request: NextRequest) {
             entitled: 30,
             used: 0,
             pending: 0,
-            available: 30
+            available: 30,
+            carriedForward: 0,
+            carriedForwardUsed: 0
           }
         })
 
@@ -147,7 +153,9 @@ export async function POST(request: NextRequest) {
             entitled: 999,
             used: 0,
             pending: 0,
-            available: 999
+            available: 999,
+            carriedForward: 0,
+            carriedForwardUsed: 0
           }
         })
       } else {
@@ -168,7 +176,9 @@ export async function POST(request: NextRequest) {
             entitled: 30,
             used: 0,
             pending: 0,
-            available: 30
+            available: 30,
+            carriedForward: 0,
+            carriedForwardUsed: 0
           }
         })
 
@@ -181,7 +191,9 @@ export async function POST(request: NextRequest) {
             entitled: 999,
             used: 0,
             pending: 0,
-            available: 999
+            available: 999,
+            carriedForward: 0,
+            carriedForwardUsed: 0
           }
         })
       }

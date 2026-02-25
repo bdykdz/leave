@@ -97,23 +97,28 @@ export async function POST(
         const balanceYear = leaveRequest.startDate.getFullYear();
 
         try {
-          await tx.leaveBalance.update({
+          // Reverse FIFO: restore CF days first
+          const balance = await tx.leaveBalance.findUnique({
             where: {
               userId_leaveTypeId_year: {
                 userId: leaveRequest.userId,
                 leaveTypeId: leaveRequest.leaveTypeId,
                 year: balanceYear
               }
-            },
-            data: {
-              used: {
-                decrement: leaveRequest.totalDays
-              },
-              available: {
-                increment: leaveRequest.totalDays
-              }
             }
           });
+          if (balance) {
+            const totalDays = leaveRequest.totalDays;
+            const cfRestore = Math.min(totalDays, balance.carriedForwardUsed);
+            await tx.leaveBalance.update({
+              where: { id: balance.id },
+              data: {
+                used: balance.used - totalDays,
+                carriedForwardUsed: balance.carriedForwardUsed - cfRestore,
+                available: balance.entitled + balance.carriedForward - (balance.used - totalDays) - balance.pending
+              }
+            });
+          }
         } catch (balanceError) {
           console.error('Warning: Could not restore leave balance:', balanceError);
           // Continue with cancellation even if balance update fails
