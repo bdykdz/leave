@@ -22,6 +22,32 @@ export async function GET(request: NextRequest) {
 
     const overlaps = [];
 
+    // Build a set of actual dates for a request using selectedDates when available
+    function getActualDates(req: { startDate: Date; endDate: Date; selectedDates?: any }): Set<string> {
+      const dates = new Set<string>();
+      if (req.selectedDates && Array.isArray(req.selectedDates) && req.selectedDates.length > 0) {
+        for (const d of req.selectedDates) {
+          dates.add(d instanceof Date ? d.toISOString().split('T')[0] : String(d).split('T')[0]);
+        }
+      } else {
+        const cursor = new Date(req.startDate);
+        const end = new Date(req.endDate);
+        while (cursor <= end) {
+          dates.add(cursor.toISOString().split('T')[0]);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      }
+      return dates;
+    }
+
+    // Check if two date sets have any common dates
+    function hasDateOverlap(dates1: Set<string>, dates2: Set<string>): boolean {
+      for (const d of dates1) {
+        if (dates2.has(d)) return true;
+      }
+      return false;
+    }
+
     for (const user of users) {
       // Get all approved/pending leave requests for this user
       const leaveRequests = await prisma.leaveRequest.findMany({
@@ -46,9 +72,8 @@ export async function GET(request: NextRequest) {
         for (let j = i + 1; j < leaveRequests.length; j++) {
           const req1 = leaveRequests[i];
           const req2 = leaveRequests[j];
-          
-          // Check if dates overlap
-          if (req1.endDate >= req2.startDate && req1.startDate <= req2.endDate) {
+
+          if (hasDateOverlap(getActualDates(req1), getActualDates(req2))) {
             overlaps.push({
               type: 'LEAVE_LEAVE',
               user: {
@@ -82,9 +107,8 @@ export async function GET(request: NextRequest) {
         for (let j = i + 1; j < wfhRequests.length; j++) {
           const req1 = wfhRequests[i];
           const req2 = wfhRequests[j];
-          
-          // Check if dates overlap
-          if (req1.endDate >= req2.startDate && req1.startDate <= req2.endDate) {
+
+          if (hasDateOverlap(getActualDates(req1), getActualDates(req2))) {
             overlaps.push({
               type: 'WFH_WFH',
               user: {
@@ -116,8 +140,7 @@ export async function GET(request: NextRequest) {
       // Check for leave-to-WFH overlaps (most critical)
       for (const leaveReq of leaveRequests) {
         for (const wfhReq of wfhRequests) {
-          // Check if dates overlap
-          if (leaveReq.endDate >= wfhReq.startDate && leaveReq.startDate <= wfhReq.endDate) {
+          if (hasDateOverlap(getActualDates(leaveReq), getActualDates(wfhReq))) {
             overlaps.push({
               type: 'LEAVE_WFH',
               user: {
