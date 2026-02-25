@@ -130,7 +130,7 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         params: {
           scope: "openid email profile User.Read offline_access",
-          prompt: "select_account"
+          domain_hint: process.env.AZURE_AD_TENANT_DOMAIN || undefined
         }
       },
       httpOptions: {
