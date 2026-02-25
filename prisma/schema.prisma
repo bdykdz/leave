@@ -114,8 +114,9 @@ model LeaveBalance {
   used           Float     @default(0)
   pending        Float     @default(0)
   available      Float
-  carriedForward Float     @default(0)
-  createdAt      DateTime  @default(now())
+  carriedForward     Float     @default(0)
+  carriedForwardUsed Float     @default(0)
+  createdAt          DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   leaveType      LeaveType @relation(fields: [leaveTypeId], references: [id])
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)

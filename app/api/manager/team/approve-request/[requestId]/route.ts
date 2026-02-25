@@ -171,27 +171,33 @@ export async function POST(
           data: { status: 'APPROVED' }
         })
 
-        // Update leave balance (move from pending to used)
+        // Update leave balance (move from pending to used) with FIFO carry-forward deduction
         // Use request's start date year — balance was deducted in that year at submission time
         const balanceYear = new Date(leaveRequest.startDate).getFullYear()
         try {
-          await tx.leaveBalance.update({
+          const balance = await tx.leaveBalance.findUnique({
             where: {
               userId_leaveTypeId_year: {
                 userId: leaveRequest.userId,
                 leaveTypeId: leaveRequest.leaveTypeId,
                 year: balanceYear
               }
-            },
-            data: {
-              pending: {
-                decrement: leaveRequest.totalDays
-              },
-              used: {
-                increment: leaveRequest.totalDays
-              }
             }
           })
+          if (balance) {
+            const totalDays = leaveRequest.totalDays
+            const remainingCF = balance.carriedForward - balance.carriedForwardUsed
+            const cfDeduction = Math.min(totalDays, remainingCF)
+            await tx.leaveBalance.update({
+              where: { id: balance.id },
+              data: {
+                pending: balance.pending - totalDays,
+                used: balance.used + totalDays,
+                carriedForwardUsed: balance.carriedForwardUsed + cfDeduction,
+                available: balance.entitled + balance.carriedForward - (balance.used + totalDays) - (balance.pending - totalDays)
+              }
+            })
+          }
         } catch (balanceError) {
           console.error('Failed to update leave balance:', balanceError)
           throw balanceError // Abort transaction — balance must stay consistent with request status

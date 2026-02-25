@@ -141,28 +141,34 @@ export async function POST(
         }
       });
 
-      // If fully approved, update leave balance
+      // If fully approved, update leave balance with FIFO carry-forward deduction
       // Use request's start date year — balance was deducted in that year at submission time
       if (isAllApproved && updated.leaveTypeId && updated.totalDays > 0) {
         const balanceYear = new Date(updated.startDate).getFullYear();
         try {
-          await tx.leaveBalance.update({
+          const balance = await tx.leaveBalance.findUnique({
             where: {
               userId_leaveTypeId_year: {
                 userId: updated.userId,
                 leaveTypeId: updated.leaveTypeId,
                 year: balanceYear
               }
-            },
-            data: {
-              pending: {
-                decrement: updated.totalDays
-              },
-              used: {
-                increment: updated.totalDays
-              }
             }
           });
+          if (balance) {
+            const totalDays = updated.totalDays;
+            const remainingCF = balance.carriedForward - balance.carriedForwardUsed;
+            const cfDeduction = Math.min(totalDays, remainingCF);
+            await tx.leaveBalance.update({
+              where: { id: balance.id },
+              data: {
+                pending: balance.pending - totalDays,
+                used: balance.used + totalDays,
+                carriedForwardUsed: balance.carriedForwardUsed + cfDeduction,
+                available: balance.entitled + balance.carriedForward - (balance.used + totalDays) - (balance.pending - totalDays)
+              }
+            });
+          }
         } catch (balanceError) {
           console.error('Failed to update leave balance:', balanceError);
           throw balanceError; // Abort transaction — balance must stay consistent with request status

@@ -25,7 +25,10 @@ export async function updateLeaveBalanceOnApproval(
   })
 
   if (existingBalance) {
-    // Update existing balance
+    // FIFO: deduct from carried forward first, then entitled
+    const remainingCF = existingBalance.carriedForward - existingBalance.carriedForwardUsed
+    const cfDeduction = Math.min(days, remainingCF)
+    const newCFUsed = existingBalance.carriedForwardUsed + cfDeduction
     const newUsed = existingBalance.used + days
     const newAvailable = existingBalance.entitled + existingBalance.carriedForward - newUsed - existingBalance.pending
 
@@ -33,6 +36,7 @@ export async function updateLeaveBalanceOnApproval(
       where: { id: existingBalance.id },
       data: {
         used: newUsed,
+        carriedForwardUsed: newCFUsed,
         available: newAvailable
       }
     })
@@ -44,7 +48,7 @@ export async function updateLeaveBalanceOnApproval(
         entity: 'LEAVE_BALANCE',
         entityType: 'LEAVE_BALANCE',
         entityId: existingBalance.id,
-        details: { days, newUsed, newAvailable, year, trigger: 'APPROVAL' }
+        details: { days, newUsed, newAvailable, year, trigger: 'APPROVAL', cfDeduction, entitledDeduction: days - cfDeduction }
       }
     })
   }

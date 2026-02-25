@@ -317,7 +317,8 @@ export class LeaveBalanceService {
     });
 
     for (const balance of balancesWithCarryForward) {
-      // Recalculate available without carry forward
+      // Only expire unused portion of carry forward (FIFO: used CF days are already consumed)
+      const unusedCF = balance.carriedForward - balance.carriedForwardUsed;
       const newAvailable = Math.max(0, balance.entitled - balance.used - balance.pending);
 
       await prisma.leaveBalance.update({
@@ -326,7 +327,8 @@ export class LeaveBalanceService {
         },
         data: {
           available: newAvailable,
-          carriedForward: 0
+          carriedForward: 0,
+          carriedForwardUsed: 0
         }
       });
 
@@ -340,7 +342,9 @@ export class LeaveBalanceService {
           entityId: balance.userId,
           details: {
             year: currentYear,
-            expiredDays: balance.carriedForward,
+            expiredDays: unusedCF,
+            totalCarriedForward: balance.carriedForward,
+            usedCarriedForward: balance.carriedForwardUsed,
             expiryDate: format(expiryDate, 'yyyy-MM-dd')
           }
         }
