@@ -25,22 +25,28 @@ export async function POST(request: NextRequest) {
     // Parse selected dates if provided (for sporadic leave)
     const specificDates = selectedDates ? selectedDates.map((date: string) => new Date(date)) : null
 
-    // Get current user's department
+    // Get current user's department and direct superior
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { department: true }
+      select: { department: true, managerId: true, departmentDirectorId: true }
     });
 
     if (!currentUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Get potential substitutes from the same department only
+    // Direct superior: managerId or departmentDirectorId
+    const superiorId = currentUser.managerId || currentUser.departmentDirectorId;
+
+    // Get potential substitutes from same department OR direct superior
     const potentialSubstitutes = await prisma.user.findMany({
       where: {
-        id: { not: session.user.id }, // Exclude the requester
-        isActive: true, // Only active users
-        department: currentUser.department // Same department only
+        id: { not: session.user.id },
+        isActive: true,
+        OR: [
+          { department: currentUser.department },
+          ...(superiorId ? [{ id: superiorId }] : []),
+        ]
       },
       select: {
         id: true,

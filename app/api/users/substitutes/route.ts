@@ -13,23 +13,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current user to find their department
+    // Get current user to find their department and direct superior
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { department: true }
+      select: { department: true, managerId: true, departmentDirectorId: true }
     });
 
     if (!currentUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get eligible substitutes (same department, active users, excluding current user)
+    // Direct superior: managerId or departmentDirectorId
+    const superiorId = currentUser.managerId || currentUser.departmentDirectorId;
+
+    // Get eligible substitutes (same department OR direct superior)
     const substitutes = await prisma.user.findMany({
       where: {
         AND: [
-          { id: { not: session.user.id } }, // Exclude current user
-          { isActive: true }, // Only active users
-          { department: currentUser.department }, // Same department
+          { id: { not: session.user.id } },
+          { isActive: true },
+          {
+            OR: [
+              { department: currentUser.department },
+              ...(superiorId ? [{ id: superiorId }] : []),
+            ]
+          },
         ]
       },
       select: {
