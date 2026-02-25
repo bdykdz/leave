@@ -166,7 +166,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
   const totalDays = validatedData.selectedDates?.length || 
     Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // Check for overlapping requests
+  // Check for overlapping requests (range pre-filter; actual day-level check below)
   const overlappingWFH = await prisma.workFromHomeRequest.findFirst({
     where: {
       userId: session.user.id,
@@ -177,9 +177,11 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           endDate: { gte: startDate }
         }
       ]
-    }
+    },
+    select: { startDate: true, endDate: true, selectedDates: true }
   });
 
+  // Fetch potentially overlapping leave requests (range pre-filter, then check actual dates)
   const overlappingLeave = await prisma.leaveRequest.findFirst({
     where: {
       userId: session.user.id,
@@ -194,79 +196,111 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     include: { leaveType: { select: { name: true } } }
   });
 
-  if (overlappingWFH) {
-    // Calculate which requested days don't conflict with the existing WFH
-    const requestedDays = validatedData.selectedDates || [];
-    const conflictStart = overlappingWFH.startDate;
-    const conflictEnd = overlappingWFH.endDate;
-    const conflicting: string[] = [];
-    const available: string[] = [];
+  // Helper: check if a WFH day actually conflicts with a leave/WFH request's dates
+  const toDateStr = (d: Date) => format(d, 'yyyy-MM-dd');
+  const requestedDays = validatedData.selectedDates || [];
 
-    for (const dayStr of requestedDays) {
-      const day = new Date(dayStr);
-      if (day >= conflictStart && day <= conflictEnd) {
-        conflicting.push(format(day, 'MMM d'));
-      } else {
-        available.push(format(day, 'MMM d'));
+  if (overlappingWFH) {
+    // Build set of actual WFH dates from existing request
+    const existingWfhDates = new Set<string>();
+    const wfhSelectedDates = overlappingWFH.selectedDates as string[] | null;
+    if (wfhSelectedDates && wfhSelectedDates.length > 0) {
+      for (const d of wfhSelectedDates) {
+        existingWfhDates.add(String(d).split('T')[0]);
+      }
+    } else {
+      // No selectedDates — treat entire range as blocked
+      const cursor = new Date(overlappingWFH.startDate);
+      while (cursor <= overlappingWFH.endDate) {
+        existingWfhDates.add(toDateStr(cursor));
+        cursor.setDate(cursor.getDate() + 1);
       }
     }
 
-    const availableSuggestion = available.length > 0
-      ? `You can still request remote work for: ${available.join(', ')}.`
-      : 'All selected days overlap with your existing request.';
+    const conflicting: string[] = [];
+    const available: string[] = [];
+    for (const dayStr of requestedDays) {
+      const normalized = dayStr.split('T')[0];
+      if (existingWfhDates.has(normalized)) {
+        conflicting.push(format(new Date(dayStr), 'MMM d'));
+      } else {
+        available.push(format(new Date(dayStr), 'MMM d'));
+      }
+    }
 
-    return NextResponse.json(
-      {
-        error: 'Date conflict',
-        message: `You already have a remote work request from ${format(overlappingWFH.startDate, 'MMM d, yyyy')} to ${format(overlappingWFH.endDate, 'MMM d, yyyy')}. ${conflicting.length > 0 ? `Conflicting days: ${conflicting.join(', ')}. ` : ''}${availableSuggestion}`,
-        conflictType: 'WFH_CONFLICT',
-        conflictDetails: {
-          startDate: format(overlappingWFH.startDate, 'yyyy-MM-dd'),
-          endDate: format(overlappingWFH.endDate, 'yyyy-MM-dd'),
-          conflictingDays: conflicting,
-          availableDays: available,
-        }
-      },
-      { status: 400 }
-    );
+    // Only block if there's an actual day-level overlap
+    if (conflicting.length > 0) {
+      const availableSuggestion = available.length > 0
+        ? `You can still request remote work for: ${available.join(', ')}.`
+        : 'All selected days overlap with your existing request.';
+
+      return NextResponse.json(
+        {
+          error: 'Date conflict',
+          message: `You already have a remote work request from ${format(overlappingWFH.startDate, 'MMM d, yyyy')} to ${format(overlappingWFH.endDate, 'MMM d, yyyy')}. Conflicting days: ${conflicting.join(', ')}. ${availableSuggestion}`,
+          conflictType: 'WFH_CONFLICT',
+          conflictDetails: {
+            startDate: format(overlappingWFH.startDate, 'yyyy-MM-dd'),
+            endDate: format(overlappingWFH.endDate, 'yyyy-MM-dd'),
+            conflictingDays: conflicting,
+            availableDays: available,
+          }
+        },
+        { status: 400 }
+      );
+    }
   }
 
   if (overlappingLeave) {
-    const leaveTypeName = overlappingLeave.leaveType?.name || 'leave';
-    const requestedDays = validatedData.selectedDates || [];
-    const conflictStart = overlappingLeave.startDate;
-    const conflictEnd = overlappingLeave.endDate;
-    const conflicting: string[] = [];
-    const available: string[] = [];
-
-    for (const dayStr of requestedDays) {
-      const day = new Date(dayStr);
-      if (day >= conflictStart && day <= conflictEnd) {
-        conflicting.push(format(day, 'MMM d'));
-      } else {
-        available.push(format(day, 'MMM d'));
+    // Build set of actual leave dates from the leave request's selectedDates
+    const leaveDates = new Set<string>();
+    if (overlappingLeave.selectedDates && overlappingLeave.selectedDates.length > 0) {
+      for (const d of overlappingLeave.selectedDates) {
+        leaveDates.add(d instanceof Date ? toDateStr(d) : String(d).split('T')[0]);
+      }
+    } else {
+      // No selectedDates — treat entire range as blocked
+      const cursor = new Date(overlappingLeave.startDate);
+      while (cursor <= overlappingLeave.endDate) {
+        leaveDates.add(toDateStr(cursor));
+        cursor.setDate(cursor.getDate() + 1);
       }
     }
 
-    const availableSuggestion = available.length > 0
-      ? `You can still request remote work for: ${available.join(', ')}.`
-      : 'All selected days overlap with your leave.';
+    const leaveTypeName = overlappingLeave.leaveType?.name || 'leave';
+    const conflicting: string[] = [];
+    const available: string[] = [];
+    for (const dayStr of requestedDays) {
+      const normalized = dayStr.split('T')[0];
+      if (leaveDates.has(normalized)) {
+        conflicting.push(format(new Date(dayStr), 'MMM d'));
+      } else {
+        available.push(format(new Date(dayStr), 'MMM d'));
+      }
+    }
 
-    return NextResponse.json(
-      {
-        error: 'Date conflict',
-        message: `You have an approved ${leaveTypeName} from ${format(overlappingLeave.startDate, 'MMM d, yyyy')} to ${format(overlappingLeave.endDate, 'MMM d, yyyy')}. ${conflicting.length > 0 ? `Conflicting days: ${conflicting.join(', ')}. ` : ''}${availableSuggestion}`,
-        conflictType: 'LEAVE_CONFLICT',
-        conflictDetails: {
-          leaveType: leaveTypeName,
-          startDate: format(overlappingLeave.startDate, 'yyyy-MM-dd'),
-          endDate: format(overlappingLeave.endDate, 'yyyy-MM-dd'),
-          conflictingDays: conflicting,
-          availableDays: available,
-        }
-      },
-      { status: 400 }
-    );
+    // Only block if there's an actual day-level overlap
+    if (conflicting.length > 0) {
+      const availableSuggestion = available.length > 0
+        ? `You can still request remote work for: ${available.join(', ')}.`
+        : 'All selected days overlap with your leave.';
+
+      return NextResponse.json(
+        {
+          error: 'Date conflict',
+          message: `You have an approved ${leaveTypeName} from ${format(overlappingLeave.startDate, 'MMM d, yyyy')} to ${format(overlappingLeave.endDate, 'MMM d, yyyy')}. Conflicting days: ${conflicting.join(', ')}. ${availableSuggestion}`,
+          conflictType: 'LEAVE_CONFLICT',
+          conflictDetails: {
+            leaveType: leaveTypeName,
+            startDate: format(overlappingLeave.startDate, 'yyyy-MM-dd'),
+            endDate: format(overlappingLeave.endDate, 'yyyy-MM-dd'),
+            conflictingDays: conflicting,
+            availableDays: available,
+          }
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // Perform validation

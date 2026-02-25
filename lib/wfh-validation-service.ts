@@ -146,13 +146,52 @@ export class WFHValidationService {
         requestNumber: true,
         startDate: true,
         endDate: true,
+        selectedDates: true,
         leaveType: { select: { name: true } },
       },
     });
 
-    return leaveRequests.map(req =>
-      `${req.requestNumber} - ${req.leaveType?.name || 'Leave'} (${req.startDate.toLocaleDateString()} - ${req.endDate.toLocaleDateString()})`
-    );
+    // Build set of WFH dates being requested
+    const wfhDateStrs = new Set<string>();
+    if (selectedDates && selectedDates.length > 0) {
+      for (const d of selectedDates) {
+        wfhDateStrs.add(d.toISOString().split('T')[0]);
+      }
+    } else {
+      // No selectedDates — use the full range
+      const cursor = new Date(startDate);
+      while (cursor <= endDate) {
+        wfhDateStrs.add(cursor.toISOString().split('T')[0]);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    const conflicts: string[] = [];
+    for (const req of leaveRequests) {
+      // Build set of actual leave dates
+      const leaveDateStrs = new Set<string>();
+      if (req.selectedDates && req.selectedDates.length > 0) {
+        for (const d of req.selectedDates) {
+          leaveDateStrs.add(d instanceof Date ? d.toISOString().split('T')[0] : String(d).split('T')[0]);
+        }
+      } else {
+        const cursor = new Date(req.startDate);
+        while (cursor <= req.endDate) {
+          leaveDateStrs.add(cursor.toISOString().split('T')[0]);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      }
+
+      // Check if any WFH day actually overlaps with a leave day
+      const hasOverlap = [...wfhDateStrs].some(d => leaveDateStrs.has(d));
+      if (hasOverlap) {
+        conflicts.push(
+          `${req.requestNumber} - ${req.leaveType?.name || 'Leave'} (${req.startDate.toLocaleDateString()} - ${req.endDate.toLocaleDateString()})`
+        );
+      }
+    }
+
+    return conflicts;
   }
   
   /**
