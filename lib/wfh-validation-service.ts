@@ -146,11 +146,12 @@ export class WFHValidationService {
         requestNumber: true,
         startDate: true,
         endDate: true,
+        leaveType: { select: { name: true } },
       },
     });
-    
-    return leaveRequests.map(req => 
-      `${req.requestNumber} (${req.startDate.toLocaleDateString()} - ${req.endDate.toLocaleDateString()})`
+
+    return leaveRequests.map(req =>
+      `${req.requestNumber} - ${req.leaveType?.name || 'Leave'} (${req.startDate.toLocaleDateString()} - ${req.endDate.toLocaleDateString()})`
     );
   }
   

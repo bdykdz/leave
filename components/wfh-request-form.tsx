@@ -219,9 +219,12 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
       if (!response.ok) {
         if (data.errors) {
           const errorMessages = data.errors.map((e: any) => e.message).join(', ')
-          showError('Validation Error', errorMessages)
+          showError(t.remoteForm.conflictTitle, errorMessages)
         } else {
-          showError('Submission Failed', data.error || 'Failed to submit work from home request')
+          showError(
+            t.remoteForm.conflictTitle,
+            data.message || data.error || t.remoteForm.submissionFailed
+          )
         }
         return
       }

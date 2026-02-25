@@ -190,24 +190,80 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           endDate: { gte: startDate }
         }
       ]
-    }
+    },
+    include: { leaveType: { select: { name: true } } }
   });
 
   if (overlappingWFH) {
+    // Calculate which requested days don't conflict with the existing WFH
+    const requestedDays = validatedData.selectedDates || [];
+    const conflictStart = overlappingWFH.startDate;
+    const conflictEnd = overlappingWFH.endDate;
+    const conflicting: string[] = [];
+    const available: string[] = [];
+
+    for (const dayStr of requestedDays) {
+      const day = new Date(dayStr);
+      if (day >= conflictStart && day <= conflictEnd) {
+        conflicting.push(format(day, 'MMM d'));
+      } else {
+        available.push(format(day, 'MMM d'));
+      }
+    }
+
+    const availableSuggestion = available.length > 0
+      ? `You can still request remote work for: ${available.join(', ')}.`
+      : 'All selected days overlap with your existing request.';
+
     return NextResponse.json(
-      { 
+      {
         error: 'Date conflict',
-        message: `You already have a work from home request from ${overlappingWFH.startDate.toLocaleDateString()} to ${overlappingWFH.endDate.toLocaleDateString()}. Please choose different dates or cancel the existing request.`
+        message: `You already have a remote work request from ${format(overlappingWFH.startDate, 'MMM d, yyyy')} to ${format(overlappingWFH.endDate, 'MMM d, yyyy')}. ${conflicting.length > 0 ? `Conflicting days: ${conflicting.join(', ')}. ` : ''}${availableSuggestion}`,
+        conflictType: 'WFH_CONFLICT',
+        conflictDetails: {
+          startDate: format(overlappingWFH.startDate, 'yyyy-MM-dd'),
+          endDate: format(overlappingWFH.endDate, 'yyyy-MM-dd'),
+          conflictingDays: conflicting,
+          availableDays: available,
+        }
       },
       { status: 400 }
     );
   }
 
   if (overlappingLeave) {
+    const leaveTypeName = overlappingLeave.leaveType?.name || 'leave';
+    const requestedDays = validatedData.selectedDates || [];
+    const conflictStart = overlappingLeave.startDate;
+    const conflictEnd = overlappingLeave.endDate;
+    const conflicting: string[] = [];
+    const available: string[] = [];
+
+    for (const dayStr of requestedDays) {
+      const day = new Date(dayStr);
+      if (day >= conflictStart && day <= conflictEnd) {
+        conflicting.push(format(day, 'MMM d'));
+      } else {
+        available.push(format(day, 'MMM d'));
+      }
+    }
+
+    const availableSuggestion = available.length > 0
+      ? `You can still request remote work for: ${available.join(', ')}.`
+      : 'All selected days overlap with your leave.';
+
     return NextResponse.json(
-      { 
+      {
         error: 'Date conflict',
-        message: `You have a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. You cannot work from home while on leave.`
+        message: `You have an approved ${leaveTypeName} from ${format(overlappingLeave.startDate, 'MMM d, yyyy')} to ${format(overlappingLeave.endDate, 'MMM d, yyyy')}. ${conflicting.length > 0 ? `Conflicting days: ${conflicting.join(', ')}. ` : ''}${availableSuggestion}`,
+        conflictType: 'LEAVE_CONFLICT',
+        conflictDetails: {
+          leaveType: leaveTypeName,
+          startDate: format(overlappingLeave.startDate, 'yyyy-MM-dd'),
+          endDate: format(overlappingLeave.endDate, 'yyyy-MM-dd'),
+          conflictingDays: conflicting,
+          availableDays: available,
+        }
       },
       { status: 400 }
     );

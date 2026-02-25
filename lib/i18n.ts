@@ -233,6 +233,13 @@ export interface Translations {
     approvedLeaveConflict: string
     pendingLeaveConflict: string
     blockedHoliday: string
+    conflictTitle: string
+    leaveConflict: string
+    wfhConflict: string
+    conflictingDays: string
+    availableDaysSuggestion: string
+    noAvailableDays: string
+    submissionFailed: string
   }
 
   // Signature
@@ -1032,6 +1039,13 @@ export const translations: Record<Language, Translations> = {
       approvedLeaveConflict: "Approved Leave (Conflict)",
       pendingLeaveConflict: "Pending Leave (Conflict)",
       blockedHoliday: "Blocked Holiday",
+      conflictTitle: "Date Conflict",
+      leaveConflict: "You have an approved {leaveType} from {startDate} to {endDate}.",
+      wfhConflict: "You already have a remote work request from {startDate} to {endDate}.",
+      conflictingDays: "Conflicting days: {days}",
+      availableDaysSuggestion: "You can still request remote work for: {days}",
+      noAvailableDays: "All selected days overlap with your existing request.",
+      submissionFailed: "Failed to submit work from home request",
     },
     signature: {
       digitalSignature: "Digital Signature",
@@ -1773,6 +1787,13 @@ export const translations: Record<Language, Translations> = {
       approvedLeaveConflict: "Concediu aprobat (Conflict)",
       pendingLeaveConflict: "Concediu în așteptare (Conflict)",
       blockedHoliday: "Sărbătoare blocată",
+      conflictTitle: "Conflict de date",
+      leaveConflict: "Aveți un concediu aprobat ({leaveType}) în perioada {startDate} - {endDate}.",
+      wfhConflict: "Aveți deja o cerere de lucru la distanță în perioada {startDate} - {endDate}.",
+      conflictingDays: "Zilele care se suprapun: {days}",
+      availableDaysSuggestion: "Puteți solicita lucru la distanță pentru: {days}",
+      noAvailableDays: "Toate zilele selectate se suprapun cu cererea existentă.",
+      submissionFailed: "Cererea de lucru de acasă nu a putut fi trimisă",
     },
     signature: {
       digitalSignature: "Semnătură digitală",

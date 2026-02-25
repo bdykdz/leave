@@ -157,6 +157,34 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     return null
   }
 
+  const getDayTooltip = (date: Date): string | undefined => {
+    if (!isSameMonth(date, currentMonth)) return undefined
+
+    // Show tooltip for existing leave/WFH requests on the calendar
+    if (isWFHCalendar) {
+      const existingRequest = hasExistingLeaveRequest(date)
+      if (existingRequest) {
+        const statusLabel = existingRequest.status === 'APPROVED' ? t.status.approved : t.status.pending
+        const typeLabel = existingRequest.leaveType === 'WFH' ? t.common.workFromHome : existingRequest.leaveType
+        return `${typeLabel} (${statusLabel})`
+      }
+    }
+
+    if (isCompanyHoliday(date)) {
+      return t.calendarLegend.companyHoliday
+    }
+
+    if (isBlockedDate(date)) {
+      const details = getBlockedDateDetails(date)
+      if (details) {
+        const statusLabel = details.status === 'APPROVED' ? t.status.approved : t.status.pending
+        return `${details.leaveType} (${statusLabel})`
+      }
+    }
+
+    return undefined
+  }
+
   const getDayClassName = (date: Date) => {
     const baseClasses =
       "h-10 w-10 text-sm font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-center"
@@ -275,7 +303,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
 
         {/* Calendar days */}
         {calendarDays.map((date, index) => (
-          <div key={index} className={getDayClassName(date)} onClick={() => handleDateClick(date)}>
+          <div key={index} className={getDayClassName(date)} onClick={() => handleDateClick(date)} title={getDayTooltip(date)}>
             {format(date, "d")}
           </div>
         ))}
