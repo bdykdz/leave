@@ -8,6 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { TemplateManager } from "./TemplateManager"
 import { LeaveTypesManager } from "./LeaveTypesManager"
 import { DocumentRetentionSettings } from "./DocumentRetentionSettings"
+import { DocumentFileManager } from "@/components/hr/DocumentFileManager"
+import { DocumentVerification } from "@/components/hr/DocumentVerification"
 import { DepartmentsView } from "./DepartmentsView"
 import { OrgChart } from "./OrgChart"
 import { WorkflowRulesManager } from "./WorkflowRulesManager"
@@ -47,6 +49,8 @@ import {
   Database,
   ChevronDown,
   ChevronRight,
+  FolderOpen,
+  CheckCircle,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -123,6 +127,8 @@ export function AdminPanel() {
       icon: Calendar,
       items: [
         { id: 'templates', title: 'Templates', icon: FileText },
+        { id: 'documents', title: 'Documents', icon: FolderOpen },
+        { id: 'verification', title: 'Verification', icon: CheckCircle },
         { id: 'leave-types', title: 'Leave Types', icon: Calendar },
         { id: 'leave-balance', title: 'Balance', icon: Calculator },
         { id: 'holidays', title: 'Holidays', icon: Calendar },
@@ -165,6 +171,10 @@ export function AdminPanel() {
         return <DepartmentManager />
       case 'templates':
         return <TemplateManager />
+      case 'documents':
+        return <DocumentFileManager />
+      case 'verification':
+        return <DocumentVerification />
       case 'leave-types':
         return <LeaveTypesManager />
       case 'leave-balance':
