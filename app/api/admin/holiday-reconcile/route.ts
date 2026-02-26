@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (balance) {
-            const cfRestore = Math.min(daysToRestore, balance.carriedForwardUsed)
+            const cfRestore = Math.min(daysToRestore, Math.max(0, balance.carriedForwardUsed))
             await tx.leaveBalance.update({
               where: { id: balance.id },
               data: {

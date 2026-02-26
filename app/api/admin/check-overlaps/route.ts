@@ -32,9 +32,12 @@ export async function GET(request: NextRequest) {
       } else {
         const cursor = new Date(req.startDate);
         const end = new Date(req.endDate);
-        while (cursor <= end) {
+        const maxDays = 365;
+        let count = 0;
+        while (cursor <= end && count < maxDays) {
           dates.add(cursor.toISOString().split('T')[0]);
           cursor.setDate(cursor.getDate() + 1);
+          count++;
         }
       }
       return dates;

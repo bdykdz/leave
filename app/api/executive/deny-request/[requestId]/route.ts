@@ -147,7 +147,7 @@ export async function POST(
             });
             if (balance) {
               const totalDays = leaveRequest.totalDays;
-              const cfRestore = Math.min(totalDays, balance.carriedForwardUsed);
+              const cfRestore = Math.min(totalDays, Math.max(0, balance.carriedForwardUsed));
               await tx.leaveBalance.update({
                 where: { id: balance.id },
                 data: {

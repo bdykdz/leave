@@ -19,7 +19,8 @@ export async function POST(
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    const { reason } = await request.json();
+    const body = await request.json();
+    const reason = body.reason ? String(body.reason).slice(0, 500) : undefined;
 
     // Fetch the leave request
     const leaveRequest = await prisma.leaveRequest.findUnique({
@@ -59,57 +60,53 @@ export async function POST(
         }
       });
 
-      // Restore leave balance based on request status
+      // Restore leave balance based on request status — no try/catch so transaction
+      // fails atomically if balance can't be restored (prevents permanent day loss)
       if (leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
         const currentYear = new Date().getFullYear();
-        
-        try {
-          if (leaveRequest.status === 'APPROVED') {
-            // For approved requests, reverse FIFO: restore CF days first
-            const balance = await tx.leaveBalance.findUnique({
-              where: {
-                userId_leaveTypeId_year: {
-                  userId: leaveRequest.userId,
-                  leaveTypeId: leaveRequest.leaveTypeId,
-                  year: currentYear
-                }
+
+        if (leaveRequest.status === 'APPROVED') {
+          // For approved requests, reverse FIFO: restore CF days first
+          const balance = await tx.leaveBalance.findUnique({
+            where: {
+              userId_leaveTypeId_year: {
+                userId: leaveRequest.userId,
+                leaveTypeId: leaveRequest.leaveTypeId,
+                year: currentYear
               }
-            });
-            if (balance) {
-              const totalDays = leaveRequest.totalDays;
-              const cfRestore = Math.min(totalDays, balance.carriedForwardUsed);
-              await tx.leaveBalance.update({
-                where: { id: balance.id },
-                data: {
-                  used: balance.used - totalDays,
-                  carriedForwardUsed: balance.carriedForwardUsed - cfRestore,
-                  available: balance.entitled + balance.carriedForward - (balance.used - totalDays) - balance.pending
-                }
-              });
             }
-          } else if (leaveRequest.status === 'PENDING') {
-            // For pending requests, restore from pending back to available (no FIFO needed)
+          });
+          if (balance) {
+            const totalDays = leaveRequest.totalDays;
+            const cfRestore = Math.min(totalDays, Math.max(0, balance.carriedForwardUsed));
             await tx.leaveBalance.update({
-              where: {
-                userId_leaveTypeId_year: {
-                  userId: leaveRequest.userId,
-                  leaveTypeId: leaveRequest.leaveTypeId,
-                  year: currentYear
-                }
-              },
+              where: { id: balance.id },
               data: {
-                pending: {
-                  decrement: leaveRequest.totalDays
-                },
-                available: {
-                  increment: leaveRequest.totalDays
-                }
+                used: balance.used - totalDays,
+                carriedForwardUsed: balance.carriedForwardUsed - cfRestore,
+                available: balance.entitled + balance.carriedForward - (balance.used - totalDays) - balance.pending
               }
             });
           }
-        } catch (balanceError) {
-          console.error('Warning: Could not restore leave balance:', balanceError);
-          // Continue with cancellation even if balance update fails
+        } else if (leaveRequest.status === 'PENDING') {
+          // For pending requests, restore from pending back to available (no FIFO needed)
+          await tx.leaveBalance.update({
+            where: {
+              userId_leaveTypeId_year: {
+                userId: leaveRequest.userId,
+                leaveTypeId: leaveRequest.leaveTypeId,
+                year: currentYear
+              }
+            },
+            data: {
+              pending: {
+                decrement: leaveRequest.totalDays
+              },
+              available: {
+                increment: leaveRequest.totalDays
+              }
+            }
+          });
         }
       }
 

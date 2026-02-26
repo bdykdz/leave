@@ -23,67 +23,72 @@ export async function POST(request: NextRequest) {
     // Generate unique request number
     const requestNumber = await generateUniqueRequestNumber('LR');
 
-    // Create the leave request with immediate approval
-    const leaveRequest = await prisma.leaveRequest.create({
-      data: {
-        requestNumber,
-        userId: data.userId,
-        leaveTypeId: data.leaveTypeId,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-        totalDays: data.totalDays || 1,
-        reason: data.reason || 'Created by Admin/HR',
-        status: data.status || 'APPROVED',
-        supportingDocuments: data.supportingDocuments || [],
-        hrNotes: data.hrNotes,
-        createdByAdminId: session.user.id,
-        isHalfDay: data.isHalfDay || false,
-        // Mark as already approved if status is APPROVED
-        managerApprovedBy: data.status === 'APPROVED' ? session.user.id : null,
-        managerApprovedAt: data.status === 'APPROVED' ? new Date() : null,
-        hrApprovedBy: data.status === 'APPROVED' ? session.user.id : null,
-        hrApprovedAt: data.status === 'APPROVED' ? new Date() : null,
-      },
-      include: {
-        user: true,
-        leaveType: true,
-      }
-    });
-
-    // Update leave balance if approved
-    if (data.status === 'APPROVED') {
-      const leaveBalance = await prisma.leaveBalance.findFirst({
-        where: {
+    // Wrap all DB operations in a transaction for consistency
+    const leaveRequest = await prisma.$transaction(async (tx) => {
+      // Create the leave request with immediate approval
+      const created = await tx.leaveRequest.create({
+        data: {
+          requestNumber,
           userId: data.userId,
           leaveTypeId: data.leaveTypeId,
-          year: new Date().getFullYear(),
+          startDate: new Date(data.startDate),
+          endDate: new Date(data.endDate),
+          totalDays: data.totalDays || 1,
+          reason: data.reason || 'Created by Admin/HR',
+          status: data.status || 'APPROVED',
+          supportingDocuments: data.supportingDocuments || [],
+          hrNotes: data.hrNotes,
+          createdByAdminId: session.user.id,
+          isHalfDay: data.isHalfDay || false,
+          // Mark as already approved if status is APPROVED
+          managerApprovedBy: data.status === 'APPROVED' ? session.user.id : null,
+          managerApprovedAt: data.status === 'APPROVED' ? new Date() : null,
+          hrApprovedBy: data.status === 'APPROVED' ? session.user.id : null,
+          hrApprovedAt: data.status === 'APPROVED' ? new Date() : null,
+        },
+        include: {
+          user: true,
+          leaveType: true,
         }
       });
 
-      if (leaveBalance) {
-        // FIFO: deduct from carried forward first
-        const remainingCF = leaveBalance.carriedForward - leaveBalance.carriedForwardUsed;
-        const cfDeduction = Math.min(data.totalDays, remainingCF);
-        await prisma.leaveBalance.update({
-          where: { id: leaveBalance.id },
-          data: {
-            used: leaveBalance.used + data.totalDays,
-            carriedForwardUsed: leaveBalance.carriedForwardUsed + cfDeduction,
-            available: Math.max(0, leaveBalance.available - data.totalDays),
+      // Update leave balance if approved
+      if (data.status === 'APPROVED') {
+        const leaveBalance = await tx.leaveBalance.findFirst({
+          where: {
+            userId: data.userId,
+            leaveTypeId: data.leaveTypeId,
+            year: new Date().getFullYear(),
           }
         });
-      }
-    }
 
-    // Create notification for the user
-    await prisma.notification.create({
-      data: {
-        userId: data.userId,
-        type: 'LEAVE_REQUESTED',
-        title: 'Leave Request Created by HR',
-        message: `A leave request has been created on your behalf by ${session.user.firstName} ${session.user.lastName}`,
-        link: `/employee?tab=requests`,
+        if (leaveBalance) {
+          // FIFO: deduct from carried forward first
+          const remainingCF = Math.max(0, leaveBalance.carriedForward - leaveBalance.carriedForwardUsed);
+          const cfDeduction = Math.min(data.totalDays, remainingCF);
+          await tx.leaveBalance.update({
+            where: { id: leaveBalance.id },
+            data: {
+              used: leaveBalance.used + data.totalDays,
+              carriedForwardUsed: leaveBalance.carriedForwardUsed + cfDeduction,
+              available: Math.max(0, leaveBalance.available - data.totalDays),
+            }
+          });
+        }
       }
+
+      // Create notification for the user
+      await tx.notification.create({
+        data: {
+          userId: data.userId,
+          type: 'LEAVE_REQUESTED',
+          title: 'Leave Request Created by HR',
+          message: `A leave request has been created on your behalf by ${session.user.firstName} ${session.user.lastName}`,
+          link: `/employee?tab=requests`,
+        }
+      });
+
+      return created;
     });
 
     return NextResponse.json({

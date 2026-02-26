@@ -184,20 +184,21 @@ export async function POST(
               }
             }
           })
-          if (balance) {
-            const totalDays = leaveRequest.totalDays
-            const remainingCF = balance.carriedForward - balance.carriedForwardUsed
-            const cfDeduction = Math.min(totalDays, remainingCF)
-            await tx.leaveBalance.update({
-              where: { id: balance.id },
-              data: {
-                pending: balance.pending - totalDays,
-                used: balance.used + totalDays,
-                carriedForwardUsed: balance.carriedForwardUsed + cfDeduction,
-                available: balance.entitled + balance.carriedForward - (balance.used + totalDays) - (balance.pending - totalDays)
-              }
-            })
+          if (!balance) {
+            throw new Error(`No leave balance record found for user ${leaveRequest.userId}, leaveType ${leaveRequest.leaveTypeId}, year ${balanceYear}. Cannot approve without a balance record.`)
           }
+          const totalDays = leaveRequest.totalDays
+          const remainingCF = Math.max(0, balance.carriedForward - balance.carriedForwardUsed)
+          const cfDeduction = Math.min(totalDays, remainingCF)
+          await tx.leaveBalance.update({
+            where: { id: balance.id },
+            data: {
+              pending: balance.pending - totalDays,
+              used: balance.used + totalDays,
+              carriedForwardUsed: balance.carriedForwardUsed + cfDeduction,
+              available: balance.entitled + balance.carriedForward - (balance.used + totalDays) - (balance.pending - totalDays)
+            }
+          })
         } catch (balanceError) {
           console.error('Failed to update leave balance:', balanceError)
           throw balanceError // Abort transaction — balance must stay consistent with request status

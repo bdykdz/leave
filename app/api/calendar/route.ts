@@ -137,10 +137,9 @@ export const GET = asyncHandler(async (request: NextRequest) => {
       department: leave.user.department,
       startDate: leave.startDate,
       endDate: leave.endDate,
-      leaveType: leave.leaveType.name,
+      leaveType: 'leave',
       status: leave.status.toLowerCase(),
-      reason: leave.reason,
-      substitute: leave.substitute ? 
+      substitute: leave.substitute ?
         `${leave.substitute.firstName} ${leave.substitute.lastName}` : null,
       selectedDates: leave.selectedDates,
     })),
@@ -156,7 +155,6 @@ export const GET = asyncHandler(async (request: NextRequest) => {
       endDate: wfh.endDate,
       leaveType: 'Work From Home',
       status: wfh.status.toLowerCase(),
-      location: wfh.location,
       selectedDates: wfh.selectedDates as Date[] | null,
     })),
   ];
