@@ -76,9 +76,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
   const t = useTranslations()
   const [searchTerm, setSearchTerm] = useState("")
 
-  if (!date) return null
-
-  const eventsForDate = events.filter(event => {
+  const eventsForDate = date ? events.filter(event => {
     const eventStart = typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate
     const eventEnd = typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
 
@@ -93,12 +91,12 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
       start: eventStart,
       end: eventEnd,
     })
-  })
+  }) : []
 
-  const holidayForDate = holidays.find(holiday => {
+  const holidayForDate = date ? holidays.find(holiday => {
     const holidayDate = typeof holiday.date === 'string' ? parseISO(holiday.date) : holiday.date
     return isSameDay(holidayDate, date)
-  })
+  }) : undefined
 
   // Separate WFH from actual leave, deduplicated by userId
   const actualLeave = Array.from(
@@ -124,6 +122,8 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
               : 'atWork' as const,
       }))
   }, [searchTerm, actualLeave, wfhRequests, allUsers])
+
+  if (!date) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
