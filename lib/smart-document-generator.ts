@@ -860,7 +860,11 @@ export class SmartDocumentGenerator {
         used: String(leaveBalance?.used || 0),
         pending: String(leaveBalance?.pending || 0),
         available: String(leaveBalance?.available || 0),
-        afterApproval: String((leaveBalance?.available || 0) - leaveRequest.totalDays)
+        afterApproval: String(
+          leaveRequest.status === 'APPROVED'
+            ? (leaveBalance?.available || 0)
+            : (leaveBalance?.available || 0) - leaveRequest.totalDays
+        )
       },
       decision: decisions,
       signature: signatureData // nested
