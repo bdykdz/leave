@@ -198,9 +198,8 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{event.department}</p>
                       <p className="text-sm">
-                        <span className="font-medium">{event.leaveType}</span> • {formatEventDates(event)}
+                        <span className="font-medium">{t.calendarDetail.onLeave}</span> • {formatEventDates(event)}
                       </p>
-                      {event.reason && <p className="text-sm text-gray-500 mt-1">"{event.reason}"</p>}
                       {event.substitute && <p className="text-sm text-blue-600 mt-1">{t.calendarDetail.substitute}: {event.substitute}</p>}
                     </div>
                   </div>
@@ -235,7 +234,6 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{event.department}</p>
-                      {event.location && <p className="text-sm text-gray-600 mb-1">{t.calendarDetail.location}: {event.location}</p>}
                       <p className="text-sm">
                         <span className="font-medium">{t.common.workFromHome}</span> • {formatEventDates(event)}
                       </p>
