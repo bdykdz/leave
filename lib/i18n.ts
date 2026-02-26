@@ -710,6 +710,9 @@ export interface Translations {
     daySummary: string
     inOffice: string
     noTeamMembersAway: string
+    searchPlaceholder: string
+    atWork: string
+    noResults: string
   }
 
   // Metrics
@@ -1473,6 +1476,9 @@ export const translations: Record<Language, Translations> = {
       daySummary: "Day Summary",
       inOffice: "In Office",
       noTeamMembersAway: "No team members away or working from home on this date",
+      searchPlaceholder: "Search employee name...",
+      atWork: "At Work",
+      noResults: "No employees match your search",
     },
     metrics: {
       totalEmployees: "Total Employees",
@@ -2222,6 +2228,9 @@ export const translations: Record<Language, Translations> = {
       daySummary: "Rezumatul zilei",
       inOffice: "La birou",
       noTeamMembersAway: "Niciun membru al echipei absent sau lucrând de acasă în această dată",
+      searchPlaceholder: "Caută numele angajatului...",
+      atWork: "La lucru",
+      noResults: "Niciun angajat nu corespunde căutării",
     },
     metrics: {
       totalEmployees: "Total angajați",

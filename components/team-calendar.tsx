@@ -1,10 +1,10 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight, Calendar, Users, X, Home, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, ChevronRight, Calendar, Users, X, Home, Loader2, Search } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns/format"
 import { startOfMonth } from "date-fns/startOfMonth"
@@ -56,77 +56,39 @@ interface CalendarSummary {
   pending: number
 }
 
+interface CalendarUser {
+  id: string
+  name: string
+  department: string
+}
+
 interface DayDetailsModalProps {
   isOpen: boolean
   onClose: () => void
   date: Date | null
   events: CalendarEvent[]
   holidays: Holiday[]
+  summary: CalendarSummary
+  allUsers: CalendarUser[]
 }
 
-function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetailsModalProps) {
+function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, allUsers }: DayDetailsModalProps) {
   const t = useTranslations()
-  if (!date) return null
+  const [searchTerm, setSearchTerm] = useState("")
 
-  // Helper function to format event dates properly
-  const formatEventDates = (event: CalendarEvent) => {
-    if (event.selectedDates && event.selectedDates.length > 0) {
-      // For non-consecutive days, show individual dates
-      const selectedDates = event.selectedDates.map(d => 
-        typeof d === 'string' ? parseISO(d) : d
-      ).sort((a, b) => a.getTime() - b.getTime())
-      
-      // Group consecutive dates
-      const groups: Date[][] = []
-      let currentGroup = [selectedDates[0]]
-      
-      for (let i = 1; i < selectedDates.length; i++) {
-        const prevDate = selectedDates[i - 1]
-        const currDate = selectedDates[i]
-        const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
-        
-        if (dayDiff === 1) {
-          currentGroup.push(currDate)
-        } else {
-          groups.push(currentGroup)
-          currentGroup = [currDate]
-        }
-      }
-      groups.push(currentGroup)
-      
-      // Format each group
-      return groups.map(group => {
-        if (group.length === 1) {
-          return format(group[0], "MMM d")
-        } else {
-          return `${format(group[0], "MMM d")}-${format(group[group.length - 1], "d")}`
-        }
-      }).join(", ") + `, ${format(selectedDates[0], "yyyy")}`
-    } else {
-      // For consecutive days, show start-end range
-      const eventStart = typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate
-      const eventEnd = typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
-      
-      if (isSameDay(eventStart, eventEnd)) {
-        return format(eventStart, "MMM d")
-      } else {
-        return `${format(eventStart, "MMM d")} - ${format(eventEnd, "MMM d")}`
-      }
-    }
-  }
+  if (!date) return null
 
   const eventsForDate = events.filter(event => {
     const eventStart = typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate
     const eventEnd = typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
-    
-    // Check if using selected dates or date range
+
     if (event.selectedDates && event.selectedDates.length > 0) {
       return event.selectedDates.some(selectedDate => {
         const parsedDate = typeof selectedDate === 'string' ? parseISO(selectedDate) : selectedDate
         return isSameDay(parsedDate, date)
       })
     }
-    
+
     return isWithinInterval(date, {
       start: eventStart,
       end: eventEnd,
@@ -138,23 +100,30 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
     return isSameDay(holidayDate, date)
   })
 
-  // Separate WFH from actual leave
-  const actualLeave = eventsForDate.filter(event => event.type === 'leave')
-  const wfhRequests = eventsForDate.filter(event => event.type === 'wfh')
+  // Separate WFH from actual leave, deduplicated by userId
+  const actualLeave = Array.from(
+    new Map(eventsForDate.filter(e => e.type === 'leave').map(e => [e.userId, e])).values()
+  )
+  const wfhRequests = Array.from(
+    new Map(eventsForDate.filter(e => e.type === 'wfh').map(e => [e.userId, e])).values()
+  )
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "approved":
-        return "bg-green-100 text-green-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "rejected":
-      case "denied":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
+  // Search implementation
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim()) return null
+    const term = searchTerm.toLowerCase()
+    const onLeaveIds = new Set(actualLeave.map(e => e.userId))
+    const onWfhIds = new Set(wfhRequests.map(e => e.userId))
+
+    return allUsers
+      .filter(u => u.name.toLowerCase().includes(term))
+      .map(user => ({
+        ...user,
+        status: onLeaveIds.has(user.id) ? 'leave' as const
+              : onWfhIds.has(user.id) ? 'wfh' as const
+              : 'atWork' as const,
+      }))
+  }, [searchTerm, actualLeave, wfhRequests, allUsers])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -168,7 +137,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Holiday Info */}
           {holidayForDate && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -180,72 +149,94 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
             </div>
           )}
 
-          {/* Team Members Away */}
-          {actualLeave.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-red-600">{t.calendarDetail.teamMembersAway} ({actualLeave.length})</h3>
-              <div className="space-y-3">
-                {actualLeave.map((event) => (
-                  <div key={event.id} className="flex items-start gap-4 p-4 border rounded-lg">
-                    <Avatar className="h-10 w-10">
-                      {event.userAvatar && <AvatarImage src={event.userAvatar} />}
-                      <AvatarFallback>{event.userInitials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold">{event.userName}</h4>
-                        <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{event.department}</p>
-                      <p className="text-sm">
-                        <span className="font-medium">{t.calendarDetail.onLeave}</span> • {formatEventDates(event)}
-                      </p>
-                      {event.substitute && <p className="text-sm text-blue-600 mt-1">{t.calendarDetail.substitute}: {event.substitute}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder={t.calendarDetail.searchPlaceholder}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
 
-          {/* Work from Home */}
-          {wfhRequests.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-blue-600 flex items-center gap-2">
-                <Home className="h-5 w-5" />
-                {t.calendarDetail.workingFromHomeCount} ({wfhRequests.length})
-              </h3>
-              <div className="space-y-3">
-                {wfhRequests.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-start gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
-                  >
-                    <Avatar className="h-10 w-10">
-                      {event.userAvatar && <AvatarImage src={event.userAvatar} />}
-                      <AvatarFallback>{event.userInitials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold">{event.userName}</h4>
-                        <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
-                        <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                          {t.common.wfh}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{event.department}</p>
-                      <p className="text-sm">
-                        <span className="font-medium">{t.common.workFromHome}</span> • {formatEventDates(event)}
-                      </p>
-                    </div>
+          {/* Search Results */}
+          {searchResults !== null ? (
+            searchResults.length > 0 ? (
+              <div className="space-y-1">
+                {searchResults.map(user => (
+                  <div key={user.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50">
+                    <span className={cn(
+                      "text-sm font-medium",
+                      user.status === 'leave' && "text-red-600",
+                      user.status === 'wfh' && "text-blue-600",
+                      user.status === 'atWork' && "text-green-600",
+                    )}>
+                      {user.name}
+                      <span className="text-gray-400 font-normal text-xs ml-1">({user.department})</span>
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        user.status === 'leave' && "bg-red-50 text-red-700 border-red-200",
+                        user.status === 'wfh' && "bg-blue-50 text-blue-700 border-blue-200",
+                        user.status === 'atWork' && "bg-green-50 text-green-700 border-green-200",
+                      )}
+                    >
+                      {user.status === 'leave' ? t.calendarDetail.onLeave
+                        : user.status === 'wfh' ? t.common.wfh
+                        : t.calendarDetail.atWork}
+                    </Badge>
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500 text-sm">
+                <p>{t.calendarDetail.noResults}</p>
+              </div>
+            )
+          ) : (
+            <>
+              {/* Compact Leave Names */}
+              {actualLeave.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-red-600 mb-1">
+                    {t.calendarDetail.teamMembersAway} ({actualLeave.length})
+                  </h3>
+                  <p className="text-sm leading-relaxed">
+                    {actualLeave.map((event, i) => (
+                      <span key={event.id}>
+                        {i > 0 && <span className="text-gray-400">, </span>}
+                        <span className="text-red-600 font-medium">{event.userName}</span>
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+
+              {/* Compact WFH Names */}
+              {wfhRequests.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-600 mb-1 flex items-center gap-1">
+                    <Home className="h-4 w-4" />
+                    {t.calendarDetail.workingFromHomeCount} ({wfhRequests.length})
+                  </h3>
+                  <p className="text-sm leading-relaxed">
+                    {wfhRequests.map((event, i) => (
+                      <span key={event.id}>
+                        {i > 0 && <span className="text-gray-400">, </span>}
+                        <span className="text-blue-600 font-medium">{event.userName}</span>
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           {/* Summary Box */}
-          {(actualLeave.length > 0 || wfhRequests.length > 0) && (
+          {(actualLeave.length > 0 || wfhRequests.length > 0) && !searchResults && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-semibold mb-2">{t.calendarDetail.daySummary}</h4>
               <div className="grid grid-cols-3 gap-4 text-center">
@@ -259,7 +250,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
                 </div>
                 <div>
                   <div className="text-xl font-bold text-green-600">
-                    {Math.max(0, 10 - actualLeave.length - wfhRequests.length)}
+                    {Math.max(0, summary.totalMembers - actualLeave.length - wfhRequests.length)}
                   </div>
                   <div className="text-xs text-gray-600">{t.calendarDetail.inOffice}</div>
                 </div>
@@ -268,7 +259,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays }: DayDetails
           )}
 
           {/* No events */}
-          {actualLeave.length === 0 && wfhRequests.length === 0 && !holidayForDate && (
+          {actualLeave.length === 0 && wfhRequests.length === 0 && !holidayForDate && !searchResults && (
             <div className="text-center py-8 text-gray-500">
               <p>{t.calendarDetail.noTeamMembersAway}</p>
             </div>
@@ -288,6 +279,7 @@ export function TeamCalendar() {
   const [isLoading, setIsLoading] = useState(true)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [holidays, setHolidays] = useState<Holiday[]>([])
+  const [allUsers, setAllUsers] = useState<CalendarUser[]>([])
   const [summary, setSummary] = useState<CalendarSummary>({
     totalMembers: 0,
     onLeave: 0,
@@ -305,6 +297,7 @@ export function TeamCalendar() {
           const data = await response.json()
           setEvents(data.events || [])
           setHolidays(data.holidays || [])
+          setAllUsers(data.allUsers || [])
           setSummary(data.summary || {
             totalMembers: 0,
             onLeave: 0,
@@ -529,6 +522,8 @@ export function TeamCalendar() {
         date={selectedDate}
         events={events}
         holidays={holidays}
+        summary={summary}
+        allUsers={allUsers}
       />
     </div>
   )

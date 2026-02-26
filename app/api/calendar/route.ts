@@ -44,7 +44,7 @@ export const GET = asyncHandler(async (request: NextRequest) => {
   // This promotes transparency across all levels and teams
   const allUsers = await prisma.user.findMany({
     where: { isActive: true },
-    select: { id: true },
+    select: { id: true, firstName: true, lastName: true, department: true },
   });
   const userIds = allUsers.map(u => u.id);
 
@@ -174,9 +174,14 @@ export const GET = asyncHandler(async (request: NextRequest) => {
     holidays: holidays.length 
   });
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     events: calendarEvents,
     holidays,
     summary: teamSummary,
+    allUsers: allUsers.map(u => ({
+      id: u.id,
+      name: `${u.firstName} ${u.lastName}`,
+      department: u.department,
+    })),
   });
 });
