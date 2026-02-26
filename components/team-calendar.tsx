@@ -76,7 +76,11 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
   const t = useTranslations()
   const [searchTerm, setSearchTerm] = useState("")
 
-  const eventsForDate = date ? events.filter(event => {
+  useEffect(() => {
+    if (!isOpen) setSearchTerm("")
+  }, [isOpen])
+
+  const eventsForDate = useMemo(() => date ? events.filter(event => {
     const eventStart = typeof event.startDate === 'string' ? parseISO(event.startDate) : event.startDate
     const eventEnd = typeof event.endDate === 'string' ? parseISO(event.endDate) : event.endDate
 
@@ -91,20 +95,21 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
       start: eventStart,
       end: eventEnd,
     })
-  }) : []
+  }) : [], [date, events])
 
-  const holidayForDate = date ? holidays.find(holiday => {
+  const holidayForDate = useMemo(() => date ? holidays.find(holiday => {
     const holidayDate = typeof holiday.date === 'string' ? parseISO(holiday.date) : holiday.date
     return isSameDay(holidayDate, date)
-  }) : undefined
+  }) : undefined, [date, holidays])
 
   // Separate WFH from actual leave, deduplicated by userId
-  const actualLeave = Array.from(
+  const actualLeave = useMemo(() => Array.from(
     new Map(eventsForDate.filter(e => e.type === 'leave').map(e => [e.userId, e])).values()
-  )
-  const wfhRequests = Array.from(
+  ), [eventsForDate])
+
+  const wfhRequests = useMemo(() => Array.from(
     new Map(eventsForDate.filter(e => e.type === 'wfh').map(e => [e.userId, e])).values()
-  )
+  ), [eventsForDate])
 
   // Search implementation
   const searchResults = useMemo(() => {
@@ -289,10 +294,14 @@ export function TeamCalendar() {
 
   // Fetch calendar data
   useEffect(() => {
+    const controller = new AbortController()
+
     const fetchCalendarData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/calendar?month=${currentMonth.toISOString()}`)
+        const response = await fetch(`/api/calendar?month=${currentMonth.toISOString()}`, {
+          signal: controller.signal,
+        })
         if (response.ok) {
           const data = await response.json()
           setEvents(data.events || [])
@@ -306,13 +315,18 @@ export function TeamCalendar() {
           })
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
         console.error('Failed to fetch calendar data:', error)
       } finally {
-        setIsLoading(false)
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchCalendarData()
+
+    return () => controller.abort()
   }, [currentMonth])
 
   const getCalendarDays = () => {

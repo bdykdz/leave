@@ -15,17 +15,18 @@ export const GET = asyncHandler(async (request: NextRequest) => {
 
   const searchParams = request.nextUrl.searchParams;
   const month = searchParams.get('month') || new Date().toISOString();
-  const teamId = searchParams.get('teamId');
-  
+
   const targetDate = parseISO(month);
+  if (isNaN(targetDate.getTime())) {
+    return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+  }
   const startDate = startOfMonth(targetDate);
   const endDate = endOfMonth(targetDate);
 
-  log.debug('Fetching calendar data', { 
+  log.debug('Fetching calendar data', {
     userId: session.user.id,
     startDate,
     endDate,
-    teamId 
   });
 
   // Get user's team members (direct reports for managers, department members for others)
@@ -66,7 +67,6 @@ export const GET = asyncHandler(async (request: NextRequest) => {
           id: true,
           firstName: true,
           lastName: true,
-          email: true,
           department: true,
           profileImage: true,
         },
@@ -99,7 +99,6 @@ export const GET = asyncHandler(async (request: NextRequest) => {
           id: true,
           firstName: true,
           lastName: true,
-          email: true,
           department: true,
           profileImage: true,
         },
