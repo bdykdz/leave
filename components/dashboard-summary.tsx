@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Calendar,
@@ -155,27 +154,21 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
           </p>
         ) : (
           <div className="space-y-6">
-            {/* People on Leave Today */}
+            {/* People on Leave Today - compact name list */}
             {data.onLeaveToday.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-4 w-4 text-red-500" />
-                  <h3 className="font-medium text-sm">{t.dashboard.summary.onLeaveToday} ({data.onLeaveToday.length})</h3>
-                </div>
-                <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-red-600 mb-1 flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  {t.dashboard.summary.onLeaveToday} ({data.onLeaveToday.length})
+                </h3>
+                <div className="space-y-1">
                   {data.onLeaveToday.map((person) => (
-                    <div key={person.id} className="flex items-center gap-3 p-2 bg-red-50 rounded-lg">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={person.avatar} />
-                        <AvatarFallback>
-                          {(person.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{person.name}</p>
-                        <p className="text-xs text-gray-600">{person.department}</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
+                    <div key={person.id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-red-50">
+                      <span className="text-sm">
+                        <span className="text-red-600 font-medium">{person.name}</span>
+                        <span className="text-gray-400 text-xs ml-1">({person.department})</span>
+                      </span>
+                      <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
                         {person.leaveType}
                       </Badge>
                     </div>
@@ -184,26 +177,20 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
               </div>
             )}
 
-            {/* People Working from Home Today */}
+            {/* People Working from Home Today - compact name list */}
             {data.workingFromHomeToday.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Home className="h-4 w-4 text-blue-500" />
-                  <h3 className="font-medium text-sm">{t.dashboard.summary.workingFromHome} ({data.workingFromHomeToday.length})</h3>
-                </div>
-                <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-blue-600 mb-1 flex items-center gap-1">
+                  <Home className="h-4 w-4" />
+                  {t.dashboard.summary.workingFromHome} ({data.workingFromHomeToday.length})
+                </h3>
+                <div className="space-y-1">
                   {data.workingFromHomeToday.map((person) => (
-                    <div key={person.id} className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={person.avatar} />
-                        <AvatarFallback>
-                          {(person.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{person.name}</p>
-                        <p className="text-xs text-gray-600">{person.department}</p>
-                      </div>
+                    <div key={person.id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-blue-50">
+                      <span className="text-sm">
+                        <span className="text-blue-600 font-medium">{person.name}</span>
+                        <span className="text-gray-400 text-xs ml-1">({person.department})</span>
+                      </span>
                       <div className="flex items-center gap-1 text-xs text-blue-600">
                         <MapPin className="h-3 w-3" />
                         {person.location}
@@ -214,29 +201,23 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
               </div>
             )}
 
-            {/* Currently Substituting For */}
+            {/* Currently Substituting For - compact name list */}
             {data.substitutingFor.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <UserCheck className="h-4 w-4 text-green-500" />
-                  <h3 className="font-medium text-sm">{t.dashboard.summary.substitutingFor} ({data.substitutingFor.length})</h3>
-                </div>
-                <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-green-600 mb-1 flex items-center gap-1">
+                  <UserCheck className="h-4 w-4" />
+                  {t.dashboard.summary.substitutingFor} ({data.substitutingFor.length})
+                </h3>
+                <div className="space-y-1">
                   {data.substitutingFor.map((person) => (
-                    <div key={person.requestId} className="flex items-center gap-3 p-2 bg-green-50 rounded-lg">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={person.avatar} />
-                        <AvatarFallback>
-                          {(person.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{person.name}</p>
-                        <p className="text-xs text-gray-600">
+                    <div key={person.requestId} className="flex items-center justify-between py-1 px-2 rounded hover:bg-green-50">
+                      <span className="text-sm">
+                        <span className="text-green-600 font-medium">{person.name}</span>
+                        <span className="text-gray-400 text-xs ml-1">
                           {person.leaveType} • {format(new Date(person.startDate), 'MMM d')} - {format(new Date(person.endDate), 'MMM d')}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-xs bg-green-100">
+                        </span>
+                      </span>
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                         {t.status.active}
                       </Badge>
                     </div>
@@ -245,42 +226,31 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
               </div>
             )}
 
-            {/* Pending Substitute Requests */}
+            {/* Pending Substitute Requests - compact name list */}
             {data.pendingSubstituteRequests.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="h-4 w-4 text-orange-500" />
-                  <h3 className="font-medium text-sm">{t.dashboard.summary.pendingRequests} ({data.pendingSubstituteRequests.length})</h3>
-                </div>
-                <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-orange-600 mb-1 flex items-center gap-1">
+                  <AlertTriangle className="h-4 w-4" />
+                  {t.dashboard.summary.pendingRequests} ({data.pendingSubstituteRequests.length})
+                </h3>
+                <div className="space-y-1">
                   {data.pendingSubstituteRequests.map((request) => (
-                    <div key={request.requestId} className="flex items-center gap-3 p-2 bg-orange-50 rounded-lg">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={request.avatar} />
-                        <AvatarFallback>
-                          {(request.requesterName || 'U').split(' ').map((n: string) => n?.[0] || '').join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{request.requesterName}</p>
-                        <p className="text-xs text-gray-600">
+                    <div key={request.requestId} className="flex items-center justify-between py-1 px-2 rounded hover:bg-orange-50">
+                      <span className="text-sm">
+                        <span className="text-orange-600 font-medium">{request.requesterName}</span>
+                        <span className="text-gray-400 text-xs ml-1">
                           {request.leaveType} • {format(new Date(request.startDate), 'MMM d')} - {format(new Date(request.endDate), 'MMM d')}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs bg-orange-100">
-                          {request.status}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2"
-                          onClick={() => router.push(`/manager`)}
-                        >
-                          <Clock className="h-3 w-3 mr-1" />
-                          {t.buttons.review}
-                        </Button>
-                      </div>
+                        </span>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => router.push(`/manager`)}
+                      >
+                        <Clock className="h-3 w-3 mr-1" />
+                        {t.buttons.review}
+                      </Button>
                     </div>
                   ))}
                 </div>
