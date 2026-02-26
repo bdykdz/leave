@@ -855,17 +855,26 @@ export class SmartDocumentGenerator {
         workingDays: String(leaveRequest.totalDays),
         isManualEntry: leaveRequest.supportingDocuments?.createdByHr ? 'HR Manual Entry' : '',
       },
-      balance: {
-        entitled: String(leaveBalance?.entitled || 0),
-        used: String(leaveBalance?.used || 0),
-        pending: String(leaveBalance?.pending || 0),
-        available: String(leaveBalance?.available || 0),
-        afterApproval: String(
-          leaveRequest.status === 'APPROVED'
-            ? (leaveBalance?.available || 0)
-            : (leaveBalance?.available || 0) - leaveRequest.totalDays
-        )
-      },
+      balance: (() => {
+        const entitled = leaveBalance?.entitled || 0
+        const cf = leaveBalance?.carriedForward || 0
+        const used = leaveBalance?.used || 0
+        const pending = leaveBalance?.pending || 0
+        // Compute from raw components — don't rely on the 'available' field
+        // which may have been capped with Math.max(0, ...)
+        const currentBalance = entitled + cf - used - pending
+        const isDeducted = ['APPROVED', 'PENDING'].includes(leaveRequest.status)
+        const beforeBalance = isDeducted
+          ? currentBalance + leaveRequest.totalDays
+          : currentBalance
+        return {
+          entitled: String(entitled),
+          used: String(used),
+          pending: String(pending),
+          available: String(beforeBalance),
+          afterApproval: String(currentBalance)
+        }
+      })(),
       decision: decisions,
       signature: signatureData // nested
     }
