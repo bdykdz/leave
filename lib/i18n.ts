@@ -2220,8 +2220,8 @@ export const translations: Record<Language, Translations> = {
     calendarDetail: {
       teamStatus: "Stare echipă",
       wfhNotAllowed: "Lucrul de acasă nu este permis în această zi",
-      teamMembersAway: "Membri echipă absenți",
-      workingFromHomeCount: "Lucru de acasă",
+      teamMembersAway: "Membri echipă în concediu",
+      workingFromHomeCount: "Lucru de la distanță",
       substitute: "Înlocuitor",
       location: "Locație",
       onLeave: "În concediu",
