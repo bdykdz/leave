@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import { startOfDay, endOfDay, isAfter, isBefore, isWithinInterval, addDays } from 'date-fns';
 import { log } from './logger';
+import { prisma } from './prisma';
 import { WorkingDaysService } from './services/working-days-service';
-
-const prisma = new PrismaClient();
 const workingDaysService = WorkingDaysService.getInstance();
 
 export interface ValidationError {
@@ -387,7 +385,7 @@ export class ValidationService {
     endDate: Date
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
-    const currentYear = new Date().getFullYear();
+    const currentYear = startDate.getFullYear();
     
     // Calculate actual working days
     const actualWorkingDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);

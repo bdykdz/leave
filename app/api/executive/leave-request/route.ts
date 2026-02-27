@@ -129,9 +129,103 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     totalDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
   }
 
+  // Fetch leave type for validation checks
+  const requestedLeaveType = await prisma.leaveType.findUnique({
+    where: { id: validatedData.leaveTypeId },
+    select: { name: true, isHROnly: true, dateRestriction: true, maxDaysPerRequest: true, daysAllowed: true },
+  });
+
+  if (!requestedLeaveType) {
+    return NextResponse.json({ error: 'Leave type not found' }, { status: 400 });
+  }
+
+  // Executives cannot self-service HR-only leave types
+  if (requestedLeaveType.isHROnly) {
+    return NextResponse.json(
+      { error: `${requestedLeaveType.name} can only be recorded by HR. Please contact your HR department.` },
+      { status: 403 }
+    );
+  }
+
+  // Birthday window restriction
+  if (requestedLeaveType.dateRestriction) {
+    const restriction = requestedLeaveType.dateRestriction as { type?: string; windowDays?: number; beforeDays?: number; afterDays?: number };
+    if (restriction.type === 'BIRTHDAY_WINDOW') {
+      if (!user.dateOfBirth) {
+        return NextResponse.json(
+          { error: `To request ${requestedLeaveType.name}, your date of birth must be set. Please contact HR.` },
+          { status: 400 }
+        );
+      }
+      const beforeDays = restriction.beforeDays ?? restriction.windowDays ?? 10;
+      const afterDays = restriction.afterDays ?? restriction.windowDays ?? 20;
+      const requestYear = startDate.getFullYear();
+      const birthMonth = user.dateOfBirth.getMonth();
+      const birthDay = user.dateOfBirth.getDate();
+      const birthday = new Date(requestYear, birthMonth, birthDay);
+      if (birthday.getMonth() !== birthMonth) {
+        birthday.setDate(0);
+      }
+
+      const windowStart = new Date(birthday);
+      windowStart.setDate(windowStart.getDate() - beforeDays);
+      const windowEnd = new Date(birthday);
+      windowEnd.setDate(windowEnd.getDate() + afterDays);
+
+      const datesToCheck = validatedData.selectedDates?.length
+        ? validatedData.selectedDates.map((d: string) => new Date(d))
+        : [startDate, endDate];
+
+      for (const date of datesToCheck) {
+        if (date < windowStart || date > windowEnd) {
+          const formattedBirthday = birthday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+          const formattedStart = windowStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+          const formattedEnd = windowEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+          return NextResponse.json(
+            {
+              error: `${requestedLeaveType.name} must be taken between ${formattedStart} and ${formattedEnd} (${beforeDays} days before to ${afterDays} days after your birthday on ${formattedBirthday}).`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+  }
+
+  // Enforce maxDaysPerRequest
+  if (requestedLeaveType.maxDaysPerRequest && totalDays > requestedLeaveType.maxDaysPerRequest) {
+    return NextResponse.json(
+      { error: `${requestedLeaveType.name} allows a maximum of ${requestedLeaveType.maxDaysPerRequest} day(s) per request. You requested ${totalDays} day(s).` },
+      { status: 400 }
+    );
+  }
+
+  // Yearly duplicate check for limited leave types (e.g. birthday leave)
+  if (requestedLeaveType.daysAllowed && requestedLeaveType.daysAllowed <= 1) {
+    const leaveYear = startDate.getFullYear();
+    const existingRequest = await prisma.leaveRequest.findFirst({
+      where: {
+        userId: session.user.id,
+        leaveTypeId: validatedData.leaveTypeId,
+        status: { in: ['PENDING', 'APPROVED'] },
+        startDate: {
+          gte: new Date(`${leaveYear}-01-01`),
+          lte: new Date(`${leaveYear}-12-31`),
+        },
+      },
+    });
+    if (existingRequest) {
+      return NextResponse.json(
+        { error: `You already have a ${requestedLeaveType.name} request for ${leaveYear}. Only one request per year is allowed.` },
+        { status: 400 }
+      );
+    }
+  }
+
   // Wrap overlap check, balance check, request creation, and balance update in a transaction
   // to prevent race conditions (#7, #17)
-  const currentYear = new Date().getFullYear();
+  const balanceYear = startDate.getFullYear();
+  const requestNumberYear = new Date().getFullYear();
 
   let leaveRequest;
   try {
@@ -174,13 +268,13 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       });
     }
 
-    // Check leave balance
+    // Check leave balance (use leave start year, not current calendar year)
     const leaveBalance = await tx.leaveBalance.findUnique({
       where: {
         userId_leaveTypeId_year: {
           userId: session.user.id,
           leaveTypeId: validatedData.leaveTypeId,
-          year: currentYear,
+          year: balanceYear,
         }
       }
     });
@@ -196,11 +290,11 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     const requestCount = await tx.leaveRequest.count({
       where: {
         createdAt: {
-          gte: new Date(`${currentYear}-01-01`),
+          gte: new Date(`${requestNumberYear}-01-01`),
         },
       },
     });
-    const requestNumber = `ELR-${currentYear}-${String(requestCount + 1).padStart(4, '0')}`;
+    const requestNumber = `ELR-${requestNumberYear}-${String(requestCount + 1).padStart(4, '0')}`;
 
     // Create leave request with single executive approval
     const created = await tx.leaveRequest.create({
@@ -250,13 +344,13 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       },
     });
 
-    // Update leave balance (add to pending)
+    // Update leave balance (add to pending) — use balanceYear (leave start year)
     await tx.leaveBalance.update({
       where: {
         userId_leaveTypeId_year: {
           userId: session.user.id,
           leaveTypeId: validatedData.leaveTypeId,
-          year: currentYear,
+          year: balanceYear,
         },
       },
       data: {

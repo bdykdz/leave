@@ -25,7 +25,14 @@ function parseArgs() {
   const args = process.argv.slice(2)
   const dryRun = args.includes('--dry-run')
   const filePath = args.find(a => !a.startsWith('--'))
-  return { filePath, dryRun }
+
+  // --include=7,9,30 to force-include specific row numbers from LOW matches
+  const includeArg = args.find(a => a.startsWith('--include='))
+  const forceInclude = includeArg
+    ? new Set(includeArg.replace('--include=', '').split(',').map(Number))
+    : new Set<number>()
+
+  return { filePath, dryRun, forceInclude }
 }
 
 // ── Diacritics / normalization ──────────────────────────────────────────────
@@ -160,14 +167,15 @@ function formatDate(date: Date): string {
 
 const NAME_PATTERNS = [
   /^name$/i, /^full\s*name$/i, /^employee\s*name$/i, /^employee$/i,
-  /^nume$/i, /^nume\s*(si|și)\s*prenume$/i, /^prenume\s*(si|și)\s*nume$/i,
+  /^nume$/i, /^nume\s*(si|și)?\s*prenume$/i, /^prenume\s*(si|și)?\s*nume$/i,
+  /^nume\s+prenume$/i, /^prenume\s+nume$/i,
   /^angajat$/i,
 ]
 
 const BIRTHDAY_PATTERNS = [
   /^birthday$/i, /^birth\s*day$/i, /^date\s*of\s*birth$/i, /^dob$/i,
-  /^data\s*na[sș]terii$/i, /^zi\s*de\s*na[sș]tere$/i, /^born$/i,
-  /^birth\s*date$/i,
+  /^data\s*na[sș]terii$/i, /^data\s*na[sș]tere$/i, /^zi\s*de\s*na[sș]tere$/i,
+  /^born$/i, /^birth\s*date$/i,
 ]
 
 function detectColumn(headers: string[], patterns: RegExp[]): string | null {
@@ -292,10 +300,10 @@ function askConfirmation(question: string): Promise<boolean> {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { filePath, dryRun } = parseArgs()
+  const { filePath, dryRun, forceInclude } = parseArgs()
 
   if (!filePath) {
-    console.error('Usage: npx tsx scripts/import-birthdays.ts <path-to-xlsx> [--dry-run]')
+    console.error('Usage: npx tsx scripts/import-birthdays.ts <path-to-xlsx> [--dry-run] [--include=7,9,30]')
     process.exit(1)
   }
 
@@ -370,9 +378,16 @@ async function main() {
   // 5. Match
   const results: MatchResult[] = []
 
-  for (const entry of excelEntries) {
+  for (let i = 0; i < excelEntries.length; i++) {
+    const entry = excelEntries[i]
+    const rowNum = i + 1
     const { user, score, secondScore } = matchName(entry.name, dbUsers)
-    const status = classifyMatch(score, secondScore)
+    let status = classifyMatch(score, secondScore)
+
+    // Force-include LOW matches by row number
+    if (status === 'LOW' && forceInclude.has(rowNum)) {
+      status = 'HIGH'
+    }
 
     results.push({
       excelName: entry.name,
@@ -391,6 +406,9 @@ async function main() {
   const unmatched = results.filter(r => r.status === 'NONE')
   const noBirthday = results.filter(r => (r.status === 'EXACT' || r.status === 'HIGH') && !r.birthday)
 
+  if (forceInclude.size > 0) {
+    console.log(`\nForce-included rows: ${[...forceInclude].join(', ')}`)
+  }
   console.log(`\nSummary: ${toUpdate.length} will update, ${lowConf.length} low confidence (skipped), ${unmatched.length} unmatched, ${noBirthday.length} missing birthday`)
 
   if (toUpdate.length === 0) {

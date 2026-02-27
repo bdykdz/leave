@@ -63,7 +63,7 @@ export async function POST(
       // Restore leave balance based on request status — no try/catch so transaction
       // fails atomically if balance can't be restored (prevents permanent day loss)
       if (leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
-        const currentYear = new Date().getFullYear();
+        const currentYear = leaveRequest.startDate.getFullYear();
 
         if (leaveRequest.status === 'APPROVED') {
           // For approved requests, reverse FIFO: restore CF days first

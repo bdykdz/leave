@@ -213,7 +213,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     // Check if leave type exists and is not HR-only
     const requestedLeaveType = await prisma.leaveType.findUnique({
       where: { id: validatedData.leaveTypeId },
-      select: { dateRestriction: true, name: true, isHROnly: true },
+      select: { dateRestriction: true, name: true, isHROnly: true, maxDaysPerRequest: true, daysAllowed: true },
     });
 
     if (!requestedLeaveType) {
@@ -335,6 +335,36 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       actualDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
     }
 
+    // Yearly duplicate check for limited leave types (e.g. birthday leave with daysAllowed=1)
+    if (requestedLeaveType.daysAllowed && requestedLeaveType.daysAllowed <= 1) {
+      const leaveYear = startDate.getFullYear();
+      const existingRequest = await prisma.leaveRequest.findFirst({
+        where: {
+          userId: session.user.id,
+          leaveTypeId: validatedData.leaveTypeId,
+          status: { in: ['PENDING', 'APPROVED'] },
+          startDate: {
+            gte: new Date(`${leaveYear}-01-01`),
+            lte: new Date(`${leaveYear}-12-31`),
+          },
+        },
+      });
+      if (existingRequest) {
+        return NextResponse.json(
+          { error: `You already have a ${requestedLeaveType.name} request for ${leaveYear}. Only one request per year is allowed.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Enforce maxDaysPerRequest server-side
+    if (requestedLeaveType.maxDaysPerRequest && actualDays > requestedLeaveType.maxDaysPerRequest) {
+      return NextResponse.json(
+        { error: `${requestedLeaveType.name} allows a maximum of ${requestedLeaveType.maxDaysPerRequest} day(s) per request. You requested ${actualDays} day(s).` },
+        { status: 400 }
+      );
+    }
+
     // Check for overlapping requests
     const overlappingLeave = await prisma.leaveRequest.findFirst({
       where: {
@@ -409,90 +439,119 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       );
     }
 
-    // Generate request number
-    const currentYear = new Date().getFullYear();
+    // Generate request number (uses current calendar year)
+    const requestNumberYear = new Date().getFullYear();
     const requestCount = await prisma.leaveRequest.count({
       where: {
         createdAt: {
-          gte: new Date(`${currentYear}-01-01`),
+          gte: new Date(`${requestNumberYear}-01-01`),
         },
       },
     });
-    const requestNumber = `LR-${currentYear}-${String(requestCount + 1).padStart(4, '0')}`;
+    const requestNumber = `LR-${requestNumberYear}-${String(requestCount + 1).padStart(4, '0')}`;
+
+    // Balance year is based on the leave's start date, not today
+    const balanceYear = startDate.getFullYear();
 
     // Format leave dates for display
     const formattedDates = formatLeaveDates(startDate, endDate, validatedData.selectedDates);
 
     const uploadedDocumentUrls: string[] = [];
 
-    // Create leave request with approval workflow
+    // Pre-compute data needed inside the transaction
+    const approvalWorkflow = await generateApprovalWorkflow(user, validatedData.leaveTypeId, actualDays);
+    const substituteNames = validatedData.substituteIds
+      ? await getSubstituteNames(validatedData.substituteIds)
+      : null;
+
+    // Create leave request + update balance atomically to prevent race conditions
     let leaveRequest;
     try {
-      leaveRequest = await prisma.leaveRequest.create({
-      data: {
-        requestNumber,
-        userId: session.user.id,
-        leaveTypeId: validatedData.leaveTypeId,
-        startDate,
-        endDate,
-        totalDays: actualDays,
-        reason: validatedData.reason,
-        substituteId: validatedData.substituteIds?.[0], // For now, take the first substitute
-        status: 'PENDING',
-        // Store selected dates as direct field for calendar filtering
-        selectedDates: validatedData.selectedDates ? 
-          validatedData.selectedDates.map(dateStr => new Date(dateStr)) : [],
-        // Store selected dates and formatted dates in supportingDocuments for backward compatibility
-        supportingDocuments: {
-          selectedDates: validatedData.selectedDates || null,
-          formattedDates: formattedDates,
-          substituteNames: validatedData.substituteIds ? 
-            await getSubstituteNames(validatedData.substituteIds) : null,
-          employeeSignature: signature, // Store employee signature
-          employeeSignatureDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
-          uploadedDocuments: uploadedDocumentUrls, // Store uploaded document URLs
-          documentUploadDate: uploadedDocumentUrls.length > 0 ? new Date().toISOString() : null,
-        },
-        approvals: {
-          create: await generateApprovalWorkflow(user, validatedData.leaveTypeId, actualDays),
-        },
-      },
-      include: {
-        leaveType: true,
-        substitute: true,
-        approvals: {
-          include: {
-            approver: true,
+      leaveRequest = await prisma.$transaction(async (tx) => {
+        // Re-check balance inside transaction (defense-in-depth against race conditions)
+        const balance = await tx.leaveBalance.findUnique({
+          where: {
+            userId_leaveTypeId_year: {
+              userId: session.user.id,
+              leaveTypeId: validatedData.leaveTypeId,
+              year: balanceYear,
+            },
           },
-        },
-      },
-    });
+        });
+        if (!balance || balance.available < actualDays) {
+          throw new Error(`Insufficient leave balance. Available: ${balance?.available ?? 0} days, Required: ${actualDays} days.`);
+        }
 
-    // Update leave balance (add to pending)
-    await prisma.leaveBalance.update({
-      where: {
-        userId_leaveTypeId_year: {
-          userId: session.user.id,
-          leaveTypeId: validatedData.leaveTypeId,
-          year: currentYear,
-        },
-      },
-      data: {
-        pending: {
-          increment: actualDays,
-        },
-        available: {
-          decrement: actualDays,
-        },
-      },
-    });
+        const created = await tx.leaveRequest.create({
+          data: {
+            requestNumber,
+            userId: session.user.id,
+            leaveTypeId: validatedData.leaveTypeId,
+            startDate,
+            endDate,
+            totalDays: actualDays,
+            reason: validatedData.reason,
+            substituteId: validatedData.substituteIds?.[0],
+            status: 'PENDING',
+            selectedDates: validatedData.selectedDates
+              ? validatedData.selectedDates.map(dateStr => new Date(dateStr))
+              : [],
+            supportingDocuments: {
+              selectedDates: validatedData.selectedDates || null,
+              formattedDates: formattedDates,
+              substituteNames,
+              employeeSignature: signature,
+              employeeSignatureDate: new Date().toISOString().split('T')[0],
+              uploadedDocuments: uploadedDocumentUrls,
+              documentUploadDate: uploadedDocumentUrls.length > 0 ? new Date().toISOString() : null,
+            },
+            approvals: {
+              create: approvalWorkflow,
+            },
+          },
+          include: {
+            leaveType: true,
+            substitute: true,
+            approvals: {
+              include: {
+                approver: true,
+              },
+            },
+          },
+        });
+
+        // Update leave balance (add to pending) — use balanceYear (leave start year)
+        await tx.leaveBalance.update({
+          where: {
+            userId_leaveTypeId_year: {
+              userId: session.user.id,
+              leaveTypeId: validatedData.leaveTypeId,
+              year: balanceYear,
+            },
+          },
+          data: {
+            pending: {
+              increment: actualDays,
+            },
+            available: {
+              decrement: actualDays,
+            },
+          },
+        });
+
+        return created;
+      });
     } catch (dbError) {
+      // Surface balance errors as 400, not 500
+      if (dbError instanceof Error && dbError.message.startsWith('Insufficient leave balance')) {
+        return NextResponse.json({ error: dbError.message }, { status: 400 });
+      }
       log.error('Database operation failed', {
         requestNumber,
-        error: dbError
+        error: dbError,
       });
 
-      throw dbError; // Re-throw to be handled by outer catch
+      throw dbError;
     }
 
     // Create notifications for approvers
