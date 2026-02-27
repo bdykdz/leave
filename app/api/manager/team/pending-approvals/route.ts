@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
+    const type = searchParams.get('type') // 'leave' to filter leave-only
     const skip = (page - 1) * limit
 
     // Get pending leave requests where this user is an approver OR from direct reports
@@ -62,69 +63,73 @@ export async function GET(request: Request) {
         createdAt: 'desc'
       },
       skip,
-      take: Math.ceil(limit / 2) // Split limit between leave and WFH
+      take: type === 'leave' ? limit : Math.ceil(limit / 2) // Full limit when leave-only, split when combined
     })
 
-    // Get pending WFH requests where this user needs to approve OR from direct reports
-    const pendingWFHRequests = await prisma.workFromHomeRequest.findMany({
-      where: {
-        status: 'PENDING',
-        OR: [
-          {
-            // Has pending approval for this user
-            approvals: {
-              some: {
-                approverId: session.user.id,
-                status: 'PENDING'
+    // When type=leave, skip WFH queries entirely
+    let pendingWFHRequests: any[] = []
+    let totalWFHCount = 0
+
+    if (type !== 'leave') {
+      // Get pending WFH requests where this user needs to approve OR from direct reports
+      pendingWFHRequests = await prisma.workFromHomeRequest.findMany({
+        where: {
+          status: 'PENDING',
+          OR: [
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              user: {
+                managerId: session.user.id
               }
             }
-          },
-          {
-            // Direct report request that might not have approval record yet
-            user: {
-              managerId: session.user.id
+          ]
+        },
+        include: {
+          user: true,
+          approvals: {
+            where: {
+              approverId: session.user.id
             }
           }
-        ]
-      },
-      include: {
-        user: true,
-        approvals: {
-          where: {
-            approverId: session.user.id
-          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: Math.ceil(limit / 2)
+      })
+
+      totalWFHCount = await prisma.workFromHomeRequest.count({
+        where: {
+          status: 'PENDING',
+          OR: [
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              user: {
+                managerId: session.user.id
+              }
+            }
+          ]
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      skip,
-      take: Math.ceil(limit / 2) // Split limit between leave and WFH
-    })
+      })
+    }
 
     // Get total counts for pagination
     const totalLeaveCount = await prisma.leaveRequest.count({
-      where: {
-        status: 'PENDING',
-        OR: [
-          {
-            approvals: {
-              some: {
-                approverId: session.user.id,
-                status: 'PENDING'
-              }
-            }
-          },
-          {
-            user: {
-              managerId: session.user.id
-            }
-          }
-        ]
-      }
-    })
-
-    const totalWFHCount = await prisma.workFromHomeRequest.count({
       where: {
         status: 'PENDING',
         OR: [

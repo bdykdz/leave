@@ -90,6 +90,17 @@ export default function ManagerDashboard() {
   const [teamRequestsTab, setTeamRequestsTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [approvedRequestsPage, setApprovedRequestsPage] = useState(1)
   const [deniedRequestsPage, setDeniedRequestsPage] = useState(1)
+  const [requestCategoryTab, setRequestCategoryTab] = useState<'leave' | 'wfh'>('leave')
+  const [wfhPendingRequests, setWfhPendingRequests] = useState<any[]>([])
+  const [totalWfhPendingPages, setTotalWfhPendingPages] = useState(0)
+  const [wfhPendingPage, setWfhPendingPage] = useState(1)
+  const [wfhApprovedRequests, setWfhApprovedRequests] = useState<any[]>([])
+  const [totalWfhApprovedPages, setTotalWfhApprovedPages] = useState(0)
+  const [wfhApprovedPage, setWfhApprovedPage] = useState(1)
+  const [wfhDeniedRequests, setWfhDeniedRequests] = useState<any[]>([])
+  const [totalWfhDeniedPages, setTotalWfhDeniedPages] = useState(0)
+  const [wfhDeniedPage, setWfhDeniedPage] = useState(1)
+  const [wfhSubTab, setWfhSubTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [superior, setSuperior] = useState<any>(null)
   const [loadingSuperior, setLoadingSuperior] = useState(true)
 
@@ -126,11 +137,11 @@ export default function ManagerDashboard() {
     fetchTeamStats()
   }, [session, status])
 
-  // Fetch pending requests
+  // Fetch pending requests (re-fetch when category tab changes to filter leave-only)
   useEffect(() => {
     if (status === "loading" || !session) return
     fetchPendingRequests()
-  }, [pendingRequestsPage, session, status])
+  }, [pendingRequestsPage, requestCategoryTab, session, status])
 
   // Fetch approved requests
   useEffect(() => {
@@ -147,6 +158,30 @@ export default function ManagerDashboard() {
       fetchDeniedRequests()
     }
   }, [deniedRequestsPage, teamRequestsTab, session, status])
+
+  // Fetch WFH pending requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (requestCategoryTab === 'wfh' && wfhSubTab === 'pending') {
+      fetchWfhPendingRequests()
+    }
+  }, [wfhPendingPage, requestCategoryTab, wfhSubTab, session, status])
+
+  // Fetch WFH approved requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (requestCategoryTab === 'wfh' && wfhSubTab === 'approved') {
+      fetchWfhApprovedRequests()
+    }
+  }, [wfhApprovedPage, requestCategoryTab, wfhSubTab, session, status])
+
+  // Fetch WFH denied requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (requestCategoryTab === 'wfh' && wfhSubTab === 'denied') {
+      fetchWfhDeniedRequests()
+    }
+  }, [wfhDeniedPage, requestCategoryTab, wfhSubTab, session, status])
 
   // Fetch manager's WFH stats
   useEffect(() => {
@@ -210,8 +245,9 @@ export default function ManagerDashboard() {
   const fetchPendingRequests = async () => {
     try {
       setLoading(true)
-      // Fetch more requests per page to ensure nothing is missed
-      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=10`)
+      // When on leave category tab, fetch leave-only; otherwise fetch combined
+      const typeParam = requestCategoryTab === 'leave' ? '&type=leave' : ''
+      const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=10${typeParam}`)
       if (response.ok) {
         const data = await response.json()
         setPendingRequests(data.requests)
@@ -327,6 +363,57 @@ export default function ManagerDashboard() {
     }
   }
 
+  const fetchWfhPendingRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/wfh-pending?page=${wfhPendingPage}&limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setWfhPendingRequests(data.requests)
+        setTotalWfhPendingPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching WFH pending requests:', error)
+      toast.error(t.messages.failedToLoadRequests)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchWfhApprovedRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/wfh-approved?page=${wfhApprovedPage}&limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setWfhApprovedRequests(data.requests)
+        setTotalWfhApprovedPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching WFH approved requests:', error)
+      toast.error(t.messages.failedToLoadApprovedRequests)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchWfhDeniedRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/wfh-denied?page=${wfhDeniedPage}&limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setWfhDeniedRequests(data.requests)
+        setTotalWfhDeniedPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching WFH denied requests:', error)
+      toast.error(t.messages.failedToLoadDeniedRequests)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleApprove = async (requestId: string, comment?: string, signature?: string) => {
     try {
       const requestType = approvalDetails?.request?.requestType || 'leave'
@@ -339,11 +426,13 @@ export default function ManagerDashboard() {
       if (response.ok) {
         toast.success(t.messages.requestApprovedSuccess)
         // Refresh all data
-        await Promise.all([
-          fetchPendingRequests(),
-          fetchTeamStats(),
-          fetchApprovedRequests() // Always refresh approved requests
-        ])
+        const refreshPromises: Promise<void>[] = [fetchTeamStats()]
+        if (requestType === 'wfh') {
+          refreshPromises.push(fetchWfhPendingRequests(), fetchWfhApprovedRequests())
+        } else {
+          refreshPromises.push(fetchPendingRequests(), fetchApprovedRequests())
+        }
+        await Promise.all(refreshPromises)
         setShowApprovalDialog(false)
       } else {
         const errorData = await response.json()
@@ -364,15 +453,17 @@ export default function ManagerDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment, requestType })
       })
-      
+
       if (response.ok) {
         toast.success(t.messages.requestDeniedSuccess)
         // Refresh all data
-        await Promise.all([
-          fetchPendingRequests(),
-          fetchTeamStats(),
-          fetchDeniedRequests() // Always refresh denied requests
-        ])
+        const refreshPromises: Promise<void>[] = [fetchTeamStats()]
+        if (requestType === 'wfh') {
+          refreshPromises.push(fetchWfhPendingRequests(), fetchWfhDeniedRequests())
+        } else {
+          refreshPromises.push(fetchPendingRequests(), fetchDeniedRequests())
+        }
+        await Promise.all(refreshPromises)
         setShowApprovalDialog(false)
       } else {
         const errorData = await response.json().catch(() => ({}))
@@ -1186,39 +1277,98 @@ export default function ManagerDashboard() {
                       <CardDescription>{t.dashboard.teamLeaveRequestsDescription}</CardDescription>
                     </div>
                   </div>
-                  
-                  {/* Tabs */}
-                  <div className="flex gap-1 mt-4">
+
+                  {/* Top-level Leave / WFH toggle */}
+                  <div className="flex gap-1 mt-4 p-1 bg-gray-100 rounded-lg w-fit">
                     <Button
-                      variant={teamRequestsTab === 'pending' ? 'default' : 'outline'}
+                      variant={requestCategoryTab === 'leave' ? 'default' : 'ghost'}
                       size="sm"
-                      onClick={() => setTeamRequestsTab('pending')}
+                      onClick={() => { setRequestCategoryTab('leave'); setTeamRequestsTab('pending') }}
                       className="flex items-center gap-2"
                     >
-                      <Clock className="h-3 w-3" />
-                      {t.tabs.pending} ({teamStats.pendingRequests})
+                      <Calendar className="h-3 w-3" />
+                      Leave
                     </Button>
                     <Button
-                      variant={teamRequestsTab === 'approved' ? 'default' : 'outline'}
+                      variant={requestCategoryTab === 'wfh' ? 'default' : 'ghost'}
                       size="sm"
-                      onClick={() => setTeamRequestsTab('approved')}
+                      onClick={() => { setRequestCategoryTab('wfh'); setWfhSubTab('pending') }}
                       className="flex items-center gap-2"
                     >
-                      <CheckCircle className="h-3 w-3" />
-                      {t.tabs.approved}
-                    </Button>
-                    <Button
-                      variant={teamRequestsTab === 'denied' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setTeamRequestsTab('denied')}
-                      className="flex items-center gap-2"
-                    >
-                      <XCircle className="h-3 w-3" />
-                      {t.tabs.denied}
+                      <Home className="h-3 w-3" />
+                      WFH
                     </Button>
                   </div>
+
+                  {/* Sub-tabs for Leave */}
+                  {requestCategoryTab === 'leave' && (
+                    <div className="flex gap-1 mt-2">
+                      <Button
+                        variant={teamRequestsTab === 'pending' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTeamRequestsTab('pending')}
+                        className="flex items-center gap-2"
+                      >
+                        <Clock className="h-3 w-3" />
+                        {t.tabs.pending} ({teamStats.pendingRequests})
+                      </Button>
+                      <Button
+                        variant={teamRequestsTab === 'approved' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTeamRequestsTab('approved')}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        {t.tabs.approved}
+                      </Button>
+                      <Button
+                        variant={teamRequestsTab === 'denied' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTeamRequestsTab('denied')}
+                        className="flex items-center gap-2"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        {t.tabs.denied}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Sub-tabs for WFH */}
+                  {requestCategoryTab === 'wfh' && (
+                    <div className="flex gap-1 mt-2">
+                      <Button
+                        variant={wfhSubTab === 'pending' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setWfhSubTab('pending')}
+                        className="flex items-center gap-2"
+                      >
+                        <Clock className="h-3 w-3" />
+                        {t.tabs.pending}
+                      </Button>
+                      <Button
+                        variant={wfhSubTab === 'approved' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setWfhSubTab('approved')}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        {t.tabs.approved}
+                      </Button>
+                      <Button
+                        variant={wfhSubTab === 'denied' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setWfhSubTab('denied')}
+                        className="flex items-center gap-2"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        {t.tabs.denied}
+                      </Button>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
+                  {/* === LEAVE CATEGORY === */}
+                  {requestCategoryTab === 'leave' && (<>
                   {/* Pending Requests Tab */}
                   {teamRequestsTab === 'pending' && (
                     <>
@@ -1507,6 +1657,232 @@ export default function ManagerDashboard() {
                       </div>
                     </>
                   )}
+                  </>)}
+
+                  {/* === WFH CATEGORY === */}
+                  {requestCategoryTab === 'wfh' && (<>
+                  {/* WFH Pending Tab */}
+                  {wfhSubTab === 'pending' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalWfhPendingPages > 0
+                            ? `Showing ${wfhPendingRequests.length} request${wfhPendingRequests.length !== 1 ? 's' : ''} - Page ${wfhPendingPage} of ${totalWfhPendingPages}`
+                            : t.labels.noPendingRequests}
+                        </span>
+                        {totalWfhPendingPages > 1 && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setWfhPendingPage(Math.max(1, wfhPendingPage - 1))}
+                              disabled={wfhPendingPage === 1}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setWfhPendingPage(Math.min(totalWfhPendingPages, wfhPendingPage + 1))}
+                              disabled={wfhPendingPage === totalWfhPendingPages}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {wfhPendingRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">{t.labels.noPendingRequests}</p>
+                        ) : (
+                          wfhPendingRequests.map((request) => (
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee?.avatar} />
+                                    <AvatarFallback>{request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                      <Badge variant="outline" className="text-xs">
+                                        {request.employee?.department || 'N/A'}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                        <Home className="h-3 w-3 mr-1" />
+                                        WFH
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-1">
+                                      <span className="font-medium">Work From Home</span> • {request?.dates || 'N/A'} ({request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''})
+                                    </p>
+                                    {request?.location && <p className="text-sm text-gray-500">Location: "{request.location}"</p>}
+                                    <p className="text-xs text-gray-400 mt-1">{t.labels.submitted}: {request?.submittedDate || 'Unknown'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => handleApproveRequest(request)}>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    {t.common.approve}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDenyRequest(request)}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    {t.common.deny}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      {totalWfhPendingPages > 1 && wfhPendingRequests.length > 0 && (
+                        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+                          <Button variant="outline" size="sm" onClick={() => setWfhPendingPage(Math.max(1, wfhPendingPage - 1))} disabled={wfhPendingPage === 1}>
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            {t.common.previous}
+                          </Button>
+                          <span className="text-sm text-gray-500 mx-2">Page {wfhPendingPage} of {totalWfhPendingPages}</span>
+                          <Button variant="outline" size="sm" onClick={() => setWfhPendingPage(Math.min(totalWfhPendingPages, wfhPendingPage + 1))} disabled={wfhPendingPage === totalWfhPendingPages}>
+                            {t.common.next}
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* WFH Approved Tab */}
+                  {wfhSubTab === 'approved' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalWfhApprovedPages > 0
+                            ? `Page ${wfhApprovedPage} of ${totalWfhApprovedPages}`
+                            : t.labels.noApprovedRequests}
+                        </span>
+                        {totalWfhApprovedPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setWfhApprovedPage(Math.max(1, wfhApprovedPage - 1))} disabled={wfhApprovedPage === 1}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setWfhApprovedPage(Math.min(totalWfhApprovedPages, wfhApprovedPage + 1))} disabled={wfhApprovedPage === totalWfhApprovedPages || totalWfhApprovedPages === 0}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {wfhApprovedRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">{t.labels.noApprovedRequests}</p>
+                        ) : (
+                          wfhApprovedRequests.map((request) => (
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-green-50 border-green-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee?.avatar} />
+                                    <AvatarFallback>
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
+                                    <div className="mt-2 space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium">Work From Home</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.location && <p className="text-sm text-gray-500">Location: "{request.location}"</p>}
+                                      <p className="text-xs text-green-600 mt-1">
+                                        {t.labels.approvedOn}: {request?.approvedDate ? new Date(request.approvedDate).toLocaleDateString() : 'Unknown'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <Badge className="bg-green-100 text-green-800">{t.labels.approvedByYou}</Badge>
+                                  {request?.overallRequestStatus === 'PENDING' && (
+                                    <p className="text-xs text-orange-600 mt-1">{t.labels.pendingExecutive}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* WFH Denied Tab */}
+                  {wfhSubTab === 'denied' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalWfhDeniedPages > 0
+                            ? `Page ${wfhDeniedPage} of ${totalWfhDeniedPages}`
+                            : t.labels.noDeniedRequests}
+                        </span>
+                        {totalWfhDeniedPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setWfhDeniedPage(Math.max(1, wfhDeniedPage - 1))} disabled={wfhDeniedPage === 1}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setWfhDeniedPage(Math.min(totalWfhDeniedPages, wfhDeniedPage + 1))} disabled={wfhDeniedPage === totalWfhDeniedPages || totalWfhDeniedPages === 0}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {wfhDeniedRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">{t.labels.noDeniedRequests}</p>
+                        ) : (
+                          wfhDeniedRequests.map((request) => (
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-red-50 border-red-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee?.avatar} />
+                                    <AvatarFallback>
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
+                                    <div className="mt-2 space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium">Work From Home</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.location && <p className="text-sm text-gray-500">Location: "{request.location}"</p>}
+                                      {request?.denialReason && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          {t.labels.denialReason}: "{request.denialReason}"
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {t.labels.deniedOn}: {request?.deniedDate ? new Date(request.deniedDate).toLocaleDateString() : 'Unknown'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Badge className="bg-red-100 text-red-800">Denied</Badge>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                  </>)}
                 </CardContent>
               </Card>
             </div>
