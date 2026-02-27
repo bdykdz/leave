@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         role: true,
         isActive: true,
         joiningDate: true, // Changed from joinDate
+        dateOfBirth: true,
         department: true, // This is a string field, not a relation
         managerId: true,
         departmentDirectorId: true,
