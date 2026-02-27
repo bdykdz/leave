@@ -155,17 +155,23 @@ export async function POST(
         },
       })
 
-      // If approved, notify the manager (in-app)
-      if (approved && leaveRequest.user.managerId) {
-        await tx.notification.create({
-          data: {
-            userId: leaveRequest.user.managerId,
-            type: 'APPROVAL_REQUIRED',
-            title: 'Leave Request Pending Approval',
-            message: `${leaveRequest.user?.firstName || ''} ${leaveRequest.user?.lastName || ''} has submitted a ${leaveRequest.leaveType?.name || 'leave'} request (HR verified).`,
-            link: `/leave-requests/${leaveRequest.id}`,
-          },
-        })
+      // If approved, notify the next approver in the chain (not hardcoded to managerId,
+      // since department directors' next approver is an executive, not their managerId)
+      if (approved) {
+        const nextPending = leaveRequest.approvals.find(
+          a => a.status === 'PENDING' && a.id !== hrApproval?.id
+        )
+        if (nextPending?.approverId) {
+          await tx.notification.create({
+            data: {
+              userId: nextPending.approverId,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Leave Request Pending Approval',
+              message: `${leaveRequest.user?.firstName || ''} ${leaveRequest.user?.lastName || ''} has submitted a ${leaveRequest.leaveType?.name || 'leave'} request (HR verified).`,
+              link: `/leave-requests/${leaveRequest.id}`,
+            },
+          })
+        }
       }
 
       // Create audit log inside transaction
@@ -213,33 +219,41 @@ export async function POST(
       }
     }
 
-    // If approved, also email the manager
-    if (approved && leaveRequest.user.managerId) {
+    // If approved, email the next approver in the chain
+    if (approved) {
       try {
-        const manager = await prisma.user.findUnique({
-          where: { id: leaveRequest.user.managerId },
-          select: { email: true, firstName: true, lastName: true }
+        // Re-fetch approvals to get updated state after transaction
+        const updatedApprovals = await prisma.approval.findMany({
+          where: { leaveRequestId: params.id },
+          orderBy: { level: 'asc' },
         })
-
-        if (manager?.email) {
-          await emailService.sendLeaveRequestNotification(manager.email, {
-            employeeName: `${leaveRequest.user?.firstName || ''} ${leaveRequest.user?.lastName || ''}`,
-            leaveType: `${leaveRequest.leaveType.name} - Document Verification Complete`,
-            startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
-            endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
-            days: leaveRequest.totalDays,
-            managerName: `${manager.firstName} ${manager.lastName}`,
-            companyName: process.env.COMPANY_NAME || 'TPF',
-            requestId: leaveRequest.id
+        const nextPendingApproval = updatedApprovals.find(a => a.status === 'PENDING')
+        if (nextPendingApproval?.approverId) {
+          const nextApprover = await prisma.user.findUnique({
+            where: { id: nextPendingApproval.approverId },
+            select: { email: true, firstName: true, lastName: true }
           })
 
-          console.log('Manager notification email sent after HR verification', {
-            requestId: leaveRequest.id,
-            managerEmail: manager.email
-          })
+          if (nextApprover?.email) {
+            await emailService.sendLeaveRequestNotification(nextApprover.email, {
+              employeeName: `${leaveRequest.user?.firstName || ''} ${leaveRequest.user?.lastName || ''}`,
+              leaveType: `${leaveRequest.leaveType.name} - Document Verification Complete`,
+              startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
+              endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
+              days: leaveRequest.totalDays,
+              managerName: `${nextApprover.firstName} ${nextApprover.lastName}`,
+              companyName: process.env.COMPANY_NAME || 'TPF',
+              requestId: leaveRequest.id
+            })
+
+            console.log('Next approver notification email sent after HR verification', {
+              requestId: leaveRequest.id,
+              approverEmail: nextApprover.email
+            })
+          }
         }
       } catch (emailError) {
-        console.error('Failed to send manager notification email:', emailError)
+        console.error('Failed to send next approver notification email:', emailError)
       }
     }
 

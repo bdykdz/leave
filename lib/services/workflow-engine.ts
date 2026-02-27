@@ -201,20 +201,11 @@ export class WorkflowEngine {
         ],
         priority: 110, // Higher priority than special leave
       },
-      {
-        name: 'Special Leave - HR Verification Required',
-        description: 'Special leaves requiring HR document verification',
-        conditions: {
-          isSpecialLeave: true,
-        },
-        approvalLevels: [
-          { role: 'employee', required: true },
-          { role: 'hr_verification', required: true }, // Special HR verification step
-          { role: 'manager', required: true },
-          { role: 'department_director', required: false },
-        ],
-        priority: 100,
-      },
+      // NOTE: "Special Leave - HR Verification Required" rule was removed.
+      // HR verification is now enforced directly in generateApprovalWorkflow() for all
+      // leave types with requiresHRVerification=true, regardless of workflow rules.
+      // The old rule used condition { isSpecialLeave: true } which was never matched
+      // by the Prisma JSON query (it only checks userRole, leaveType, department).
       {
         name: 'Executive Leave Request',
         description: 'Workflow for executive leave requests',

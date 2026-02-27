@@ -73,6 +73,25 @@ export async function POST(
       );
     }
 
+    // Sequential approval order check: all lower-level approvals must be APPROVED first
+    if (isAssignedApprover) {
+      const executiveApproval = requestDetails.approvals.find(
+        a => a.approverId === session.user.id && a.status === 'PENDING'
+      );
+      if (executiveApproval) {
+        const lowerLevelApprovals = requestDetails.approvals.filter(
+          a => a.level < executiveApproval.level && a.id !== executiveApproval.id
+        );
+        const hasUnapprovedPrior = lowerLevelApprovals.some(a => a.status !== 'APPROVED');
+        if (hasUnapprovedPrior) {
+          return NextResponse.json(
+            { error: 'Previous approval levels must be completed first' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Fix #4: Move updateMany inside the transaction to prevent race conditions
     const updatedRequest = await prisma.$transaction(async (tx) => {
       // Fix #8: ADMIN override — create a rejection record if ADMIN has no assigned record

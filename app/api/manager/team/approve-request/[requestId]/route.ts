@@ -220,6 +220,31 @@ export async function POST(
       return { allApproved: isAllApproved }
     })
 
+    // Notify the next approver in the chain if not fully approved yet
+    if (!allApproved) {
+      try {
+        const allApprovals = await prisma.approval.findMany({
+          where: { leaveRequestId: requestId },
+          orderBy: { level: 'asc' },
+          include: { approver: { select: { firstName: true, lastName: true } } }
+        })
+        const nextPending = allApprovals.find(a => a.status === 'PENDING')
+        if (nextPending?.approverId) {
+          await prisma.notification.create({
+            data: {
+              userId: nextPending.approverId,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Leave Request Pending Your Approval',
+              message: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}'s leave request has been approved at the previous level and now requires your approval.`,
+              link: `/leave-requests/${requestId}`,
+            },
+          })
+        }
+      } catch (notifError) {
+        console.error('Warning: Failed to notify next approver:', notifError)
+      }
+    }
+
     // Add current approver's signature to document immediately (before checking allApproved)
     try {
       const approver = await prisma.user.findUnique({

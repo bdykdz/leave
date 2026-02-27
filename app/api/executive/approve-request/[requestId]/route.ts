@@ -89,6 +89,26 @@ export async function POST(
       );
     }
 
+    // Sequential approval order check: all lower-level approvals must be APPROVED first
+    // (e.g., HR verification at level 1 must complete before executive can approve at level 2)
+    if (isAssignedApprover) {
+      const executiveApproval = leaveRequest.approvals.find(
+        a => a.approverId === session.user.id && a.status === 'PENDING'
+      );
+      if (executiveApproval) {
+        const lowerLevelApprovals = leaveRequest.approvals.filter(
+          a => a.level < executiveApproval.level && a.id !== executiveApproval.id
+        );
+        const hasUnapprovedPrior = lowerLevelApprovals.some(a => a.status !== 'APPROVED');
+        if (hasUnapprovedPrior) {
+          return NextResponse.json(
+            { error: 'Previous approval levels must be completed first' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Fix #3: Move updateMany + findMany inside the transaction to prevent race conditions
     const { updatedRequest, allApproved } = await prisma.$transaction(async (tx) => {
       // Fix #8: ADMIN override — create an approval record if ADMIN has no assigned record
@@ -190,6 +210,30 @@ export async function POST(
 
       return { updatedRequest: updated, allApproved: isAllApproved };
     });
+
+    // Notify the next approver in the chain if not fully approved yet
+    if (!allApproved) {
+      try {
+        const allApprovals = await prisma.approval.findMany({
+          where: { leaveRequestId: params.requestId },
+          orderBy: { level: 'asc' },
+        });
+        const nextPending = allApprovals.find(a => a.status === 'PENDING');
+        if (nextPending?.approverId) {
+          await prisma.notification.create({
+            data: {
+              userId: nextPending.approverId,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Leave Request Pending Your Approval',
+              message: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}'s leave request has been approved at the previous level and now requires your approval.`,
+              link: `/leave-requests/${params.requestId}`,
+            },
+          });
+        }
+      } catch (notifError) {
+        console.error('Warning: Failed to notify next approver:', notifError);
+      }
+    }
 
     // Fix #15: Wrap notification creation in try-catch — don't mask success as failure
     try {
