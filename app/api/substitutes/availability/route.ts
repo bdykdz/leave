@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const substitutesWithAvailability = await Promise.all(
       potentialSubstitutes.map(async (substitute) => {
         const conflicts: Array<{
-          type: 'leave' | 'wfh' | 'substitute'
+          type: 'leave' | 'substitute'
           dates: string
           details: string
           conflictingDates?: string[]
@@ -84,20 +84,6 @@ export async function POST(request: NextRequest) {
           },
           include: {
             leaveType: { select: { name: true } }
-          }
-        })
-
-        // Check for WFH requests that might affect availability
-        const wfhConflicts = await prisma.workFromHomeRequest.findMany({
-          where: {
-            userId: substitute.id,
-            status: { in: ['PENDING', 'APPROVED'] },
-            OR: [
-              {
-                startDate: { lte: requestEndDate },
-                endDate: { gte: requestStartDate }
-              }
-            ]
           }
         })
 
@@ -145,29 +131,6 @@ export async function POST(request: NextRequest) {
             type: 'leave',
             dates: `${format(leave.startDate, 'MMM d')} - ${format(leave.endDate, 'MMM d')}`,
             details: `${leave.leaveType.name}`,
-            conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined
-          })
-        }
-
-        // Process WFH conflicts
-        for (const wfh of wfhConflicts) {
-          let conflictingDates: string[] = []
-          
-          if (specificDates) {
-            conflictingDates = specificDates
-              .filter(date => 
-                isWithinInterval(date, { 
-                  start: startOfDay(wfh.startDate), 
-                  end: endOfDay(wfh.endDate) 
-                })
-              )
-              .map(date => format(date, 'MMM d'))
-          }
-          
-          conflicts.push({
-            type: 'wfh',
-            dates: `${format(wfh.startDate, 'MMM d')} - ${format(wfh.endDate, 'MMM d')}`,
-            details: `Working from ${wfh.location}`,
             conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined
           })
         }

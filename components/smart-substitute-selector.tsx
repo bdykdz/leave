@@ -15,7 +15,6 @@ import {
   XCircle, 
   Search,
   Calendar,
-  Home,
   UserCheck,
   Info,
   Clock
@@ -28,7 +27,7 @@ import {
 import { cn } from "@/lib/utils"
 
 interface SubstituteConflict {
-  type: 'leave' | 'wfh' | 'substitute'
+  type: 'leave' | 'substitute'
   dates: string
   details: string
   conflictingDates?: string[]
@@ -160,8 +159,6 @@ export function SmartSubstituteSelector({
     switch (type) {
       case 'leave':
         return <Calendar className="h-3 w-3 text-red-500" />
-      case 'wfh':
-        return <Home className="h-3 w-3 text-blue-500" />
       case 'substitute':
         return <UserCheck className="h-3 w-3 text-orange-500" />
       default:

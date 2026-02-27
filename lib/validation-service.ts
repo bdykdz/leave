@@ -206,28 +206,6 @@ export class ValidationService {
       });
     }
     
-    // Check if substitute is working from home (might be acceptable depending on policy)
-    const substituteWFH = await prisma.workFromHomeRequest.findFirst({
-      where: {
-        userId: substituteId,
-        status: { in: ['APPROVED'] },
-        OR: [
-          {
-            startDate: { lte: endDate },
-            endDate: { gte: startDate },
-          },
-        ],
-      },
-    });
-    
-    if (substituteWFH) {
-      // This is a warning, not an error - WFH substitutes might be acceptable
-      log.warn('Substitute is working from home during this period', {
-        substituteId,
-        wfhRequestId: substituteWFH.id
-      });
-    }
-    
     // Check for circular substitution (A substitutes for B while B substitutes for A)
     if (requestingUserId) {
       const circularSubstitution = await prisma.leaveRequest.findFirst({
