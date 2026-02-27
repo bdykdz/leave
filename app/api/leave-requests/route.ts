@@ -876,10 +876,17 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
     approvalLevels = applicableRule.approvalLevels as any[];
   } else {
     console.log('[generateApprovalWorkflow] Using default approval levels:', approvalLevels);
+  }
 
-    // If the leave type requires HR verification and no explicit workflow rule covers it,
-    // inject HR as the FIRST approval step (HR verifies → then normal manager chain).
-    if (leaveType?.requiresHRVerification) {
+  // If the leave type requires HR verification, ALWAYS inject HR as the FIRST approval step.
+  // This applies regardless of whether a workflow rule was matched, because workflow rules
+  // based on user role (e.g. "Department Director Leave") don't account for leave-type-specific
+  // requirements like HR document verification for blood donation, bereavement, etc.
+  if (leaveType?.requiresHRVerification) {
+    const alreadyHasHR = approvalLevels.some(
+      (l: any) => l.role === 'HR' || l.role === 'hr_verification'
+    );
+    if (!alreadyHasHR) {
       approvalLevels = [{ role: 'HR', required: true }, ...approvalLevels];
       console.log('[generateApprovalWorkflow] Prepended HR verification step for requiresHRVerification leave type');
     }
