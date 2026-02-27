@@ -13,6 +13,17 @@ import { WorkingDaysService } from '@/lib/services/working-days-service';
 import { checkSelectedDatesOverlap, checkHolidayConflicts } from '@/lib/utils/date-validation';
 const documentGenerator = new SmartDocumentGenerator();
 
+// Helper class to abort transactions with a client-facing response
+class TransactionAbort extends Error {
+  statusCode: number;
+  body: Record<string, unknown>;
+  constructor(statusCode: number, body: Record<string, unknown>) {
+    super('TransactionAbort');
+    this.statusCode = statusCode;
+    this.body = body;
+  }
+}
+
 // Validation schema for leave request
 const createLeaveRequestSchema = z.object({
   leaveTypeId: z.string(),
@@ -365,53 +376,6 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       );
     }
 
-    // Check for overlapping requests
-    const overlappingLeave = await prisma.leaveRequest.findFirst({
-      where: {
-        userId: session.user.id,
-        status: { in: ['APPROVED', 'PENDING'] },
-        OR: [
-          {
-            startDate: { lte: endDate },
-            endDate: { gte: startDate }
-          }
-        ]
-      }
-    });
-
-    const overlappingWFH = await prisma.workFromHomeRequest.findFirst({
-      where: {
-        userId: session.user.id,
-        status: { in: ['APPROVED', 'PENDING'] },
-        OR: [
-          {
-            startDate: { lte: endDate },
-            endDate: { gte: startDate }
-          }
-        ]
-      }
-    });
-
-    if (overlappingLeave) {
-      return NextResponse.json(
-        { 
-          error: 'Date conflict',
-          message: `You already have a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. Please choose different dates or cancel the existing request.`
-        },
-        { status: 400 }
-      );
-    }
-
-    if (overlappingWFH) {
-      return NextResponse.json(
-        { 
-          error: 'Date conflict',
-          message: `You have a work from home request from ${overlappingWFH.startDate.toLocaleDateString()} to ${overlappingWFH.endDate.toLocaleDateString()}. You cannot be on leave and working from home on the same dates.`
-        },
-        { status: 400 }
-      );
-    }
-
     // Perform comprehensive validation
     const validationErrors = await ValidationService.validateLeaveRequest(
       session.user.id,
@@ -439,18 +403,8 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       );
     }
 
-    // Generate request number (uses current calendar year)
-    const requestNumberYear = new Date().getFullYear();
-    const requestCount = await prisma.leaveRequest.count({
-      where: {
-        createdAt: {
-          gte: new Date(`${requestNumberYear}-01-01`),
-        },
-      },
-    });
-    const requestNumber = `LR-${requestNumberYear}-${String(requestCount + 1).padStart(4, '0')}`;
-
     // Balance year is based on the leave's start date, not today
+    const requestNumberYear = new Date().getFullYear();
     const balanceYear = startDate.getFullYear();
 
     // Format leave dates for display
@@ -468,6 +422,58 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     let leaveRequest;
     try {
       leaveRequest = await prisma.$transaction(async (tx) => {
+        // Check for overlapping leave requests inside transaction to prevent race conditions
+        const overlappingLeave = await tx.leaveRequest.findFirst({
+          where: {
+            userId: session.user.id,
+            status: { in: ['APPROVED', 'PENDING'] },
+            OR: [
+              {
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+              }
+            ]
+          }
+        });
+
+        if (overlappingLeave) {
+          throw new TransactionAbort(400, {
+            error: 'Date conflict',
+            message: `You already have a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. Please choose different dates or cancel the existing request.`
+          });
+        }
+
+        // Check for overlapping WFH requests inside transaction
+        const overlappingWFH = await tx.workFromHomeRequest.findFirst({
+          where: {
+            userId: session.user.id,
+            status: { in: ['APPROVED', 'PENDING'] },
+            OR: [
+              {
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+              }
+            ]
+          }
+        });
+
+        if (overlappingWFH) {
+          throw new TransactionAbort(400, {
+            error: 'Date conflict',
+            message: `You have a work from home request from ${overlappingWFH.startDate.toLocaleDateString()} to ${overlappingWFH.endDate.toLocaleDateString()}. You cannot be on leave and working from home on the same dates.`
+          });
+        }
+
+        // Generate request number inside transaction to prevent duplicates
+        const requestCount = await tx.leaveRequest.count({
+          where: {
+            createdAt: {
+              gte: new Date(`${requestNumberYear}-01-01`),
+            },
+          },
+        });
+        const requestNumber = `LR-${requestNumberYear}-${String(requestCount + 1).padStart(4, '0')}`;
+
         // Re-check balance inside transaction (defense-in-depth against race conditions)
         const balance = await tx.leaveBalance.findUnique({
           where: {
@@ -542,12 +548,15 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         return created;
       });
     } catch (dbError) {
+      // Surface TransactionAbort as client-facing responses
+      if (dbError instanceof TransactionAbort) {
+        return NextResponse.json(dbError.body, { status: dbError.statusCode });
+      }
       // Surface balance errors as 400, not 500
       if (dbError instanceof Error && dbError.message.startsWith('Insufficient leave balance')) {
         return NextResponse.json({ error: dbError.message }, { status: 400 });
       }
       log.error('Database operation failed', {
-        requestNumber,
         error: dbError,
       });
 

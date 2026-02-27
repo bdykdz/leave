@@ -17,8 +17,8 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '10') || 10, 1), 100)
+    const page = Math.max(parseInt(searchParams.get('page') || '1') || 1, 1)
     const type = searchParams.get('type') // 'leave' to filter leave-only
     const skip = (page - 1) * limit
 
@@ -45,7 +45,17 @@ export async function GET(request: Request) {
         ]
       },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            department: true,
+            profileImage: true,
+            managerId: true,
+          }
+        },
         leaveType: true,
         substitute: {
           select: {
@@ -92,7 +102,17 @@ export async function GET(request: Request) {
           ]
         },
         include: {
-          user: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              department: true,
+              profileImage: true,
+              managerId: true,
+            }
+          },
           approvals: {
             where: {
               approverId: session.user.id
