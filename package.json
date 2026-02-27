@@ -45,7 +45,8 @@
     "test:rp:smoke": "playwright test tests/smoke --config=playwright.reportportal.config.ts",
     "reportportal:up": "docker-compose -f docker-compose.reportportal.yml up -d",
     "reportportal:down": "docker-compose -f docker-compose.reportportal.yml down",
-    "doc:regenerate": "tsx -r tsconfig-paths/register scripts/regenerate-documents.ts"
+    "doc:regenerate": "tsx -r tsconfig-paths/register scripts/regenerate-documents.ts",
+    "import:birthdays": "tsx scripts/import-birthdays.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
