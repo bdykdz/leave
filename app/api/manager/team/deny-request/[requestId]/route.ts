@@ -57,8 +57,13 @@ export async function POST(
       )
     }
 
-    // Verify the current user is the manager of the requester
-    if (leaveRequest.user.managerId !== session.user.id) {
+    // Verify the current user is the manager, department director, or assigned approver of the requester
+    const isManager = leaveRequest.user.managerId === session.user.id
+    const isDepartmentDirector = leaveRequest.user.departmentDirectorId === session.user.id
+    const isAssignedApprover = leaveRequest.approvals.some(
+      a => a.approverId === session.user.id && a.status === 'PENDING'
+    )
+    if (!isManager && !isDepartmentDirector && !isAssignedApprover) {
       return NextResponse.json({ error: "Not authorized to deny this request" }, { status: 403 })
     }
 
