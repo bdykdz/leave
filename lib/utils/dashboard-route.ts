@@ -38,7 +38,7 @@ export function getNotificationLink(
   } else if (dashboard === '/executive') {
     return requestType === 'wfh' ? `/executive?wfh=${requestId}` : `/executive?request=${requestId}`
   } else if (dashboard === '/manager') {
-    return requestType === 'wfh' ? `/manager/wfh-approvals/${requestId}` : `/manager/approvals/${requestId}`
+    return requestType === 'wfh' ? `/manager?wfh=${requestId}` : `/manager?request=${requestId}`
   } else {
     return requestType === 'wfh' ? `/employee?wfh=${requestId}` : `/employee?request=${requestId}`
   }

@@ -573,7 +573,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       });
       
       // Determine the appropriate dashboard link based on approver's role/department
-      let notificationLink = `/manager/approvals/${leaveRequest.id}`;
+      let notificationLink = `/manager?request=${leaveRequest.id}`;
       if (approverUser) {
         if (approverUser.role === 'HR' || 
             (approverUser.role === 'EMPLOYEE' && (approverUser.department?.toLowerCase() === 'hr' || approverUser.department?.toLowerCase() === 'human resources'))) {

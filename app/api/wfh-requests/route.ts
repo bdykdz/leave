@@ -377,7 +377,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     });
     
     // Determine the appropriate dashboard link based on manager's role/department
-    let notificationLink = `/manager/wfh-approvals/${wfhRequest.id}`;
+    let notificationLink = `/manager?wfh=${wfhRequest.id}`;
     if (managerUser) {
       if (managerUser.role === 'HR' || 
           (managerUser.role === 'EMPLOYEE' && (managerUser.department?.toLowerCase() === 'hr' || managerUser.department?.toLowerCase() === 'human resources'))) {
