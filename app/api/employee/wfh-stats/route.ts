@@ -72,7 +72,8 @@ export async function GET(request: NextRequest) {
       select: {
         startDate: true,
         endDate: true,
-        totalDays: true
+        totalDays: true,
+        selectedDates: true
       }
     })
 
@@ -80,18 +81,29 @@ export async function GET(request: NextRequest) {
     let totalWfhDays = 0
     
     for (const request of wfhRequests) {
-      // Calculate how many days of this request fall within the target month
-      const requestStart = request.startDate > monthStart ? request.startDate : monthStart
-      const requestEnd = request.endDate < monthEnd ? request.endDate : monthEnd
-      
-      if (requestStart <= requestEnd) {
-        // Count business days between start and end (excluding weekends)
-        const days = eachDayOfInterval({ start: requestStart, end: requestEnd })
-        const businessDays = days.filter(day => {
-          const dayOfWeek = getDay(day)
-          return dayOfWeek !== 0 && dayOfWeek !== 6 // Exclude Sunday (0) and Saturday (6)
+      const selectedDates = request.selectedDates as string[] | null
+
+      if (selectedDates && selectedDates.length > 0) {
+        // Use selectedDates: count only the specific dates that fall within the target month
+        const daysInMonth = selectedDates.filter(dateStr => {
+          const date = new Date(dateStr)
+          const dayOfWeek = getDay(date)
+          return date >= monthStart && date <= monthEnd && dayOfWeek !== 0 && dayOfWeek !== 6
         })
-        totalWfhDays += businessDays.length
+        totalWfhDays += daysInMonth.length
+      } else {
+        // Fallback: count all business days in the startDate-endDate range
+        const requestStart = request.startDate > monthStart ? request.startDate : monthStart
+        const requestEnd = request.endDate < monthEnd ? request.endDate : monthEnd
+
+        if (requestStart <= requestEnd) {
+          const days = eachDayOfInterval({ start: requestStart, end: requestEnd })
+          const businessDays = days.filter(day => {
+            const dayOfWeek = getDay(day)
+            return dayOfWeek !== 0 && dayOfWeek !== 6
+          })
+          totalWfhDays += businessDays.length
+        }
       }
     }
 
