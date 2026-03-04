@@ -80,6 +80,9 @@ export default function ManagerDashboard() {
     workingFromHome: 0,
     inOffice: 0,
     pendingRequests: 0,
+    inOfficeMembers: [] as string[],
+    onLeaveMembers: [] as string[],
+    wfhMembers: [] as string[],
   })
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [totalPendingPages, setTotalPendingPages] = useState(0)
@@ -1234,6 +1237,56 @@ export default function ManagerDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Team Roster */}
+              {(teamStats.inOfficeMembers.length > 0 || teamStats.wfhMembers.length > 0 || teamStats.onLeaveMembers.length > 0) && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">{t.dashboard?.teamRoster || "Team Roster"}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {teamStats.inOfficeMembers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Building className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            {t.dashboard.inOffice} ({teamStats.inOfficeMembers.length})
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground pl-6">
+                          {teamStats.inOfficeMembers.join(', ')}
+                        </p>
+                      </div>
+                    )}
+                    {teamStats.wfhMembers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Home className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-600">
+                            {t.dashboard.workingFromHome} ({teamStats.wfhMembers.length})
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground pl-6">
+                          {teamStats.wfhMembers.join(', ')}
+                        </p>
+                      </div>
+                    )}
+                    {teamStats.onLeaveMembers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <UserX className="h-4 w-4 text-red-600" />
+                          <span className="text-sm font-medium text-red-600">
+                            {t.dashboard.onLeave} ({teamStats.onLeaveMembers.length})
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground pl-6">
+                          {teamStats.onLeaveMembers.join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Team WFH Stats */}
               <Card>

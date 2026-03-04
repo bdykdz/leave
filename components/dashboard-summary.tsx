@@ -12,7 +12,6 @@ import {
   Clock,
   AlertTriangle,
   ChevronRight,
-  MapPin
 } from "lucide-react"
 import { format } from "date-fns"
 import { useSession } from "next-auth/react"
@@ -154,50 +153,29 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
           </p>
         ) : (
           <div className="space-y-6">
-            {/* People on Leave Today - compact name list */}
+            {/* People on Leave Today - inline comma-separated list */}
             {data.onLeaveToday.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-red-600 mb-1 flex items-center gap-1">
                   <Users className="h-4 w-4" />
                   {t.dashboard.summary.onLeaveToday} ({data.onLeaveToday.length})
                 </h3>
-                <div className="space-y-1">
-                  {data.onLeaveToday.map((person) => (
-                    <div key={person.id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-red-50">
-                      <span className="text-sm">
-                        <span className="text-red-600 font-medium">{person.name}</span>
-                        <span className="text-gray-400 text-xs ml-1">({person.department})</span>
-                      </span>
-                      <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                        {person.leaveType}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm text-gray-700 px-2">
+                  {data.onLeaveToday.map(p => p.name).join(', ')}
+                </p>
               </div>
             )}
 
-            {/* People Working from Home Today - compact name list */}
+            {/* People Working from Home Today - inline comma-separated list */}
             {data.workingFromHomeToday.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-blue-600 mb-1 flex items-center gap-1">
                   <Home className="h-4 w-4" />
                   {t.dashboard.summary.workingFromHome} ({data.workingFromHomeToday.length})
                 </h3>
-                <div className="space-y-1">
-                  {data.workingFromHomeToday.map((person) => (
-                    <div key={person.id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-blue-50">
-                      <span className="text-sm">
-                        <span className="text-blue-600 font-medium">{person.name}</span>
-                        <span className="text-gray-400 text-xs ml-1">({person.department})</span>
-                      </span>
-                      <div className="flex items-center gap-1 text-xs text-blue-600">
-                        <MapPin className="h-3 w-3" />
-                        {person.location}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm text-gray-700 px-2">
+                  {data.workingFromHomeToday.map(p => p.name).join(', ')}
+                </p>
               </div>
             )}
 

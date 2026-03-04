@@ -96,18 +96,25 @@ export async function GET() {
       }
     })
 
-    // Calculate team stats
+    // Calculate team stats and collect member names by status
     let onLeaveToday = 0
     let workingFromHome = 0
     let inOffice = 0
+    const inOfficeMembers: string[] = []
+    const onLeaveMembers: string[] = []
+    const wfhMembers: string[] = []
 
     teamMembers.forEach(member => {
+      const name = `${member.firstName} ${member.lastName}`
       if (wfhTodayUserIds.has(member.id)) {
         workingFromHome++
+        wfhMembers.push(name)
       } else if (member.leaveRequests.length > 0) {
         onLeaveToday++
+        onLeaveMembers.push(name)
       } else {
         inOffice++
+        inOfficeMembers.push(name)
       }
     })
 
@@ -116,7 +123,10 @@ export async function GET() {
       onLeaveToday,
       workingFromHome,
       inOffice,
-      pendingRequests
+      pendingRequests,
+      inOfficeMembers,
+      onLeaveMembers,
+      wfhMembers
     }
 
     // Cache the result
