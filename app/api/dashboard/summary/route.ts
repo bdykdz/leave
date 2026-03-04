@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
-import { startOfDay, endOfDay } from "date-fns"
+import { startOfDay, endOfDay, isSameDay } from "date-fns"
 
 export async function GET() {
   try {
@@ -43,7 +43,7 @@ export async function GET() {
     })
 
     // Get people working from home today
-    const workingFromHomeToday = await prisma.workFromHomeRequest.findMany({
+    const wfhRequestsToday = await prisma.workFromHomeRequest.findMany({
       where: {
         status: 'APPROVED',
         startDate: { lte: endOfToday },
@@ -61,6 +61,15 @@ export async function GET() {
           }
         }
       }
+    })
+
+    // Filter by selectedDates: if selectedDates exists, today must be in the array
+    const workingFromHomeToday = wfhRequestsToday.filter(req => {
+      const selectedDates = req.selectedDates as string[] | null
+      if (selectedDates && selectedDates.length > 0) {
+        return selectedDates.some(d => isSameDay(new Date(d), startOfToday))
+      }
+      return true // No selectedDates — date range already covers today
     })
 
     // Get people the current user is substituting for (active leave requests where user is substitute)

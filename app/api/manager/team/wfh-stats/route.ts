@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-import { startOfMonth, endOfMonth, isWeekend, eachDayOfInterval, format } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, getDay } from 'date-fns';
 import { CacheService } from '@/lib/services/cache-service';
 
 // GET: Fetch team WFH statistics for manager's direct reports
@@ -49,52 +49,57 @@ export async function GET(request: NextRequest) {
 
     // Calculate working days in the month
     const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const workingDaysInMonth = allDaysInMonth.filter(day => !isWeekend(day)).length;
+    const workingDaysInMonth = allDaysInMonth.filter(day => {
+      const dayOfWeek = getDay(day);
+      return dayOfWeek !== 0 && dayOfWeek !== 6;
+    }).length;
 
-    // Fetch WFH requests for all team members
-    const teamWfhRequests = await prisma.leaveRequest.findMany({
+    // Fetch WFH requests for all team members from WorkFromHomeRequest model
+    const teamWfhRequests = await prisma.workFromHomeRequest.findMany({
       where: {
         userId: {
           in: directReports.map(dr => dr.id)
         },
-        leaveType: {
-          code: 'WFH'
-        },
         status: 'APPROVED',
-        startDate: {
-          lte: monthEnd
-        },
-        endDate: {
-          gte: monthStart
-        }
+        startDate: { lte: monthEnd },
+        endDate: { gte: monthStart }
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        leaveType: true
+      select: {
+        userId: true,
+        startDate: true,
+        endDate: true,
+        selectedDates: true
       }
     });
 
-    // Calculate WFH days per team member
+    // Calculate WFH days per team member (selectedDates-aware)
     const memberWfhDays = new Map<string, number>();
-    
+
     for (const request of teamWfhRequests) {
-      const requestStart = request.startDate > monthStart ? request.startDate : monthStart;
-      const requestEnd = request.endDate < monthEnd ? request.endDate : monthEnd;
-      
-      const daysInMonth = eachDayOfInterval({ 
-        start: requestStart, 
-        end: requestEnd 
-      });
-      
-      // Count only working days
-      const workingDaysUsed = daysInMonth.filter(day => !isWeekend(day)).length;
-      
+      const selectedDates = request.selectedDates as string[] | null;
+      let workingDaysUsed = 0;
+
+      if (selectedDates && selectedDates.length > 0) {
+        // Count only selected dates that fall within the month and are business days
+        workingDaysUsed = selectedDates.filter(dateStr => {
+          const date = new Date(dateStr);
+          const dayOfWeek = getDay(date);
+          return date >= monthStart && date <= monthEnd && dayOfWeek !== 0 && dayOfWeek !== 6;
+        }).length;
+      } else {
+        // Fallback: count all business days in startDate-endDate range
+        const requestStart = request.startDate > monthStart ? request.startDate : monthStart;
+        const requestEnd = request.endDate < monthEnd ? request.endDate : monthEnd;
+
+        if (requestStart <= requestEnd) {
+          const days = eachDayOfInterval({ start: requestStart, end: requestEnd });
+          workingDaysUsed = days.filter(day => {
+            const dayOfWeek = getDay(day);
+            return dayOfWeek !== 0 && dayOfWeek !== 6;
+          }).length;
+        }
+      }
+
       const currentDays = memberWfhDays.get(request.userId) || 0;
       memberWfhDays.set(request.userId, currentDays + workingDaysUsed);
     }

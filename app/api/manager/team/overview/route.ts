@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { CacheService } from "@/lib/services/cache-service"
+import { isSameDay } from "date-fns"
 
 export async function GET() {
   try {
@@ -48,6 +49,37 @@ export async function GET() {
       }
     })
 
+    // Get approved WFH requests that cover today for team members
+    const teamMemberIds = teamMembers.map(m => m.id)
+    const wfhRequestsToday = await prisma.workFromHomeRequest.findMany({
+      where: {
+        userId: { in: teamMemberIds },
+        status: 'APPROVED',
+        startDate: { lte: today },
+        endDate: { gte: today }
+      },
+      select: {
+        userId: true,
+        selectedDates: true,
+        startDate: true,
+        endDate: true
+      }
+    })
+
+    // Build a set of user IDs who are actually WFH today (checking selectedDates)
+    const wfhTodayUserIds = new Set<string>()
+    for (const req of wfhRequestsToday) {
+      const selectedDates = req.selectedDates as string[] | null
+      if (selectedDates && selectedDates.length > 0) {
+        if (selectedDates.some(d => isSameDay(new Date(d), today))) {
+          wfhTodayUserIds.add(req.userId)
+        }
+      } else {
+        // No selectedDates — date range already covers today
+        wfhTodayUserIds.add(req.userId)
+      }
+    }
+
     // Get pending approval requests
     const pendingRequests = await prisma.leaveRequest.count({
       where: {
@@ -70,14 +102,10 @@ export async function GET() {
     let inOffice = 0
 
     teamMembers.forEach(member => {
-      if (member.leaveRequests.length > 0) {
-        const activeRequest = member.leaveRequests[0]
-        if (activeRequest.leaveType.name.toLowerCase().includes('work from home') || 
-            activeRequest.leaveType.name.toLowerCase() === 'wfh') {
-          workingFromHome++
-        } else {
-          onLeaveToday++
-        }
+      if (wfhTodayUserIds.has(member.id)) {
+        workingFromHome++
+      } else if (member.leaveRequests.length > 0) {
+        onLeaveToday++
       } else {
         inOffice++
       }
