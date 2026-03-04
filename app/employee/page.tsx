@@ -309,8 +309,10 @@ export default function EmployeeDashboard() {
     const end = new Date(request.endDate)
     
     // Check if we have selected dates (non-consecutive days)
-    if (request.supportingDocuments?.selectedDates && Array.isArray(request.supportingDocuments.selectedDates)) {
-      const selectedDates = request.supportingDocuments.selectedDates.map((d: string) => new Date(d))
+    // WFH requests store selectedDates at top level; leave requests store them in supportingDocuments
+    const rawSelectedDates = request.selectedDates || request.supportingDocuments?.selectedDates
+    if (rawSelectedDates && Array.isArray(rawSelectedDates) && rawSelectedDates.length > 0) {
+      const selectedDates = rawSelectedDates.map((d: string) => new Date(d))
       const sortedDates = selectedDates.sort((a: Date, b: Date) => a.getTime() - b.getTime())
       
       // Group consecutive dates

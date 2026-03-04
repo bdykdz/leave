@@ -102,13 +102,13 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
     return isSameDay(holidayDate, date)
   }) : undefined, [date, holidays])
 
-  // Separate WFH from actual leave, deduplicated by userId
+  // Separate WFH from actual leave, deduplicated by userId — only show APPROVED
   const actualLeave = useMemo(() => Array.from(
-    new Map(eventsForDate.filter(e => e.type === 'leave').map(e => [e.userId, e])).values()
+    new Map(eventsForDate.filter(e => e.type === 'leave' && e.status === 'approved').map(e => [e.userId, e])).values()
   ), [eventsForDate])
 
   const wfhRequests = useMemo(() => Array.from(
-    new Map(eventsForDate.filter(e => e.type === 'wfh').map(e => [e.userId, e])).values()
+    new Map(eventsForDate.filter(e => e.type === 'wfh' && e.status === 'approved').map(e => [e.userId, e])).values()
   ), [eventsForDate])
 
   // Search implementation
@@ -486,8 +486,8 @@ export function TeamCalendar() {
             {calendarDays.map((day, index) => {
               const dayEvents = getEventsForDate(day)
               const holiday = getHolidayForDate(day)
-              const leaveCount = dayEvents.filter(e => e.type === 'leave').length
-              const wfhCount = dayEvents.filter(e => e.type === 'wfh').length
+              const leaveCount = dayEvents.filter(e => e.type === 'leave' && e.status === 'approved').length
+              const wfhCount = dayEvents.filter(e => e.type === 'wfh' && e.status === 'approved').length
               const isCurrentMonth = isSameMonth(day, currentMonth)
 
               return (
