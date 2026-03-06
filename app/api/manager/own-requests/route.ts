@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
               }
             },
             orderBy: {
-              level: 'asc'
+              createdAt: 'asc'
             }
           }
         },
