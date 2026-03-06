@@ -1,0 +1,122 @@
+version: '3.8'
+
+# PRODUCTION - Security hardened configuration
+# Only the app is exposed, all other services are internal only
+
+services:
+  app-production:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leave-management-app-production
+    ports:
+      - "127.0.0.1:8083:3000"  # Only accessible via localhost (use reverse proxy)
+    env_file:
+      - .env.production
+    environment:
+      - APP_ENV=production
+      - APP_NAME=Leave Management
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis-production:6379
+    depends_on:
+      db-production:
+        condition: service_healthy
+      redis-production:
+        condition: service_healthy
+      minio-production:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - production-network
+    # Persist logs across container rebuilds (survives docker compose up --build)
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+        tag: "leave-production"
+    volumes:
+      - production_app_logs:/app/logs
+    # Security: resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  db-production:
+    image: postgres:15-alpine
+    container_name: leave-management-db-production
+    # NO PORTS EXPOSED - only accessible within docker network
+    environment:
+      - POSTGRES_DB=leave_production
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - production_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - production-network
+
+  redis-production:
+    image: redis:7-alpine
+    container_name: leave-management-redis-production
+    # NO PORTS EXPOSED - only accessible within docker network
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - production_redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - production-network
+
+  minio-production:
+    image: minio/minio:latest
+    container_name: leave-management-minio-production
+    # Console only on localhost for admin access if needed
+    ports:
+      - "127.0.0.1:9106:9001"  # Console - localhost only
+    # API port NOT exposed - app connects via internal network
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin123}
+    volumes:
+      - production_minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - production-network
+
+  # NO ADMINER IN PRODUCTION - use docker exec for DB access if needed
+
+networks:
+  production-network:
+    name: leave-management-production
+    driver: bridge
+
+volumes:
+  production_postgres_data:
+    name: leave-production-postgres
+  production_redis_data:
+    name: leave-production-redis
+  production_minio_data:
+    name: leave-production-minio
+  production_app_logs:
+    name: leave-production-app-logs
