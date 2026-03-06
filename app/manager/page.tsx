@@ -326,13 +326,16 @@ export default function ManagerDashboard() {
     }
   }
 
-  const handleCancelRequest = async (requestId: string) => {
+  const handleCancelRequest = async (requestId: string, requestType: string = 'leave') => {
     if (!confirm(t.messages.confirmCancelRequest)) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/leave-requests/${requestId}/self-cancel`, {
+      const endpoint = requestType === 'wfh'
+        ? `/api/wfh-requests/${requestId}/self-cancel`
+        : `/api/leave-requests/${requestId}/self-cancel`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1080,7 +1083,7 @@ export default function ManagerDashboard() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleCancelRequest(request?.id || '')}
+                                onClick={() => handleCancelRequest(request?.id || '', request?.requestType || 'leave')}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                               >
                                 {t.common.cancel}

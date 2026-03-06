@@ -38,47 +38,68 @@ export async function GET(request: NextRequest) {
       where.status = status.toUpperCase();
     }
 
-    // Get total count
-    const totalRequests = await prisma.leaveRequest.count({ where });
-
-    // Fetch paginated requests
-    const requests = await prisma.leaveRequest.findMany({
-      where,
-      include: {
-        leaveType: true,
-        approvals: {
-          include: {
-            approver: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
+    // Fetch both leave and WFH requests in parallel
+    const [totalLeave, leaveRequests, totalWfh, wfhRequests] = await Promise.all([
+      prisma.leaveRequest.count({ where }),
+      prisma.leaveRequest.findMany({
+        where,
+        include: {
+          leaveType: true,
+          approvals: {
+            include: {
+              approver: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
               }
+            },
+            orderBy: {
+              level: 'asc'
             }
           },
-          orderBy: {
-            level: 'asc'
+          generatedDocument: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      prisma.workFromHomeRequest.count({ where }),
+      prisma.workFromHomeRequest.findMany({
+        where,
+        include: {
+          approvals: {
+            include: {
+              approver: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
+              }
+            },
+            orderBy: {
+              level: 'asc'
+            }
           }
         },
-        generatedDocument: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      skip: (safePage - 1) * limit,
-      take: limit
-    });
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    ]);
 
-    // Format the response
-    const formattedRequests = requests.map(request => {
-      // Get the first approver (primary approver)
+    // Format leave requests
+    const formattedLeave = leaveRequests.map(request => {
       const primaryApproval = request.approvals?.[0];
-      
       return {
         id: request.id,
         type: request.leaveType.name,
         typeCode: request.leaveType.code,
+        requestType: 'leave',
         startDate: request.startDate,
         endDate: request.endDate,
         reason: request.reason,
@@ -101,8 +122,40 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Format WFH requests
+    const formattedWfh = wfhRequests.map(request => {
+      const primaryApproval = request.approvals?.[0];
+      return {
+        id: request.id,
+        type: 'Work from Home',
+        requestType: 'wfh',
+        startDate: request.startDate,
+        endDate: request.endDate,
+        reason: request.location,
+        status: request.status.toLowerCase(),
+        totalDays: request.totalDays,
+        createdAt: request.createdAt,
+        approver: primaryApproval?.approver ? {
+          id: primaryApproval.approver.id,
+          name: `${primaryApproval.approver.firstName} ${primaryApproval.approver.lastName}`,
+          email: primaryApproval.approver.email
+        } : null,
+        approvals: request.approvals,
+        approverComments: primaryApproval?.comments,
+        approvedAt: primaryApproval?.approvedAt,
+        documents: []
+      };
+    });
+
+    // Merge, sort by createdAt desc, then paginate
+    const allRequests = [...formattedLeave, ...formattedWfh]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const totalRequests = totalLeave + totalWfh;
+    const paginatedRequests = allRequests.slice((safePage - 1) * limit, safePage * limit);
+
     return NextResponse.json({
-      requests: formattedRequests,
+      requests: paginatedRequests,
       pagination: {
         page: safePage,
         limit,
