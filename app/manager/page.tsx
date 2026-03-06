@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Building,
   ChevronDown,
+  FileSignature,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
@@ -106,6 +107,7 @@ export default function ManagerDashboard() {
   const [wfhSubTab, setWfhSubTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [superior, setSuperior] = useState<any>(null)
   const [loadingSuperior, setLoadingSuperior] = useState(true)
+  const [pendingDocSignatures, setPendingDocSignatures] = useState<any[]>([])
 
   // Manager's WFH stats
   const [managerWfhStats, setManagerWfhStats] = useState({ 
@@ -138,6 +140,12 @@ export default function ManagerDashboard() {
   useEffect(() => {
     if (status === "loading" || !session) return
     fetchTeamStats()
+  }, [session, status])
+
+  // Fetch pending document signatures
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    fetchPendingDocSignatures()
   }, [session, status])
 
   // Fetch pending requests (re-fetch when category tab or active tab changes)
@@ -229,6 +237,18 @@ export default function ManagerDashboard() {
     } catch (error) {
       console.error('Error fetching leave balance:', error)
       toast.error(t.messages.failedToLoadBalance)
+    }
+  }
+
+  const fetchPendingDocSignatures = async () => {
+    try {
+      const response = await fetch('/api/documents/pending-signatures')
+      if (response.ok) {
+        const data = await response.json()
+        setPendingDocSignatures(data.documents || [])
+      }
+    } catch (error) {
+      console.error('Error fetching pending document signatures:', error)
     }
   }
 
@@ -845,7 +865,44 @@ export default function ManagerDashboard() {
             <div className="hidden md:block space-y-6">
               {/* Dashboard Summary */}
               <DashboardSummary userRole="MANAGER" />
-            
+
+              {/* Pending Document Signatures */}
+              {pendingDocSignatures.length > 0 && (
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileSignature className="h-5 w-5 text-orange-600" />
+                      Documents Pending Your Signature ({pendingDocSignatures.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {pendingDocSignatures.map((doc: any) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between p-3 bg-white border rounded-lg"
+                        >
+                          <div>
+                            <p className="font-medium text-sm">
+                              {doc.leaveType}{!doc.isOwnDocument && ` - ${doc.employeeName}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(doc.startDate), "MMM d")} - {format(new Date(doc.endDate), "MMM d, yyyy")}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => router.push(`/documents/${doc.id}/sign`)}
+                          >
+                            Sign Now
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Manager's Personal Dashboard */}
             <div className="lg:col-span-2 space-y-6">

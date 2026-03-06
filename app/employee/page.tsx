@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Building,
   ChevronDown,
+  FileSignature,
 } from "lucide-react"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
@@ -62,7 +63,8 @@ export default function EmployeeDashboard() {
   const [allRequests, setAllRequests] = useState<any[]>([])
   const [loadingRequests, setLoadingRequests] = useState(true)
   const [hasDirectReports, setHasDirectReports] = useState(false)
-  const [wfhStats, setWfhStats] = useState({ 
+  const [pendingSignatures, setPendingSignatures] = useState<any[]>([])
+  const [wfhStats, setWfhStats] = useState({
     daysUsed: 0, 
     workingDaysInMonth: 22, 
     percentage: 0,
@@ -84,10 +86,11 @@ export default function EmployeeDashboard() {
     
     // Add a small delay to ensure all state is initialized
     const initTimer = setTimeout(() => {
-      // Fetch leave balances and requests
+      // Fetch leave balances, requests, and pending signatures
       fetchLeaveBalances()
       fetchAllRequests()
       checkManagementStatus()
+      fetchPendingSignatures()
     }, 50)
     
     return () => clearTimeout(initTimer)
@@ -127,6 +130,18 @@ export default function EmployeeDashboard() {
     } catch (error) {
       console.error('Error checking management status:', error)
       setHasDirectReports(false)
+    }
+  }
+
+  const fetchPendingSignatures = async () => {
+    try {
+      const response = await fetch('/api/documents/pending-signatures')
+      if (response.ok) {
+        const data = await response.json()
+        setPendingSignatures(data.documents || [])
+      }
+    } catch (error) {
+      console.error('Error fetching pending signatures:', error)
     }
   }
 
@@ -582,7 +597,42 @@ export default function EmployeeDashboard() {
           <div className="space-y-6">
             {/* Dashboard Summary */}
             <DashboardSummary userRole="EMPLOYEE" />
-            
+
+            {/* Pending Signatures */}
+            {pendingSignatures.length > 0 && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileSignature className="h-5 w-5 text-orange-600" />
+                    Documents Pending Your Signature ({pendingSignatures.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {pendingSignatures.map((doc: any) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 bg-white border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{doc.leaveType}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(doc.startDate), "MMM d")} - {format(new Date(doc.endDate), "MMM d, yyyy")}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => router.push(`/documents/${doc.id}/sign`)}
+                        >
+                          Sign Now
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Leave Balance Cards */}
             <div className="lg:col-span-2 space-y-6">

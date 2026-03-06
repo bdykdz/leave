@@ -6,6 +6,7 @@ import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 import { sanitizeComment } from '@/lib/utils/sanitize'
 import { WorkingDaysService } from '@/lib/services/working-days-service'
 import { eachDayOfInterval } from 'date-fns'
+import { SmartDocumentGenerator } from '@/lib/smart-document-generator'
 
 export async function POST(request: NextRequest) {
   try {
@@ -284,6 +285,59 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // 5. Auto-generate document if a template exists for this leave type (non-blocking)
+    let generatedDocumentId: string | null = null
+    try {
+      const template = await prisma.documentTemplate.findFirst({
+        where: {
+          leaveTypeId,
+          isActive: true,
+        },
+        orderBy: { version: 'desc' },
+      })
+
+      if (template) {
+        const generator = new SmartDocumentGenerator()
+        generatedDocumentId = await generator.generateDocument(result.leaveRequest.id, template.id)
+        console.log(`Document generated for manual leave request: ${generatedDocumentId}`)
+
+        // Create notifications for signers
+        const employee = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, managerId: true },
+        })
+
+        if (employee && generatedDocumentId) {
+          // Notify employee to sign
+          await prisma.notification.create({
+            data: {
+              userId: employee.id,
+              type: 'DOCUMENT_READY',
+              title: 'Document Ready for Signature',
+              message: `A ${leaveType.name} leave document requires your signature.`,
+              link: `/documents/${generatedDocumentId}/sign`,
+            },
+          })
+
+          // Notify manager to sign
+          if (employee.managerId) {
+            await prisma.notification.create({
+              data: {
+                userId: employee.managerId,
+                type: 'DOCUMENT_READY',
+                title: 'Document Ready for Signature',
+                message: `A ${leaveType.name} leave document for ${targetUser.firstName} ${targetUser.lastName} requires your signature.`,
+                link: `/documents/${generatedDocumentId}/sign`,
+              },
+            })
+          }
+        }
+      }
+    } catch (docError) {
+      // Non-blocking: log but don't fail the request
+      console.error('Error generating document for manual leave request:', docError)
+    }
+
     return NextResponse.json({
       success: true,
       message: `Leave request ${result.requestNumber} created successfully`,
@@ -291,6 +345,7 @@ export async function POST(request: NextRequest) {
         id: result.leaveRequest.id,
         requestNumber: result.requestNumber,
         status: requestStatus,
+        generatedDocumentId,
       },
     })
   } catch (error) {
