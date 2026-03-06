@@ -80,21 +80,44 @@ export async function GET() {
       }
     }
 
-    // Get pending approval requests
-    const pendingRequests = await prisma.leaveRequest.count({
-      where: {
-        user: {
-          managerId: session.user.id
-        },
-        status: 'PENDING',
-        approvals: {
-          some: {
-            approverId: session.user.id,
-            status: 'PENDING'
+    // Get pending approval requests (both leave and WFH)
+    const [pendingLeaveCount, pendingWfhCount] = await Promise.all([
+      prisma.leaveRequest.count({
+        where: {
+          user: {
+            managerId: session.user.id
+          },
+          status: 'PENDING',
+          approvals: {
+            some: {
+              approverId: session.user.id,
+              status: 'PENDING'
+            }
           }
         }
-      }
-    })
+      }),
+      prisma.workFromHomeRequest.count({
+        where: {
+          status: 'PENDING',
+          OR: [
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              user: {
+                managerId: session.user.id
+              }
+            }
+          ]
+        }
+      })
+    ])
+    const pendingRequests = pendingLeaveCount + pendingWfhCount
 
     // Calculate team stats and collect member names by status
     let onLeaveToday = 0

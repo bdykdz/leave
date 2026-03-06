@@ -140,11 +140,11 @@ export default function ManagerDashboard() {
     fetchTeamStats()
   }, [session, status])
 
-  // Fetch pending requests (re-fetch when category tab changes to filter leave-only)
+  // Fetch pending requests (re-fetch when category tab or active tab changes)
   useEffect(() => {
     if (status === "loading" || !session) return
     fetchPendingRequests()
-  }, [pendingRequestsPage, requestCategoryTab, session, status])
+  }, [pendingRequestsPage, requestCategoryTab, activeTab, session, status])
 
   // Fetch approved requests
   useEffect(() => {
@@ -248,8 +248,8 @@ export default function ManagerDashboard() {
   const fetchPendingRequests = async () => {
     try {
       setLoading(true)
-      // When on leave category tab, fetch leave-only; otherwise fetch combined
-      const typeParam = requestCategoryTab === 'leave' ? '&type=leave' : ''
+      // On team tab with leave category, fetch leave-only; on dashboard, fetch combined (leave + WFH)
+      const typeParam = activeTab === 'team' && requestCategoryTab === 'leave' ? '&type=leave' : ''
       const response = await fetch(`/api/manager/team/pending-approvals?page=${pendingRequestsPage}&limit=10${typeParam}`)
       if (response.ok) {
         const data = await response.json()
