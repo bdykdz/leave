@@ -19,7 +19,7 @@ interface ApprovalDialogProps {
     dates: string
     days: number
   }
-  onConfirm?: (comment: string, signature?: string) => void
+  onConfirm?: (comment: string, signature?: string) => Promise<boolean | void> | void
 }
 
 export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }: ApprovalDialogProps) {
@@ -28,22 +28,34 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
   const [signature, setSignature] = useState("")
   const [comment, setComment] = useState("")
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isApproval && !signature) {
       setError("Please provide your signature")
       return
     }
-    
-    setShowConfirmation(true)
-    setTimeout(() => {
+
+    setSubmitting(true)
+    try {
       if (onConfirm) {
         // Send signature as a separate argument — never embed in comment
-        onConfirm(comment, isApproval ? signature || undefined : undefined)
+        const result = await onConfirm(comment, isApproval ? signature || undefined : undefined)
+        // If onConfirm explicitly returns false, it means the API call failed
+        if (result === false) {
+          setSubmitting(false)
+          return
+        }
       }
-      handleClose()
-    }, 2000)
+      // Only show success confirmation AFTER the API call succeeds
+      setShowConfirmation(true)
+      setTimeout(() => {
+        handleClose()
+      }, 2000)
+    } catch {
+      setSubmitting(false)
+    }
   }
 
   const handleClose = () => {
@@ -190,12 +202,13 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>{t.common.cancel}</Button>
+          <Button variant="outline" onClick={handleClose} disabled={submitting}>{t.common.cancel}</Button>
           <Button
             onClick={handleSubmit}
+            disabled={submitting}
             className={isApproval ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
           >
-            {isApproval ? t.buttons.approveRequest : t.buttons.denyRequest}
+            {submitting ? (isApproval ? "Approving..." : "Denying...") : (isApproval ? t.buttons.approveRequest : t.buttons.denyRequest)}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -437,7 +437,7 @@ export default function ManagerDashboard() {
     }
   }
 
-  const handleApprove = async (requestId: string, comment?: string, signature?: string) => {
+  const handleApprove = async (requestId: string, comment?: string, signature?: string): Promise<boolean> => {
     try {
       const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/approve-request/${requestId}`, {
@@ -445,7 +445,7 @@ export default function ManagerDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment, signature, requestType })
       })
-      
+
       if (response.ok) {
         toast.success(t.messages.requestApprovedSuccess)
         // Refresh all data
@@ -456,15 +456,17 @@ export default function ManagerDashboard() {
           refreshPromises.push(fetchPendingRequests(), fetchApprovedRequests())
         }
         await Promise.all(refreshPromises)
-        setShowApprovalDialog(false)
+        return true
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         console.error('API Error:', errorData)
-        toast.error(errorData.details || t.messages.failedToApprove)
+        toast.error(errorData.error || errorData.details || t.messages.failedToApprove)
+        return false
       }
     } catch (error) {
       console.error('Error approving request:', error)
       toast.error(t.messages.failedToApprove)
+      return false
     }
   }
 
@@ -2033,11 +2035,11 @@ export default function ManagerDashboard() {
           }}
           action={approvalDetails.action}
           request={approvalDetails.request}
-          onConfirm={(comment, signature) => {
+          onConfirm={async (comment, signature) => {
             if (approvalDetails.action === 'approve') {
-              handleApprove(approvalDetails?.request?.id || '', comment, signature)
+              return await handleApprove(approvalDetails?.request?.id || '', comment, signature)
             } else {
-              handleDeny(approvalDetails?.request?.id || '', comment)
+              await handleDeny(approvalDetails?.request?.id || '', comment)
             }
           }}
         />
