@@ -49,12 +49,14 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
         }
       }
       // Only show success confirmation AFTER the API call succeeds
+      setSubmitting(false)
       setShowConfirmation(true)
       setTimeout(() => {
         handleClose()
       }, 2000)
-    } catch {
+    } catch (err) {
       setSubmitting(false)
+      setError("Something went wrong. Please try again.")
     }
   }
 

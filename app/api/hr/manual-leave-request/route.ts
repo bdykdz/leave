@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Verify target user exists and is active
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, isActive: true, firstName: true, lastName: true }
+      select: { id: true, isActive: true, firstName: true, lastName: true, managerId: true }
     })
 
     if (!targetUser) {
@@ -301,17 +301,11 @@ export async function POST(request: NextRequest) {
         generatedDocumentId = await generator.generateDocument(result.leaveRequest.id, template.id)
         console.log(`Document generated for manual leave request: ${generatedDocumentId}`)
 
-        // Create notifications for signers
-        const employee = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, managerId: true },
-        })
-
-        if (employee && generatedDocumentId) {
+        if (generatedDocumentId) {
           // Notify employee to sign
           await prisma.notification.create({
             data: {
-              userId: employee.id,
+              userId: targetUser.id,
               type: 'DOCUMENT_READY',
               title: 'Document Ready for Signature',
               message: `A ${leaveType.name} leave document requires your signature.`,
@@ -320,10 +314,10 @@ export async function POST(request: NextRequest) {
           })
 
           // Notify manager to sign
-          if (employee.managerId) {
+          if (targetUser.managerId) {
             await prisma.notification.create({
               data: {
-                userId: employee.managerId,
+                userId: targetUser.managerId,
                 type: 'DOCUMENT_READY',
                 title: 'Document Ready for Signature',
                 message: `A ${leaveType.name} leave document for ${targetUser.firstName} ${targetUser.lastName} requires your signature.`,

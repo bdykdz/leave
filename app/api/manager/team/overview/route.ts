@@ -99,21 +99,15 @@ export async function GET() {
       prisma.workFromHomeRequest.count({
         where: {
           status: 'PENDING',
-          OR: [
-            {
-              approvals: {
-                some: {
-                  approverId: session.user.id,
-                  status: 'PENDING'
-                }
-              }
-            },
-            {
-              user: {
-                managerId: session.user.id
-              }
+          user: {
+            managerId: session.user.id
+          },
+          approvals: {
+            some: {
+              approverId: session.user.id,
+              status: 'PENDING'
             }
-          ]
+          }
         }
       })
     ])

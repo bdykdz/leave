@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
                 lastName: true,
                 email: true,
                 managerId: true,
+                departmentDirectorId: true,
               },
             },
             leaveType: {
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     })
 
     // Filter to documents where this user needs to sign
@@ -63,6 +65,8 @@ export async function GET(request: NextRequest) {
             return doc.leaveRequest.user.id === userId
           case 'manager':
             return doc.leaveRequest.user.managerId === userId
+          case 'department_director':
+            return doc.leaveRequest.user.departmentDirectorId === userId
           case 'hr':
             return userRole === 'HR'
           case 'executive':

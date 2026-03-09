@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
       where.status = status.toUpperCase();
     }
 
-    // Fetch both leave and WFH requests in parallel
+    // Fetch both leave and WFH requests in parallel.
+    // Note: merges two tables in-memory then paginates. Acceptable since this is
+    // scoped to a single user's own requests (bounded volume).
     const [totalLeave, leaveRequests, totalWfh, wfhRequests] = await Promise.all([
       prisma.leaveRequest.count({ where }),
       prisma.leaveRequest.findMany({
