@@ -82,6 +82,9 @@ export function ManualRequestEntry() {
   // Popover open state per tab for employee combobox
   const [leaveEmployeeOpen, setLeaveEmployeeOpen] = useState(false)
   const [wfhEmployeeOpen, setWfhEmployeeOpen] = useState(false)
+  // Manual search state for employee comboboxes (fixes cmdk selection bug)
+  const [leaveEmployeeSearch, setLeaveEmployeeSearch] = useState("")
+  const [wfhEmployeeSearch, setWfhEmployeeSearch] = useState("")
   // Track whether totalDays was manually edited (#9)
   const leaveDaysManuallyEdited = useRef(false)
   const wfhDaysManuallyEdited = useRef(false)
@@ -338,6 +341,20 @@ export function ManualRequestEntry() {
   const selectedWfhEmployee = employees.find(e => e.id === wfhForm.userId)
   const selectedLeaveType = leaveTypes.find(lt => lt.id === leaveForm.leaveTypeId)
 
+  // Manual filtering for employee comboboxes (bypasses cmdk's buggy internal filtering)
+  const filterEmployees = (emps: Employee[], search: string) => {
+    if (!search) return emps
+    const q = search.toLowerCase()
+    return emps.filter(emp =>
+      `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(q) ||
+      emp.department.toLowerCase().includes(q) ||
+      emp.email.toLowerCase().includes(q) ||
+      emp.employeeId.toLowerCase().includes(q)
+    )
+  }
+  const filteredLeaveEmployees = filterEmployees(employees, leaveEmployeeSearch)
+  const filteredWfhEmployees = filterEmployees(employees, wfhEmployeeSearch)
+
   // Calculate projected balance after this request
   const projectedAvailable = currentBalance && leaveForm.totalDays
     ? currentBalance.available - parseFloat(leaveForm.totalDays)
@@ -414,7 +431,10 @@ export function ManualRequestEntry() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Select Employee *</Label>
-                  <Popover open={leaveEmployeeOpen} onOpenChange={setLeaveEmployeeOpen}>
+                  <Popover open={leaveEmployeeOpen} onOpenChange={(open) => {
+                    setLeaveEmployeeOpen(open)
+                    if (!open) setLeaveEmployeeSearch("")
+                  }}>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
@@ -430,18 +450,19 @@ export function ManualRequestEntry() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                      <Command>
-                        <CommandInput placeholder="Search employees..." />
+                      <Command shouldFilter={false}>
+                        <CommandInput placeholder="Search employees..." value={leaveEmployeeSearch} onValueChange={setLeaveEmployeeSearch} />
                         <CommandList>
                           <CommandEmpty>No employees found.</CommandEmpty>
                           <CommandGroup>
-                            {employees.map(emp => (
+                            {filteredLeaveEmployees.map(emp => (
                               <CommandItem
                                 key={emp.id}
-                                value={`${emp.firstName} ${emp.lastName} ${emp.department} ${emp.email} ${emp.employeeId}`}
+                                value={emp.id}
                                 onSelect={() => {
                                   setLeaveForm(prev => ({ ...prev, userId: emp.id }))
                                   setLeaveEmployeeOpen(false)
+                                  setLeaveEmployeeSearch("")
                                 }}
                               >
                                 <Check className={cn("mr-2 h-4 w-4", leaveForm.userId === emp.id ? "opacity-100" : "opacity-0")} />
@@ -635,7 +656,10 @@ export function ManualRequestEntry() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Select Employee *</Label>
-                  <Popover open={wfhEmployeeOpen} onOpenChange={setWfhEmployeeOpen}>
+                  <Popover open={wfhEmployeeOpen} onOpenChange={(open) => {
+                    setWfhEmployeeOpen(open)
+                    if (!open) setWfhEmployeeSearch("")
+                  }}>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
@@ -651,18 +675,19 @@ export function ManualRequestEntry() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                      <Command>
-                        <CommandInput placeholder="Search employees..." />
+                      <Command shouldFilter={false}>
+                        <CommandInput placeholder="Search employees..." value={wfhEmployeeSearch} onValueChange={setWfhEmployeeSearch} />
                         <CommandList>
                           <CommandEmpty>No employees found.</CommandEmpty>
                           <CommandGroup>
-                            {employees.map(emp => (
+                            {filteredWfhEmployees.map(emp => (
                               <CommandItem
                                 key={emp.id}
-                                value={`${emp.firstName} ${emp.lastName} ${emp.department} ${emp.email} ${emp.employeeId}`}
+                                value={emp.id}
                                 onSelect={() => {
                                   setWfhForm(prev => ({ ...prev, userId: emp.id }))
                                   setWfhEmployeeOpen(false)
+                                  setWfhEmployeeSearch("")
                                 }}
                               >
                                 <Check className={cn("mr-2 h-4 w-4", wfhForm.userId === emp.id ? "opacity-100" : "opacity-0")} />
