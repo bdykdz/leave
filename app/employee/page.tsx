@@ -804,7 +804,8 @@ export default function EmployeeDashboard() {
                                 <Badge className={getStatusColor(request.status)}>
                                   {formatStatus(request.status)}
                                 </Badge>
-                                {(request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
+                                {/* Self-cancel disabled for leave requests pending HR policy decision. Remove requestType check to re-enable. */}
+                                {request.requestType !== 'leave' && (request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                                   <Button
                                     variant="outline"
                                     size="sm"
