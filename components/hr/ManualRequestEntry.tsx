@@ -35,7 +35,12 @@ import {
   User,
   AlertTriangle,
   Loader2,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { toast } from "sonner"
 import { parseISO } from "date-fns"
 
@@ -74,9 +79,9 @@ export function ManualRequestEntry() {
   const [currentBalance, setCurrentBalance] = useState<LeaveBalance | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'leave' | 'wfh'>('leave')
-  // Separate search state per tab to avoid cross-tab interference (#10)
-  const [leaveEmployeeSearch, setLeaveEmployeeSearch] = useState("")
-  const [wfhEmployeeSearch, setWfhEmployeeSearch] = useState("")
+  // Popover open state per tab for employee combobox
+  const [leaveEmployeeOpen, setLeaveEmployeeOpen] = useState(false)
+  const [wfhEmployeeOpen, setWfhEmployeeOpen] = useState(false)
   // Track whether totalDays was manually edited (#9)
   const leaveDaysManuallyEdited = useRef(false)
   const wfhDaysManuallyEdited = useRef(false)
@@ -338,23 +343,6 @@ export function ManualRequestEntry() {
     ? currentBalance.available - parseFloat(leaveForm.totalDays)
     : null
 
-  // Filter employees by search — separate per tab (#10)
-  const leaveFilteredEmployees = leaveEmployeeSearch
-    ? employees.filter(e =>
-        `${e.firstName} ${e.lastName} ${e.email} ${e.department} ${e.employeeId}`
-          .toLowerCase()
-          .includes(leaveEmployeeSearch.toLowerCase())
-      )
-    : employees
-
-  const wfhFilteredEmployees = wfhEmployeeSearch
-    ? employees.filter(e =>
-        `${e.firstName} ${e.lastName} ${e.email} ${e.department} ${e.employeeId}`
-          .toLowerCase()
-          .includes(wfhEmployeeSearch.toLowerCase())
-      )
-    : employees
-
   // Get confirmation summary
   const getConfirmSummary = () => {
     if (confirmAction === 'leave') {
@@ -426,37 +414,45 @@ export function ManualRequestEntry() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Select Employee *</Label>
-                  <Select
-                    value={leaveForm.userId}
-                    onValueChange={(value) => {
-                      setLeaveForm(prev => ({ ...prev, userId: value }))
-                      setLeaveEmployeeSearch("")
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose an employee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <div className="px-2 pb-2">
-                        <Input
-                          placeholder="Search employees..."
-                          value={leaveEmployeeSearch}
-                          onChange={(e) => setLeaveEmployeeSearch(e.target.value)}
-                          className="h-8"
-                        />
-                      </div>
-                      {leaveFilteredEmployees.map(emp => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} — {emp.department} ({emp.email})
-                        </SelectItem>
-                      ))}
-                      {leaveFilteredEmployees.length === 0 && (
-                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                          No employees found
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={leaveEmployeeOpen} onOpenChange={setLeaveEmployeeOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={leaveEmployeeOpen}
+                        className="w-full justify-between font-normal"
+                      >
+                        {selectedEmployee
+                          ? `${selectedEmployee.firstName} ${selectedEmployee.lastName} — ${selectedEmployee.department}`
+                          : "Choose an employee"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employees found.</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map(emp => (
+                              <CommandItem
+                                key={emp.id}
+                                value={`${emp.firstName} ${emp.lastName} ${emp.department} ${emp.email} ${emp.employeeId}`}
+                                onSelect={() => {
+                                  setLeaveForm(prev => ({ ...prev, userId: emp.id }))
+                                  setLeaveEmployeeOpen(false)
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", leaveForm.userId === emp.id ? "opacity-100" : "opacity-0")} />
+                                {emp.firstName} {emp.lastName} — {emp.department} ({emp.email})
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   {selectedEmployee && (
                     <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-2">
@@ -639,37 +635,45 @@ export function ManualRequestEntry() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Select Employee *</Label>
-                  <Select
-                    value={wfhForm.userId}
-                    onValueChange={(value) => {
-                      setWfhForm(prev => ({ ...prev, userId: value }))
-                      setWfhEmployeeSearch("")
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose an employee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <div className="px-2 pb-2">
-                        <Input
-                          placeholder="Search employees..."
-                          value={wfhEmployeeSearch}
-                          onChange={(e) => setWfhEmployeeSearch(e.target.value)}
-                          className="h-8"
-                        />
-                      </div>
-                      {wfhFilteredEmployees.map(emp => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} — {emp.department} ({emp.email})
-                        </SelectItem>
-                      ))}
-                      {wfhFilteredEmployees.length === 0 && (
-                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                          No employees found
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={wfhEmployeeOpen} onOpenChange={setWfhEmployeeOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={wfhEmployeeOpen}
+                        className="w-full justify-between font-normal"
+                      >
+                        {selectedWfhEmployee
+                          ? `${selectedWfhEmployee.firstName} ${selectedWfhEmployee.lastName} — ${selectedWfhEmployee.department}`
+                          : "Choose an employee"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employees found.</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map(emp => (
+                              <CommandItem
+                                key={emp.id}
+                                value={`${emp.firstName} ${emp.lastName} ${emp.department} ${emp.email} ${emp.employeeId}`}
+                                onSelect={() => {
+                                  setWfhForm(prev => ({ ...prev, userId: emp.id }))
+                                  setWfhEmployeeOpen(false)
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", wfhForm.userId === emp.id ? "opacity-100" : "opacity-0")} />
+                                {emp.firstName} {emp.lastName} — {emp.department} ({emp.email})
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   {selectedWfhEmployee && (
                     <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-2">
