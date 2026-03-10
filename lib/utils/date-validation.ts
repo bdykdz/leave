@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { format, isSameDay, parseISO } from 'date-fns'
+import { eachDayOfInterval, format, isSameDay, parseISO } from 'date-fns'
 
 export interface DateOverlapCheck {
   hasOverlap: boolean
@@ -178,4 +178,38 @@ export async function checkHolidayConflicts(
   }
 
   return { hasConflict: false, blockedDates: [] }
+}
+
+/**
+ * Check if two requests have actual date overlap, respecting selectedDates.
+ * Pure function (no DB access), safe to use inside transactions.
+ *
+ * When a request has non-empty selectedDates, only those exact dates matter.
+ * Otherwise the full startDate→endDate range is expanded.
+ */
+export function hasActualDateOverlap(
+  existing: { startDate: Date; endDate: Date; selectedDates?: any[] | null },
+  incoming: { startDate: Date; endDate: Date; selectedDates?: any[] | null }
+): boolean {
+  const toDayString = (d: Date | string) => {
+    const dt = typeof d === 'string' ? parseISO(d) : new Date(d);
+    return format(dt, 'yyyy-MM-dd');
+  };
+
+  const expandDates = (req: { startDate: Date; endDate: Date; selectedDates?: any[] | null }): Set<string> => {
+    if (req.selectedDates && req.selectedDates.length > 0) {
+      return new Set(req.selectedDates.map(toDayString));
+    }
+    return new Set(
+      eachDayOfInterval({ start: req.startDate, end: req.endDate }).map(d => format(d, 'yyyy-MM-dd'))
+    );
+  };
+
+  const existingDates = expandDates(existing);
+  const incomingDates = expandDates(incoming);
+
+  for (const d of incomingDates) {
+    if (existingDates.has(d)) return true;
+  }
+  return false;
 }

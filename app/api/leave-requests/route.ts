@@ -10,7 +10,7 @@ import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
-import { checkSelectedDatesOverlap, checkHolidayConflicts } from '@/lib/utils/date-validation';
+import { checkSelectedDatesOverlap, checkHolidayConflicts, hasActualDateOverlap } from '@/lib/utils/date-validation';
 const documentGenerator = new SmartDocumentGenerator();
 
 // Helper class to abort transactions with a client-facing response
@@ -423,18 +423,18 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     try {
       leaveRequest = await prisma.$transaction(async (tx) => {
         // Check for overlapping leave requests inside transaction to prevent race conditions
-        const overlappingLeave = await tx.leaveRequest.findFirst({
+        const leaveCandidates = await tx.leaveRequest.findMany({
           where: {
             userId: session.user.id,
             status: { in: ['APPROVED', 'PENDING'] },
-            OR: [
-              {
-                startDate: { lte: endDate },
-                endDate: { gte: startDate }
-              }
-            ]
-          }
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+          select: { id: true, startDate: true, endDate: true, selectedDates: true }
         });
+
+        const incomingRequest = { startDate, endDate, selectedDates: validatedData.selectedDates?.map((d: string) => new Date(d)) };
+        const overlappingLeave = leaveCandidates.find(c => hasActualDateOverlap(c, incomingRequest));
 
         if (overlappingLeave) {
           throw new TransactionAbort(400, {
@@ -444,18 +444,19 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         }
 
         // Check for overlapping WFH requests inside transaction
-        const overlappingWFH = await tx.workFromHomeRequest.findFirst({
+        const wfhCandidates = await tx.workFromHomeRequest.findMany({
           where: {
             userId: session.user.id,
             status: { in: ['APPROVED', 'PENDING'] },
-            OR: [
-              {
-                startDate: { lte: endDate },
-                endDate: { gte: startDate }
-              }
-            ]
-          }
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+          select: { id: true, startDate: true, endDate: true, selectedDates: true }
         });
+
+        const overlappingWFH = wfhCandidates.find(c =>
+          hasActualDateOverlap({ ...c, selectedDates: c.selectedDates as any[] | null }, incomingRequest)
+        );
 
         if (overlappingWFH) {
           throw new TransactionAbort(400, {
@@ -979,13 +980,14 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
         break;
       case 'HR':
       case 'hr_verification':
-        // Find an HR user or employee in HR department
+        // Find an HR user or employee in HR department (exclude the requester to prevent self-approval)
         const hrUser = await prisma.user.findFirst({
-          where: { 
+          where: {
+            id: { not: user.id },
             OR: [
               { role: 'HR', isActive: true },
-              { 
-                role: 'EMPLOYEE', 
+              {
+                role: 'EMPLOYEE',
                 isActive: true,
                 department: { contains: 'hr', mode: 'insensitive' }
               }

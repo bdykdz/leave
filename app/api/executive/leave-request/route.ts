@@ -8,6 +8,7 @@ import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { emailService } from '@/lib/email-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
+import { hasActualDateOverlap } from '@/lib/utils/date-validation';
 
 // Helper class to abort transactions with a client-facing response
 class TransactionAbort extends Error {
@@ -231,18 +232,18 @@ export const POST = asyncHandler(async (request: NextRequest) => {
   try {
     leaveRequest = await prisma.$transaction(async (tx) => {
     // Check for overlapping leave requests
-    const overlappingLeave = await tx.leaveRequest.findFirst({
+    const leaveCandidates = await tx.leaveRequest.findMany({
       where: {
         userId: session.user.id,
         status: { in: ['APPROVED', 'PENDING'] },
-        OR: [
-          {
-            startDate: { lte: endDate },
-            endDate: { gte: startDate }
-          }
-        ]
-      }
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+      select: { id: true, startDate: true, endDate: true, selectedDates: true }
     });
+
+    const incomingRequest = { startDate, endDate, selectedDates: validatedData.selectedDates?.map((d: string) => new Date(d)) };
+    const overlappingLeave = leaveCandidates.find(c => hasActualDateOverlap(c, incomingRequest));
 
     if (overlappingLeave) {
       throw new TransactionAbort(400, {
@@ -252,14 +253,19 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     }
 
     // Check for overlapping WFH requests
-    const overlappingWfh = await tx.workFromHomeRequest.findFirst({
+    const wfhCandidates = await tx.workFromHomeRequest.findMany({
       where: {
         userId: session.user.id,
         status: { in: ['APPROVED', 'PENDING'] },
         startDate: { lte: endDate },
-        endDate: { gte: startDate }
-      }
+        endDate: { gte: startDate },
+      },
+      select: { id: true, startDate: true, endDate: true, selectedDates: true }
     });
+
+    const overlappingWfh = wfhCandidates.find(c =>
+      hasActualDateOverlap({ ...c, selectedDates: c.selectedDates as any[] | null }, incomingRequest)
+    );
 
     if (overlappingWfh) {
       throw new TransactionAbort(400, {
