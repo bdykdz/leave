@@ -16,18 +16,16 @@ import {
 } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
+import {
   Calendar,
-  Plus,
   Save,
   AlertCircle,
   FileText,
   Home,
-  CheckCircle,
   User,
 } from "lucide-react"
 import { toast } from "sonner"
-import { format, differenceInDays, parseISO, addDays } from "date-fns"
+import { differenceInDays, parseISO } from "date-fns"
 
 interface User {
   id: string
@@ -59,7 +57,6 @@ export function ManualRequestEntry() {
     startDate: "",
     endDate: "",
     reason: "",
-    status: "APPROVED",
     totalDays: 0,
     isHalfDay: false,
     supportingDocuments: [] as string[],
@@ -73,7 +70,6 @@ export function ManualRequestEntry() {
     endDate: "",
     reason: "",
     location: "",
-    status: "APPROVED",
     contactNumber: "",
     hrNotes: "",
   })
@@ -129,15 +125,15 @@ export function ManualRequestEntry() {
       const response = await fetch('/api/admin/manual-leave-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...leaveForm,
-          bypassApproval: true,
-          createdByAdmin: true,
-        })
+        body: JSON.stringify(leaveForm)
       })
 
       if (response.ok) {
-        toast.success('Leave request created successfully')
+        const data = await response.json()
+        if (data.warning) {
+          toast.warning(data.warning)
+        }
+        toast.success(data.message || 'Leave request created successfully')
         // Reset form
         setLeaveForm({
           userId: "",
@@ -145,7 +141,6 @@ export function ManualRequestEntry() {
           startDate: "",
           endDate: "",
           reason: "",
-          status: "APPROVED",
           totalDays: 0,
           isHalfDay: false,
           supportingDocuments: [],
@@ -174,15 +169,15 @@ export function ManualRequestEntry() {
       const response = await fetch('/api/admin/manual-wfh-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...wfhForm,
-          bypassApproval: true,
-          createdByAdmin: true,
-        })
+        body: JSON.stringify(wfhForm)
       })
 
       if (response.ok) {
-        toast.success('Work from home request created successfully')
+        const data = await response.json()
+        if (data.warning) {
+          toast.warning(data.warning)
+        }
+        toast.success(data.message || 'Work from home request created successfully')
         // Reset form
         setWfhForm({
           userId: "",
@@ -190,7 +185,6 @@ export function ManualRequestEntry() {
           endDate: "",
           reason: "",
           location: "",
-          status: "APPROVED",
           contactNumber: "",
           hrNotes: "",
         })
@@ -218,7 +212,7 @@ export function ManualRequestEntry() {
                 Manual Request Entry
               </CardTitle>
               <CardDescription>
-                Create leave or work from home requests directly without approval flow
+                Create leave or WFH requests on behalf of employees — requests will be sent to the employee&apos;s manager for approval
               </CardDescription>
             </div>
             <Badge variant="destructive" className="flex items-center gap-1">
@@ -231,9 +225,8 @@ export function ManualRequestEntry() {
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Important:</strong> Manual entries bypass the normal approval workflow. 
-              These requests will be immediately marked as approved and will affect the user's leave balance.
-              Use this feature only for legitimate administrative purposes.
+              <strong>Important:</strong> Requests created here will be sent to the employee&apos;s manager for approval.
+              The leave balance will be updated as pending until approved. All entries are recorded in the audit log.
             </AlertDescription>
           </Alert>
 
@@ -309,24 +302,6 @@ export function ManualRequestEntry() {
                       This leave type normally requires supporting documents
                     </p>
                   )}
-                </div>
-
-                <div>
-                  <Label>Status *</Label>
-                  <Select 
-                    value={leaveForm.status} 
-                    onValueChange={(value) => setLeaveForm({...leaveForm, status: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="APPROVED">Approved</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div>
@@ -423,7 +398,6 @@ export function ManualRequestEntry() {
                       startDate: "",
                       endDate: "",
                       reason: "",
-                      status: "APPROVED",
                       totalDays: 0,
                       isHalfDay: false,
                       supportingDocuments: [],
@@ -504,24 +478,6 @@ export function ManualRequestEntry() {
                   />
                 </div>
 
-                <div>
-                  <Label>Status *</Label>
-                  <Select 
-                    value={wfhForm.status} 
-                    onValueChange={(value) => setWfhForm({...wfhForm, status: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="APPROVED">Approved</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="col-span-2">
                   <Label>Reason for Work From Home</Label>
                   <Textarea
@@ -554,7 +510,6 @@ export function ManualRequestEntry() {
                       endDate: "",
                       reason: "",
                       location: "",
-                      status: "APPROVED",
                       contactNumber: "",
                       hrNotes: "",
                     })

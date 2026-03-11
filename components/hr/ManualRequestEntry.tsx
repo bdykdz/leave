@@ -96,7 +96,6 @@ export function ManualRequestEntry() {
     startDate: "",
     endDate: "",
     reason: "",
-    status: "APPROVED",
     totalDays: "",
     hrNotes: "",
   })
@@ -107,7 +106,6 @@ export function ManualRequestEntry() {
     startDate: "",
     endDate: "",
     location: "home",
-    status: "APPROVED",
     totalDays: "",
     hrNotes: "",
   })
@@ -265,13 +263,15 @@ export function ManualRequestEntry() {
             endDate: leaveForm.endDate,
             totalDays: parseFloat(leaveForm.totalDays),
             reason: leaveForm.reason,
-            status: leaveForm.status,
             hrNotes: leaveForm.hrNotes || undefined,
           })
         })
 
         if (response.ok) {
           const data = await response.json()
+          if (data.warning) {
+            toast.warning(data.warning)
+          }
           toast.success(data.message || 'Leave request created successfully')
           resetLeaveForm()
         } else {
@@ -288,13 +288,15 @@ export function ManualRequestEntry() {
             endDate: wfhForm.endDate,
             totalDays: parseInt(wfhForm.totalDays),
             location: wfhForm.location || 'home',
-            status: wfhForm.status,
             hrNotes: wfhForm.hrNotes || undefined,
           })
         })
 
         if (response.ok) {
           const data = await response.json()
+          if (data.warning) {
+            toast.warning(data.warning)
+          }
           toast.success(data.message || 'WFH request created successfully')
           resetWfhForm()
         } else {
@@ -316,7 +318,6 @@ export function ManualRequestEntry() {
       startDate: "",
       endDate: "",
       reason: "",
-      status: "APPROVED",
       totalDays: "",
       hrNotes: "",
     })
@@ -330,7 +331,6 @@ export function ManualRequestEntry() {
       startDate: "",
       endDate: "",
       location: "home",
-      status: "APPROVED",
       totalDays: "",
       hrNotes: "",
     })
@@ -370,7 +370,6 @@ export function ManualRequestEntry() {
         type: lt?.name || 'Unknown',
         dates: `${leaveForm.startDate} to ${leaveForm.endDate}`,
         days: leaveForm.totalDays,
-        status: leaveForm.status,
       }
     } else {
       const emp = employees.find(e => e.id === wfhForm.userId)
@@ -379,7 +378,6 @@ export function ManualRequestEntry() {
         type: 'Work From Home',
         dates: `${wfhForm.startDate} to ${wfhForm.endDate}`,
         days: wfhForm.totalDays,
-        status: wfhForm.status,
       }
     }
   }
@@ -395,7 +393,7 @@ export function ManualRequestEntry() {
                 Manual Request Entry
               </CardTitle>
               <CardDescription>
-                Create leave or WFH requests for any employee — bypasses all approval workflows and validation
+                Create leave or WFH requests on behalf of employees — requests will be sent to the employee&apos;s manager for approval
               </CardDescription>
             </div>
             <Badge variant="secondary" className="flex items-center gap-1">
@@ -408,9 +406,8 @@ export function ManualRequestEntry() {
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Important:</strong> Manual entries bypass the normal approval workflow.
-              Approved requests will immediately affect the employee&apos;s leave balance.
-              All entries are recorded in the audit log.
+              <strong>Important:</strong> Requests created here will be sent to the employee&apos;s manager for approval.
+              The leave balance will be updated as pending until approved. All entries are recorded in the audit log.
             </AlertDescription>
           </Alert>
 
@@ -517,22 +514,6 @@ export function ManualRequestEntry() {
                       HR-only leave type (not visible in employee self-service)
                     </p>
                   )}
-                </div>
-
-                <div>
-                  <Label>Status *</Label>
-                  <Select
-                    value={leaveForm.status}
-                    onValueChange={(value) => setLeaveForm(prev => ({ ...prev, status: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="APPROVED">Approved (immediate)</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div>
@@ -764,22 +745,6 @@ export function ManualRequestEntry() {
                   />
                 </div>
 
-                <div>
-                  <Label>Status *</Label>
-                  <Select
-                    value={wfhForm.status}
-                    onValueChange={(value) => setWfhForm(prev => ({ ...prev, status: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="APPROVED">Approved (immediate)</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="col-span-2">
                   <Label>HR Notes (internal)</Label>
                   <Textarea
@@ -827,7 +792,7 @@ export function ManualRequestEntry() {
                       <div><strong>Type:</strong> {summary.type}</div>
                       <div><strong>Dates:</strong> {summary.dates}</div>
                       <div><strong>Days:</strong> {summary.days}</div>
-                      <div><strong>Status:</strong> {summary.status}</div>
+                      <div className="text-sm text-muted-foreground mt-1">Request will be sent to the employee&apos;s manager for approval.</div>
                       {projectedAvailable !== null && projectedAvailable < 0 && confirmAction === 'leave' && (
                         <div className="text-red-600 font-medium mt-2">
                           Warning: Balance will go negative ({projectedAvailable})

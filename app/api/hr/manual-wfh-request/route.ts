@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 import { sanitizeComment } from '@/lib/utils/sanitize'
+import { emailService } from '@/lib/email-service'
+import { format } from 'date-fns'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +32,6 @@ export async function POST(request: NextRequest) {
       endDate,
       totalDays,
       location,
-      status,
       hrNotes,
     } = body
 
@@ -42,9 +43,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate status
-    const validStatuses = ['APPROVED', 'PENDING']
-    const requestStatus = validStatuses.includes(status) ? status : 'APPROVED'
+    // Always create as PENDING — manager must approve
+    const requestStatus = 'PENDING'
 
     // totalDays is Int on WFH model — round to nearest integer
     const parsedTotalDays = Math.round(parseFloat(totalDays))
@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
     // Verify target user exists and is active
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, isActive: true, firstName: true, lastName: true }
+      select: {
+        id: true, isActive: true, firstName: true, lastName: true, managerId: true,
+        manager: { select: { id: true, firstName: true, lastName: true, email: true, role: true, department: true } }
+      }
     })
 
     if (!targetUser) {
@@ -113,32 +116,47 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // 2. Create WFHApproval record if APPROVED
-      if (requestStatus === 'APPROVED') {
+      // 2. Create WFHApproval record for manager
+      if (targetUser.managerId) {
         await tx.wFHApproval.create({
           data: {
             wfhRequestId: wfhRequest.id,
-            approverId: session.user.id,
-            status: 'APPROVED',
-            comments: sanitizedHrNotes
-              ? `Manual entry by HR: ${currentUser.firstName} ${currentUser.lastName} — ${sanitizedHrNotes}`
-              : `Manual entry by HR: ${currentUser.firstName} ${currentUser.lastName}`,
-            approvedAt: new Date(),
+            approverId: targetUser.managerId,
+            status: 'PENDING',
           },
         })
       }
 
-      // 3. Create Notification for employee
+      // 3. Create manager notification (APPROVAL_REQUIRED)
+      if (targetUser.managerId) {
+        let notificationLink = `/manager?request=${wfhRequest.id}`
+        if (targetUser.manager) {
+          if (targetUser.manager.role === 'HR' ||
+              (targetUser.manager.role === 'EMPLOYEE' && (targetUser.manager.department?.toLowerCase() === 'hr' || targetUser.manager.department?.toLowerCase() === 'human resources'))) {
+            notificationLink = `/hr?request=${wfhRequest.id}`
+          } else if (targetUser.manager.role === 'EXECUTIVE') {
+            notificationLink = `/executive?request=${wfhRequest.id}`
+          }
+        }
+
+        await tx.notification.create({
+          data: {
+            userId: targetUser.managerId,
+            type: 'APPROVAL_REQUIRED',
+            title: 'WFH Request Approval Required',
+            message: `${targetUser.firstName} ${targetUser.lastName} has requested ${parsedTotalDays} day(s) of work from home (created by HR)`,
+            link: notificationLink,
+          },
+        })
+      }
+
+      // 4. Create Notification for employee
       await tx.notification.create({
         data: {
           userId,
-          type: requestStatus === 'APPROVED' ? 'LEAVE_APPROVED' : 'LEAVE_REQUESTED',
-          title: requestStatus === 'APPROVED'
-            ? 'Work From Home Request Approved'
-            : 'Work From Home Request Created',
-          message: requestStatus === 'APPROVED'
-            ? `A WFH request for ${parsedTotalDays} day(s) from ${startDateISO} to ${endDateISO} has been created and approved by HR.`
-            : `A WFH request for ${parsedTotalDays} day(s) from ${startDateISO} to ${endDateISO} has been created by HR.`,
+          type: 'LEAVE_REQUESTED',
+          title: 'Work From Home Request Created',
+          message: `A WFH request for ${parsedTotalDays} day(s) from ${startDateISO} to ${endDateISO} has been created by HR and sent to your manager for approval.`,
           link: '/employee',
         },
       })
@@ -146,7 +164,24 @@ export async function POST(request: NextRequest) {
       return { wfhRequest, requestNumber }
     })
 
-    // 4. Create audit log
+    // 4. Send manager email notification (non-blocking)
+    if (targetUser.manager?.email) {
+      try {
+        await emailService.sendWFHRequestNotification(targetUser.manager.email, {
+          employeeName: `${targetUser.firstName} ${targetUser.lastName}`,
+          startDate: format(parsedStartDate, 'dd MMMM yyyy'),
+          endDate: format(parsedEndDate, 'dd MMMM yyyy'),
+          days: parsedTotalDays,
+          location: sanitizedLocation,
+          managerName: `${targetUser.manager.firstName} ${targetUser.manager.lastName}`,
+          requestId: result.wfhRequest.id,
+        })
+      } catch (emailError) {
+        console.error('Failed to send manager email:', emailError)
+      }
+    }
+
+    // 5. Create audit log
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.HR_MANUAL_CREATE_WFH,
@@ -169,13 +204,18 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    const warningMessage = !targetUser.managerId
+      ? 'Warning: Employee has no manager assigned. Request created as pending but no one will be notified for approval.'
+      : undefined
+
     return NextResponse.json({
       success: true,
-      message: `WFH request ${result.requestNumber} created successfully`,
+      message: `WFH request ${result.requestNumber} created successfully${warningMessage ? '. ' + warningMessage : ''}`,
+      warning: warningMessage,
       wfhRequest: {
         id: result.wfhRequest.id,
         requestNumber: result.requestNumber,
-        status: requestStatus,
+        status: 'PENDING',
       },
     })
   } catch (error) {

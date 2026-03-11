@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma'
 import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 import { sanitizeComment } from '@/lib/utils/sanitize'
 import { WorkingDaysService } from '@/lib/services/working-days-service'
-import { eachDayOfInterval } from 'date-fns'
+import { eachDayOfInterval, format } from 'date-fns'
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator'
+import { emailService } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +34,6 @@ export async function POST(request: NextRequest) {
       endDate,
       totalDays,
       reason,
-      status,
       hrNotes,
     } = body
 
@@ -45,9 +45,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate status
-    const validStatuses = ['APPROVED', 'PENDING']
-    const requestStatus = validStatuses.includes(status) ? status : 'APPROVED'
+    // Always create as PENDING — manager must approve
+    const requestStatus = 'PENDING'
 
     // Validate totalDays is a positive number
     const parsedTotalDays = parseFloat(totalDays)
@@ -66,7 +65,10 @@ export async function POST(request: NextRequest) {
     // Verify target user exists and is active
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, isActive: true, firstName: true, lastName: true, managerId: true }
+      select: {
+        id: true, isActive: true, firstName: true, lastName: true, managerId: true,
+        manager: { select: { id: true, firstName: true, lastName: true, email: true, role: true, department: true } }
+      }
     })
 
     if (!targetUser) {
@@ -153,108 +155,89 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // 2. Create Approval record if APPROVED
-      if (requestStatus === 'APPROVED') {
+      // 2. Create Approval record for manager
+      if (targetUser.managerId) {
         await tx.approval.create({
           data: {
             leaveRequestId: leaveRequest.id,
-            approverId: session.user.id,
+            approverId: targetUser.managerId,
             level: 1,
-            status: 'APPROVED',
-            comments: `Manual entry by HR: ${currentUser.firstName} ${currentUser.lastName}`,
-            approvedAt: new Date(),
+            status: 'PENDING',
+            comments: `Created by HR: ${currentUser.firstName} ${currentUser.lastName}`,
           },
         })
-
-        // Update LeaveBalance: increment used, decrement available
-        const existingBalance = await tx.leaveBalance.findUnique({
-          where: {
-            userId_leaveTypeId_year: {
-              userId,
-              leaveTypeId,
-              year: balanceYear,
-            },
-          },
-        })
-
-        if (existingBalance) {
-          // FIFO: deduct from carried forward first
-          const remainingCF = existingBalance.carriedForward - existingBalance.carriedForwardUsed;
-          const cfDeduction = Math.min(parsedTotalDays, remainingCF);
-          await tx.leaveBalance.update({
-            where: { id: existingBalance.id },
-            data: {
-              used: existingBalance.used + parsedTotalDays,
-              carriedForwardUsed: existingBalance.carriedForwardUsed + cfDeduction,
-              available: existingBalance.available - parsedTotalDays,
-            },
-          })
-        } else {
-          // Create balance record if missing (upsert pattern)
-          await tx.leaveBalance.create({
-            data: {
-              userId,
-              leaveTypeId,
-              year: balanceYear,
-              entitled: 0,
-              used: parsedTotalDays,
-              pending: 0,
-              available: -parsedTotalDays, // Will be negative — HR sees real state
-            },
-          })
-        }
-      } else if (requestStatus === 'PENDING') {
-        // Update LeaveBalance: increment pending, decrement available
-        const existingBalance = await tx.leaveBalance.findUnique({
-          where: {
-            userId_leaveTypeId_year: {
-              userId,
-              leaveTypeId,
-              year: balanceYear,
-            },
-          },
-        })
-
-        if (existingBalance) {
-          await tx.leaveBalance.update({
-            where: {
-              userId_leaveTypeId_year: {
-                userId,
-                leaveTypeId,
-                year: balanceYear,
-              },
-            },
-            data: {
-              pending: { increment: parsedTotalDays },
-              available: { decrement: parsedTotalDays },
-            },
-          })
-        } else {
-          await tx.leaveBalance.create({
-            data: {
-              userId,
-              leaveTypeId,
-              year: balanceYear,
-              entitled: 0,
-              used: 0,
-              pending: parsedTotalDays,
-              available: -parsedTotalDays,
-            },
-          })
-        }
       }
 
-      // 3. Create Notification for employee
+      // 3. Update LeaveBalance: increment pending, decrement available
+      const existingBalance = await tx.leaveBalance.findUnique({
+        where: {
+          userId_leaveTypeId_year: {
+            userId,
+            leaveTypeId,
+            year: balanceYear,
+          },
+        },
+      })
+
+      if (existingBalance) {
+        await tx.leaveBalance.update({
+          where: {
+            userId_leaveTypeId_year: {
+              userId,
+              leaveTypeId,
+              year: balanceYear,
+            },
+          },
+          data: {
+            pending: { increment: parsedTotalDays },
+            available: { decrement: parsedTotalDays },
+          },
+        })
+      } else {
+        await tx.leaveBalance.create({
+          data: {
+            userId,
+            leaveTypeId,
+            year: balanceYear,
+            entitled: 0,
+            used: 0,
+            pending: parsedTotalDays,
+            available: -parsedTotalDays,
+          },
+        })
+      }
+
+      // 4. Create manager notification (APPROVAL_REQUIRED)
+      if (targetUser.managerId) {
+        // Determine the appropriate dashboard link based on manager's role
+        let notificationLink = `/manager?request=${leaveRequest.id}`
+        if (targetUser.manager) {
+          if (targetUser.manager.role === 'HR' ||
+              (targetUser.manager.role === 'EMPLOYEE' && (targetUser.manager.department?.toLowerCase() === 'hr' || targetUser.manager.department?.toLowerCase() === 'human resources'))) {
+            notificationLink = `/hr?request=${leaveRequest.id}`
+          } else if (targetUser.manager.role === 'EXECUTIVE') {
+            notificationLink = `/executive?request=${leaveRequest.id}`
+          }
+        }
+
+        await tx.notification.create({
+          data: {
+            userId: targetUser.managerId,
+            type: 'APPROVAL_REQUIRED',
+            title: 'Leave Request Approval Required',
+            message: `${targetUser.firstName} ${targetUser.lastName} has requested ${parsedTotalDays} day(s) of ${leaveType.name} leave (created by HR)`,
+            link: notificationLink,
+          },
+        })
+      }
+
+      // 5. Create Notification for employee
       await tx.notification.create({
         data: {
           userId,
-          type: requestStatus === 'APPROVED' ? 'LEAVE_APPROVED' : 'LEAVE_REQUESTED',
-          title: requestStatus === 'APPROVED'
-            ? `Leave Request Approved (${leaveType.name})`
-            : `Leave Request Created (${leaveType.name})`,
-          message: requestStatus === 'APPROVED'
-            ? `A ${leaveType.name} request for ${parsedTotalDays} day(s) from ${startDateISO} to ${endDateISO} has been created and approved by HR.`
-            : `A ${leaveType.name} request for ${parsedTotalDays} day(s) from ${startDateISO} to ${endDateISO} has been created by HR.`,
+          type: 'LEAVE_REQUESTED',
+          title: `Leave Request Created (${leaveType.name})`,
+          message: `A ${leaveType.name} request for ${parsedTotalDays} day(s) from ${startDateISO} to ${endDateISO} has been created by HR and sent to your manager for approval.`,
           link: '/employee',
         },
       })
@@ -285,7 +268,26 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // 5. Auto-generate document if a template exists for this leave type (non-blocking)
+    // 5. Send manager email notification (non-blocking)
+    if (targetUser.manager?.email) {
+      try {
+        await emailService.sendLeaveRequestNotification(targetUser.manager.email, {
+          employeeName: `${targetUser.firstName} ${targetUser.lastName}`,
+          leaveType: leaveType.name,
+          startDate: format(parsedStartDate, 'dd MMMM yyyy'),
+          endDate: format(parsedEndDate, 'dd MMMM yyyy'),
+          days: parsedTotalDays,
+          reason: sanitizedReason,
+          managerName: `${targetUser.manager.firstName} ${targetUser.manager.lastName}`,
+          companyName: process.env.COMPANY_NAME || 'TPF',
+          requestId: result.leaveRequest.id,
+        })
+      } catch (emailError) {
+        console.error('Failed to send manager email:', emailError)
+      }
+    }
+
+    // 6. Auto-generate document if a template exists for this leave type (non-blocking)
     let generatedDocumentId: string | null = null
     try {
       const template = await prisma.documentTemplate.findFirst({
@@ -332,13 +334,18 @@ export async function POST(request: NextRequest) {
       console.error('Error generating document for manual leave request:', docError)
     }
 
+    const warningMessage = !targetUser.managerId
+      ? 'Warning: Employee has no manager assigned. Request created as pending but no one will be notified for approval.'
+      : undefined
+
     return NextResponse.json({
       success: true,
-      message: `Leave request ${result.requestNumber} created successfully`,
+      message: `Leave request ${result.requestNumber} created successfully${warningMessage ? '. ' + warningMessage : ''}`,
+      warning: warningMessage,
       leaveRequest: {
         id: result.leaveRequest.id,
         requestNumber: result.requestNumber,
-        status: requestStatus,
+        status: 'PENDING',
         generatedDocumentId,
       },
     })
