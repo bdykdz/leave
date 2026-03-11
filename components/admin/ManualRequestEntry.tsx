@@ -125,7 +125,15 @@ export function ManualRequestEntry() {
       const response = await fetch('/api/admin/manual-leave-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(leaveForm)
+        body: JSON.stringify({
+          userId: leaveForm.userId,
+          leaveTypeId: leaveForm.leaveTypeId,
+          startDate: leaveForm.startDate,
+          endDate: leaveForm.endDate,
+          totalDays: leaveForm.totalDays,
+          reason: leaveForm.reason,
+          hrNotes: leaveForm.hrNotes || undefined,
+        })
       })
 
       if (response.ok) {
@@ -149,7 +157,7 @@ export function ManualRequestEntry() {
         setSelectedUser(null)
       } else {
         const error = await response.json()
-        toast.error(error.message || 'Failed to create leave request')
+        toast.error(error.error || 'Failed to create leave request')
       }
     } catch (error) {
       toast.error('An error occurred')
@@ -169,7 +177,14 @@ export function ManualRequestEntry() {
       const response = await fetch('/api/admin/manual-wfh-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(wfhForm)
+        body: JSON.stringify({
+          userId: wfhForm.userId,
+          startDate: wfhForm.startDate,
+          endDate: wfhForm.endDate,
+          totalDays: differenceInDays(parseISO(wfhForm.endDate), parseISO(wfhForm.startDate)) + 1,
+          location: wfhForm.location || 'home',
+          hrNotes: wfhForm.hrNotes || undefined,
+        })
       })
 
       if (response.ok) {
@@ -190,7 +205,7 @@ export function ManualRequestEntry() {
         })
       } else {
         const error = await response.json()
-        toast.error(error.message || 'Failed to create WFH request')
+        toast.error(error.error || 'Failed to create WFH request')
       }
     } catch (error) {
       toast.error('An error occurred')

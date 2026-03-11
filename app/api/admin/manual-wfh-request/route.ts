@@ -37,9 +37,12 @@ export async function POST(request: NextRequest) {
     }
 
     // totalDays is Int on WFH model — round to nearest integer
-    const parsedTotalDays = Math.round(parseFloat(totalDays) || 1)
-    if (parsedTotalDays <= 0) {
+    const parsedTotalDays = Math.round(parseFloat(totalDays))
+    if (isNaN(parsedTotalDays) || parsedTotalDays <= 0) {
       return NextResponse.json({ error: 'totalDays must be a positive number' }, { status: 400 })
+    }
+    if (parsedTotalDays > 366) {
+      return NextResponse.json({ error: 'totalDays cannot exceed 366' }, { status: 400 })
     }
 
     // Sanitize inputs

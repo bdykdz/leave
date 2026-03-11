@@ -35,9 +35,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const parsedTotalDays = parseFloat(totalDays) || 1
-    if (parsedTotalDays <= 0) {
+    const parsedTotalDays = parseFloat(totalDays)
+    if (isNaN(parsedTotalDays) || parsedTotalDays <= 0) {
       return NextResponse.json({ error: 'totalDays must be a positive number' }, { status: 400 })
+    }
+    if (parsedTotalDays > 366) {
+      return NextResponse.json({ error: 'totalDays cannot exceed 366' }, { status: 400 })
     }
 
     // Sanitize inputs
