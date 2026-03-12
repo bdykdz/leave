@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       id: user.id,
       name: `${user.firstName} ${user.lastName}`,
       email: user.email,
-      avatar: user.profileImage || `${user.firstName[0]}${user.lastName[0]}`,
+      avatar: user.profileImage || `${(user.firstName || 'U')[0]}${(user.lastName || '')[0]}`,
       department: user.department,
       role: user.position,
     }));

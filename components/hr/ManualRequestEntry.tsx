@@ -346,10 +346,10 @@ export function ManualRequestEntry() {
     if (!search) return emps
     const q = search.toLowerCase()
     return emps.filter(emp =>
-      `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(q) ||
-      emp.department.toLowerCase().includes(q) ||
-      emp.email.toLowerCase().includes(q) ||
-      emp.employeeId.toLowerCase().includes(q)
+      `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase().includes(q) ||
+      (emp.department || '').toLowerCase().includes(q) ||
+      (emp.email || '').toLowerCase().includes(q) ||
+      (emp.employeeId || '').toLowerCase().includes(q)
     )
   }
   const filteredLeaveEmployees = filterEmployees(employees, leaveEmployeeSearch)

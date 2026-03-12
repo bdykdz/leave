@@ -310,9 +310,9 @@ export function UserManagementEnhanced() {
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (user.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.lastName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesRole = filterRole === "ALL" || user.role === filterRole
     const matchesDepartment = filterDepartment === "ALL" || user.department === filterDepartment

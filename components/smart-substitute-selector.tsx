@@ -292,7 +292,7 @@ export function SmartSubstituteSelector({
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={substitute.image} />
                       <AvatarFallback>
-                        {substitute.firstName[0]}{substitute.lastName[0]}
+                        {(substitute.firstName || 'U')[0]}{(substitute.lastName || '')[0]}
                       </AvatarFallback>
                     </Avatar>
                     

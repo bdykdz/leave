@@ -40,9 +40,9 @@ export function UserSearchSelect({
       if (!search) return true
       const term = search.toLowerCase()
       return (
-        u.firstName.toLowerCase().includes(term) ||
-        u.lastName.toLowerCase().includes(term) ||
-        u.role.toLowerCase().includes(term)
+        (u.firstName || '').toLowerCase().includes(term) ||
+        (u.lastName || '').toLowerCase().includes(term) ||
+        (u.role || '').toLowerCase().includes(term)
       )
     })
 

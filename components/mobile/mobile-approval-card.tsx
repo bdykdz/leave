@@ -75,10 +75,10 @@ export function MobileApprovalCard({ request, onApproval, compact = false }: Mob
 
   // Support both data shapes: direct DB (user.firstName) and API-transformed (employee.name)
   const userName = request.user?.firstName
-    ? `${request.user.firstName} ${request.user.lastName || ''}`.trim()
+    ? `${request.user.firstName || ''} ${request.user.lastName || ''}`.trim()
     : request.employee?.name || 'Unknown'
   const userInitials = request.user?.firstName
-    ? `${request.user.firstName[0] || ''}${request.user.lastName?.[0] || ''}`
+    ? `${(request.user.firstName || 'U')[0]}${(request.user.lastName || '')[0]}`
     : (request.employee?.name || 'U').split(' ').map((n: string) => n?.[0] || '').join('').toUpperCase().slice(0, 2) || 'U'
   const userEmail = request.user?.email || ''
   const userPosition = request.user?.position || request.employee?.department || ''

@@ -436,10 +436,10 @@ function ManualEntryTab() {
     if (!search) return true
     const term = search.toLowerCase()
     return (
-      u.firstName.toLowerCase().includes(term) ||
-      u.lastName.toLowerCase().includes(term) ||
-      u.employeeId.toLowerCase().includes(term) ||
-      u.department?.toLowerCase().includes(term)
+      (u.firstName || '').toLowerCase().includes(term) ||
+      (u.lastName || '').toLowerCase().includes(term) ||
+      (u.employeeId || '').toLowerCase().includes(term) ||
+      (u.department || '').toLowerCase().includes(term)
     )
   })
 

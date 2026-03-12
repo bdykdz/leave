@@ -121,7 +121,7 @@ function CommentItem({
 
   const isOwn = comment.user.id === currentUserId
   const canDelete = isOwn || currentUserRole === 'HR' || currentUserRole === 'ADMIN'
-  const initials = `${comment.user.firstName[0]}${comment.user.lastName[0]}`
+  const initials = `${(comment.user.firstName || 'U')[0]}${(comment.user.lastName || '')[0]}`
 
   const handleReply = async () => {
     if (!replyText.trim()) return

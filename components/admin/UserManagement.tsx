@@ -233,9 +233,9 @@ export function UserManagement() {
   }
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.lastName.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.firstName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.lastName || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRole = selectedRole === "ALL" || user.role === selectedRole
     return matchesSearch && matchesRole
   })

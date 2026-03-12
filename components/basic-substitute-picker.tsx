@@ -168,12 +168,12 @@ export function BasicSubstitutePicker({
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={undefined} />
                   <AvatarFallback className="text-xs">
-                    {colleague.firstName[0]}{colleague.lastName[0]}
+                    {(colleague.firstName || 'U')[0]}{(colleague.lastName || '')[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <div className="font-medium text-sm">
-                    {colleague.firstName} {colleague.lastName}
+                    {colleague.firstName || ''} {colleague.lastName || ''}
                   </div>
                   <div className="text-xs text-gray-500">{colleague.role}</div>
                 </div>

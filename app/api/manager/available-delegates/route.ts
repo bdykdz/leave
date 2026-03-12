@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
       if (a.department !== user.department && b.department === user.department) return 1;
       
       // Then sort by name
-      const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
-      const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
+      const nameA = `${a.lastName || ''} ${a.firstName || ''}`.toLowerCase();
+      const nameB = `${b.lastName || ''} ${b.firstName || ''}`.toLowerCase();
       return nameA.localeCompare(nameB);
     });
 
