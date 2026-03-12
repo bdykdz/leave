@@ -24,7 +24,7 @@ export async function POST(
 
     const body = await request.json()
     const rawComment = body.comment || ''
-    const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
+    const requestType = body.requestType || 'leave' // 'leave', 'wfh', or 'workTrip'
     const requestId = params.requestId
 
     // Prefer signature as a separate field (new pattern)
@@ -56,6 +56,11 @@ export async function POST(
     // Handle WFH requests separately
     if (requestType === 'wfh') {
       return handleWFHApproval(session, requestId, comment, signature)
+    }
+
+    // Handle work trip requests separately
+    if (requestType === 'workTrip') {
+      return handleWorkTripApproval(session, requestId, comment, signature)
     }
 
     // Get the leave request and verify manager has permission — fetch ALL approvals for sequential check
@@ -120,8 +125,69 @@ export async function POST(
       a => a.approverId === session.user.id && a.status === 'PENDING'
     )
 
-    // If no approval record exists, create one
+    // Check if this user already approved — if so, don't create a duplicate.
+    // This can happen when HR document verification updates the approval record.
     if (!pendingApproval) {
+      const existingApproved = leaveRequest.approvals.find(
+        a => a.approverId === session.user.id && a.status === 'APPROVED'
+      )
+      if (existingApproved) {
+        // Already approved by this user — check if request status needs fixing
+        const allApprovals = await prisma.approval.findMany({
+          where: { leaveRequestId: requestId }
+        })
+        const isAllApproved = allApprovals.every(a => a.status === 'APPROVED')
+        if (isAllApproved && leaveRequest.status === 'PENDING') {
+          // Fix stuck request: all approvals done but request still PENDING
+          const balanceYear = new Date(leaveRequest.startDate).getFullYear()
+          await prisma.$transaction(async (tx) => {
+            await tx.leaveRequest.update({
+              where: { id: requestId },
+              data: { status: 'APPROVED' }
+            })
+            const balance = await tx.leaveBalance.findUnique({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: leaveRequest.userId,
+                  leaveTypeId: leaveRequest.leaveTypeId,
+                  year: balanceYear
+                }
+              }
+            })
+            if (balance) {
+              const totalDays = leaveRequest.totalDays
+              const remainingCF = Math.max(0, balance.carriedForward - balance.carriedForwardUsed)
+              const cfDeduction = Math.min(totalDays, remainingCF)
+              await tx.leaveBalance.update({
+                where: { id: balance.id },
+                data: {
+                  pending: balance.pending - totalDays,
+                  used: balance.used + totalDays,
+                  carriedForwardUsed: balance.carriedForwardUsed + cfDeduction,
+                  available: balance.entitled + balance.carriedForward - (balance.used + totalDays) - (balance.pending - totalDays)
+                }
+              })
+            }
+            await tx.auditLog.create({
+              data: {
+                userId: session.user.id,
+                action: 'REQUEST_APPROVED',
+                entity: 'LEAVE_REQUEST',
+                entityId: requestId,
+                oldValues: { status: 'PENDING' },
+                newValues: { status: 'APPROVED', comment: comment || null, note: 'Fixed stuck request — approval already existed' }
+              }
+            })
+          })
+        }
+        return NextResponse.json({
+          success: true,
+          message: "Request approved successfully",
+          allApproved: isAllApproved
+        })
+      }
+
+      // No existing approval at all — create one
       console.log(`Creating approval record for request ${requestId}`)
       pendingApproval = await prisma.approval.create({
         data: {
@@ -517,6 +583,104 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
     })
   } catch (error) {
     console.error("Error approving WFH request:", error)
+    return NextResponse.json({
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
+  }
+}
+
+// Helper function to handle Work Trip approvals
+async function handleWorkTripApproval(session: any, requestId: string, comment: string, signature: string | null = null) {
+  const cleanComment = comment
+  try {
+    const workTripRequest = await prisma.workTripRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        user: true,
+        approvals: {
+          where: {
+            approverId: session.user.id
+          }
+        }
+      }
+    })
+
+    if (!workTripRequest) {
+      return NextResponse.json({ error: "Work trip request not found" }, { status: 404 })
+    }
+
+    // Validate permission
+    const isManager = workTripRequest.user.managerId === session.user.id
+    const hasApproval = workTripRequest.approvals.length > 0
+    if (!isManager && !hasApproval) {
+      return NextResponse.json({ error: "Not authorized to approve this request" }, { status: 403 })
+    }
+
+    if (workTripRequest.userId === session.user.id) {
+      return NextResponse.json({ error: "Cannot approve your own request" }, { status: 403 })
+    }
+
+    let approval = workTripRequest.approvals.find((a: any) => a.approverId === session.user.id)
+    if (!approval) {
+      approval = await prisma.workTripApproval.create({
+        data: {
+          workTripRequestId: requestId,
+          approverId: session.user.id,
+          status: 'PENDING'
+        }
+      })
+    }
+
+    await prisma.workTripApproval.update({
+      where: { id: approval.id },
+      data: {
+        status: 'APPROVED',
+        comments: cleanComment,
+        approvedAt: new Date()
+      }
+    })
+
+    await prisma.workTripRequest.update({
+      where: { id: requestId },
+      data: { status: 'APPROVED' }
+    })
+
+    // Send email to employee
+    try {
+      await emailService.sendWorkTripApprovalNotification(workTripRequest.user.email, {
+        employeeName: `${workTripRequest.user.firstName} ${workTripRequest.user.lastName}`,
+        startDate: format(workTripRequest.startDate, 'dd MMMM yyyy'),
+        endDate: format(workTripRequest.endDate, 'dd MMMM yyyy'),
+        days: workTripRequest.totalDays,
+        destination: workTripRequest.destination,
+        purpose: workTripRequest.purpose,
+        approved: true,
+        managerName: `${session.user.firstName} ${session.user.lastName}`,
+        comments: cleanComment
+      })
+    } catch (emailError) {
+      console.error('Error sending work trip approval email:', emailError)
+    }
+
+    // Invalidate related caches
+    try {
+      await CacheService.invalidateTeamCache(session.user.id)
+      if (workTripRequest.user.managerId && workTripRequest.user.managerId !== session.user.id) {
+        await CacheService.invalidateTeamCache(workTripRequest.user.managerId)
+      }
+    } catch (cacheError) {
+      console.error('Cache invalidation error:', cacheError)
+    }
+
+    log.info('Work trip request approved', { requestId })
+
+    return NextResponse.json({
+      success: true,
+      message: "Work trip request approved successfully"
+    })
+  } catch (error) {
+    console.error("Error approving work trip request:", error)
     return NextResponse.json({
       error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"

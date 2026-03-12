@@ -106,6 +106,31 @@ export const GET = asyncHandler(async (request: NextRequest) => {
     },
   });
 
+  // Fetch work trip requests
+  const workTripRequests = await prisma.workTripRequest.findMany({
+    where: {
+      userId: { in: userIds },
+      status: { in: ['PENDING', 'APPROVED'] },
+      OR: [
+        {
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+      ],
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          department: true,
+          profileImage: true,
+        },
+      },
+    },
+  });
+
   // Fetch holidays for the month
   const holidays = await prisma.holiday.findMany({
     where: {
@@ -156,6 +181,20 @@ export const GET = asyncHandler(async (request: NextRequest) => {
       status: wfh.status.toLowerCase(),
       selectedDates: wfh.selectedDates as Date[] | null,
     })),
+    ...workTripRequests.map(wt => ({
+      id: wt.id,
+      type: 'workTrip' as const,
+      userId: wt.userId,
+      userName: `${wt.user.firstName || ''} ${wt.user.lastName || ''}`.trim(),
+      userAvatar: wt.user.profileImage,
+      userInitials: `${(wt.user.firstName || 'U')[0]}${(wt.user.lastName || '')[0]}`,
+      department: wt.user.department,
+      startDate: wt.startDate,
+      endDate: wt.endDate,
+      leaveType: 'Work Trip',
+      status: wt.status.toLowerCase(),
+      selectedDates: wt.selectedDates as Date[] | null,
+    })),
   ];
 
   // Get team summary
@@ -163,7 +202,8 @@ export const GET = asyncHandler(async (request: NextRequest) => {
     totalMembers: userIds.length,
     onLeave: leaveRequests.filter(l => l.status === 'APPROVED').length,
     workingFromHome: wfhRequests.filter(w => w.status === 'APPROVED').length,
-    pending: [...leaveRequests, ...wfhRequests].filter(
+    onWorkTrip: workTripRequests.filter(wt => wt.status === 'APPROVED').length,
+    pending: [...leaveRequests, ...wfhRequests, ...workTripRequests].filter(
       r => r.status === 'PENDING'
     ).length,
   };

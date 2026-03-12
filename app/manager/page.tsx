@@ -25,10 +25,12 @@ import {
   Building,
   ChevronDown,
   FileSignature,
+  Briefcase,
 } from "lucide-react"
 import { TeamCalendar } from "@/components/team-calendar"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
+import { WorkTripRequestForm } from "@/components/work-trip-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
 import { DashboardSummary } from "@/components/dashboard-summary"
 import { DelegationManager } from "@/components/manager/DelegationManager"
@@ -58,6 +60,7 @@ export default function ManagerDashboard() {
   const [myRequestsPage, setMyRequestsPage] = useState(1)
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [showRemoteForm, setShowWFHForm] = useState(false)
+  const [showWorkTripForm, setShowWorkTripForm] = useState(false)
   const [managerWfhMonth, setManagerWfhMonth] = useState(new Date())
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
   const [approvalDetails, setApprovalDetails] = useState<{
@@ -79,11 +82,13 @@ export default function ManagerDashboard() {
     totalMembers: 0,
     onLeaveToday: 0,
     workingFromHome: 0,
+    onWorkTrip: 0,
     inOffice: 0,
     pendingRequests: 0,
     inOfficeMembers: [] as string[],
     onLeaveMembers: [] as string[],
     wfhMembers: [] as string[],
+    workTripMembers: [] as string[],
   })
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [totalPendingPages, setTotalPendingPages] = useState(0)
@@ -94,7 +99,7 @@ export default function ManagerDashboard() {
   const [teamRequestsTab, setTeamRequestsTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [approvedRequestsPage, setApprovedRequestsPage] = useState(1)
   const [deniedRequestsPage, setDeniedRequestsPage] = useState(1)
-  const [requestCategoryTab, setRequestCategoryTab] = useState<'leave' | 'wfh'>('leave')
+  const [requestCategoryTab, setRequestCategoryTab] = useState<'leave' | 'wfh' | 'workTrip'>('leave')
   const [wfhPendingRequests, setWfhPendingRequests] = useState<any[]>([])
   const [totalWfhPendingPages, setTotalWfhPendingPages] = useState(0)
   const [wfhPendingPage, setWfhPendingPage] = useState(1)
@@ -105,6 +110,17 @@ export default function ManagerDashboard() {
   const [totalWfhDeniedPages, setTotalWfhDeniedPages] = useState(0)
   const [wfhDeniedPage, setWfhDeniedPage] = useState(1)
   const [wfhSubTab, setWfhSubTab] = useState<'pending' | 'approved' | 'denied'>('pending')
+  // Work trip state
+  const [workTripPendingRequests, setWorkTripPendingRequests] = useState<any[]>([])
+  const [totalWorkTripPendingPages, setTotalWorkTripPendingPages] = useState(0)
+  const [workTripPendingPage, setWorkTripPendingPage] = useState(1)
+  const [workTripApprovedRequests, setWorkTripApprovedRequests] = useState<any[]>([])
+  const [totalWorkTripApprovedPages, setTotalWorkTripApprovedPages] = useState(0)
+  const [workTripApprovedPage, setWorkTripApprovedPage] = useState(1)
+  const [workTripDeniedRequests, setWorkTripDeniedRequests] = useState<any[]>([])
+  const [totalWorkTripDeniedPages, setTotalWorkTripDeniedPages] = useState(0)
+  const [workTripDeniedPage, setWorkTripDeniedPage] = useState(1)
+  const [workTripSubTab, setWorkTripSubTab] = useState<'pending' | 'approved' | 'denied'>('pending')
   const [superior, setSuperior] = useState<any>(null)
   const [loadingSuperior, setLoadingSuperior] = useState(true)
   const [pendingDocSignatures, setPendingDocSignatures] = useState<any[]>([])
@@ -193,6 +209,30 @@ export default function ManagerDashboard() {
       fetchWfhDeniedRequests()
     }
   }, [wfhDeniedPage, requestCategoryTab, wfhSubTab, session, status])
+
+  // Fetch work trip pending requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (requestCategoryTab === 'workTrip' && workTripSubTab === 'pending') {
+      fetchWorkTripPendingRequests()
+    }
+  }, [workTripPendingPage, requestCategoryTab, workTripSubTab, session, status])
+
+  // Fetch work trip approved requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (requestCategoryTab === 'workTrip' && workTripSubTab === 'approved') {
+      fetchWorkTripApprovedRequests()
+    }
+  }, [workTripApprovedPage, requestCategoryTab, workTripSubTab, session, status])
+
+  // Fetch work trip denied requests
+  useEffect(() => {
+    if (status === "loading" || !session) return
+    if (requestCategoryTab === 'workTrip' && workTripSubTab === 'denied') {
+      fetchWorkTripDeniedRequests()
+    }
+  }, [workTripDeniedPage, requestCategoryTab, workTripSubTab, session, status])
 
   // Fetch manager's WFH stats
   useEffect(() => {
@@ -334,6 +374,8 @@ export default function ManagerDashboard() {
     try {
       const endpoint = requestType === 'wfh'
         ? `/api/wfh-requests/${requestId}/self-cancel`
+        : requestType === 'workTrip'
+        ? `/api/work-trip-requests/${requestId}/self-cancel`
         : `/api/leave-requests/${requestId}/self-cancel`;
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -440,6 +482,57 @@ export default function ManagerDashboard() {
     }
   }
 
+  const fetchWorkTripPendingRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/work-trip-pending?page=${workTripPendingPage}&limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setWorkTripPendingRequests(data.requests)
+        setTotalWorkTripPendingPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching work trip pending requests:', error)
+      toast.error(t.messages.failedToLoadRequests)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchWorkTripApprovedRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/work-trip-approved?page=${workTripApprovedPage}&limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setWorkTripApprovedRequests(data.requests)
+        setTotalWorkTripApprovedPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching work trip approved requests:', error)
+      toast.error(t.messages.failedToLoadApprovedRequests)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchWorkTripDeniedRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/manager/team/work-trip-denied?page=${workTripDeniedPage}&limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setWorkTripDeniedRequests(data.requests)
+        setTotalWorkTripDeniedPages(data.pagination.totalPages || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching work trip denied requests:', error)
+      toast.error(t.messages.failedToLoadDeniedRequests)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleApprove = async (requestId: string, comment?: string, signature?: string): Promise<boolean> => {
     try {
       const requestType = approvalDetails?.request?.requestType || 'leave'
@@ -455,6 +548,8 @@ export default function ManagerDashboard() {
         const refreshPromises: Promise<void>[] = [fetchTeamStats()]
         if (requestType === 'wfh') {
           refreshPromises.push(fetchWfhPendingRequests(), fetchWfhApprovedRequests())
+        } else if (requestType === 'workTrip') {
+          refreshPromises.push(fetchWorkTripPendingRequests(), fetchWorkTripApprovedRequests())
         } else {
           refreshPromises.push(fetchPendingRequests(), fetchApprovedRequests())
         }
@@ -488,6 +583,8 @@ export default function ManagerDashboard() {
         const refreshPromises: Promise<void>[] = [fetchTeamStats()]
         if (requestType === 'wfh') {
           refreshPromises.push(fetchWfhPendingRequests(), fetchWfhDeniedRequests())
+        } else if (requestType === 'workTrip') {
+          refreshPromises.push(fetchWorkTripPendingRequests(), fetchWorkTripDeniedRequests())
         } else {
           refreshPromises.push(fetchPendingRequests(), fetchDeniedRequests())
         }
@@ -663,6 +760,10 @@ export default function ManagerDashboard() {
     return <WorkRemoteRequestForm onBack={() => setShowWFHForm(false)} />
   }
 
+  if (showWorkTripForm) {
+    return <WorkTripRequestForm onBack={() => setShowWorkTripForm(false)} />
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -721,16 +822,25 @@ export default function ManagerDashboard() {
 
               {/* Mobile-only action buttons */}
               <div className="flex md:hidden gap-1">
-                <Button 
-                  onClick={() => setShowWFHForm(true)} 
-                  variant="outline" 
+                <Button
+                  onClick={() => setShowWFHForm(true)}
+                  variant="outline"
                   size="icon"
                   title="Work From Home Request"
                 >
                   <Home className="h-4 w-4" />
                 </Button>
-                <Button 
-                  onClick={() => setShowRequestForm(true)} 
+                <Button
+                  onClick={() => setShowWorkTripForm(true)}
+                  variant="outline"
+                  size="icon"
+                  title="Work Trip Request"
+                  className="border-green-200 text-green-700"
+                >
+                  <Briefcase className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowRequestForm(true)}
                   size="icon"
                   title="New Leave Request"
                 >
@@ -743,6 +853,10 @@ export default function ManagerDashboard() {
                 <Button onClick={() => setShowWFHForm(true)} variant="outline" className="flex items-center gap-2">
                   <Home className="h-4 w-4" />
                   {t.dashboard.newRemoteRequest}
+                </Button>
+                <Button onClick={() => setShowWorkTripForm(true)} variant="outline" className="flex items-center gap-2 border-green-200 text-green-700 hover:bg-green-50">
+                  <Briefcase className="h-4 w-4" />
+                  {t.workTripForm?.title || 'Work Trip'}
                 </Button>
                 <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
@@ -1063,6 +1177,7 @@ export default function ManagerDashboard() {
                             {getStatusIcon(request?.status || 'pending')}
                             <div className="flex items-center gap-2">
                               {request?.type === "Work from Home" && <Home className="h-4 w-4 text-blue-500" />}
+                              {request?.requestType === 'workTrip' && <Briefcase className="h-4 w-4 text-green-500" />}
                               <div>
                                 <p className="font-medium">{request?.type || 'Unknown'}</p>
                                 <p className="text-sm text-gray-600">
@@ -1079,8 +1194,8 @@ export default function ManagerDashboard() {
                             <Badge className={getStatusColor(request?.status || 'pending')}>
                               {(request?.status || 'pending').charAt(0).toUpperCase() + (request?.status || 'pending').slice(1)}
                             </Badge>
-                            {/* Self-cancel disabled for leave requests pending HR policy decision. Remove requestType check to re-enable. */}
-                            {request?.requestType !== 'leave' && (request?.status?.toUpperCase() === 'PENDING' || (request?.status?.toUpperCase() === 'APPROVED' && request?.startDate && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
+                            {/* Self-cancel disabled for leave requests pending HR policy decision. WFH and work trip can be cancelled. */}
+                            {(request?.requestType === 'wfh' || request?.requestType === 'workTrip') && (request?.status?.toUpperCase() === 'PENDING' || (request?.status?.toUpperCase() === 'APPROVED' && request?.startDate && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1129,6 +1244,9 @@ export default function ManagerDashboard() {
                                   <p className="text-xs text-gray-500">{request?.type || 'Unknown'}</p>
                                   {request?.requestType === 'wfh' && (
                                     <Badge variant="outline" className="text-xs h-4 px-1 bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
+                                  )}
+                                  {request?.requestType === 'workTrip' && (
+                                    <Badge variant="outline" className="text-xs h-4 px-1 bg-green-50 text-green-700 border-green-200">WT</Badge>
                                   )}
                                   <span className="text-xs text-gray-500">• {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}</span>
                                 </div>
@@ -1302,7 +1420,7 @@ export default function ManagerDashboard() {
               </div>
 
               {/* Team Roster */}
-              {(teamStats.inOfficeMembers.length > 0 || teamStats.wfhMembers.length > 0 || teamStats.onLeaveMembers.length > 0) && (
+              {(teamStats.inOfficeMembers.length > 0 || teamStats.wfhMembers.length > 0 || teamStats.onLeaveMembers.length > 0 || (teamStats.workTripMembers && teamStats.workTripMembers.length > 0)) && (
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium">{t.dashboard?.teamRoster || "Team Roster"}</CardTitle>
@@ -1331,6 +1449,19 @@ export default function ManagerDashboard() {
                         </div>
                         <p className="text-sm text-muted-foreground pl-6">
                           {teamStats.wfhMembers.join(', ')}
+                        </p>
+                      </div>
+                    )}
+                    {teamStats.workTripMembers && teamStats.workTripMembers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Briefcase className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            {t.calendarLegend?.onWorkTrip || 'On Work Trip'} ({teamStats.workTripMembers.length})
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground pl-6">
+                          {teamStats.workTripMembers.join(', ')}
                         </p>
                       </div>
                     )}
@@ -1414,6 +1545,15 @@ export default function ManagerDashboard() {
                       <Home className="h-3 w-3" />
                       WFH
                     </Button>
+                    <Button
+                      variant={requestCategoryTab === 'workTrip' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => { setRequestCategoryTab('workTrip'); setWorkTripSubTab('pending') }}
+                      className="flex items-center gap-2"
+                    >
+                      <Briefcase className="h-3 w-3" />
+                      {t.common?.workTrip || 'Deplasări'}
+                    </Button>
                   </div>
 
                   {/* Sub-tabs for Leave */}
@@ -1474,6 +1614,39 @@ export default function ManagerDashboard() {
                         variant={wfhSubTab === 'denied' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setWfhSubTab('denied')}
+                        className="flex items-center gap-2"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        {t.tabs.denied}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Sub-tabs for Work Trip */}
+                  {requestCategoryTab === 'workTrip' && (
+                    <div className="flex gap-1 mt-2">
+                      <Button
+                        variant={workTripSubTab === 'pending' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setWorkTripSubTab('pending')}
+                        className="flex items-center gap-2"
+                      >
+                        <Clock className="h-3 w-3" />
+                        {t.tabs.pending}
+                      </Button>
+                      <Button
+                        variant={workTripSubTab === 'approved' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setWorkTripSubTab('approved')}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        {t.tabs.approved}
+                      </Button>
+                      <Button
+                        variant={workTripSubTab === 'denied' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setWorkTripSubTab('denied')}
                         className="flex items-center gap-2"
                       >
                         <XCircle className="h-3 w-3" />
@@ -1565,6 +1738,12 @@ export default function ManagerDashboard() {
                                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                                     <Home className="h-3 w-3 mr-1" />
                                     WFH
+                                  </Badge>
+                                )}
+                                {request?.requestType === 'workTrip' && (
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                    <Briefcase className="h-3 w-3 mr-1" />
+                                    WT
                                   </Badge>
                                 )}
                               </div>
@@ -1979,6 +2158,219 @@ export default function ManagerDashboard() {
                                       </p>
                                       <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
                                       {request?.location && <p className="text-sm text-gray-500">Location: "{request.location}"</p>}
+                                      {request?.denialReason && (
+                                        <p className="text-sm text-red-600 mt-1">
+                                          {t.labels.denialReason}: "{request.denialReason}"
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-red-600 mt-1">
+                                        {t.labels.deniedOn}: {request?.deniedDate ? new Date(request.deniedDate).toLocaleDateString() : 'Unknown'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Badge className="bg-red-100 text-red-800">Denied</Badge>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                  </>)}
+
+                  {/* === WORK TRIP CATEGORY === */}
+                  {requestCategoryTab === 'workTrip' && (<>
+                  {/* Sub-tabs for Work Trip */}
+                  {workTripSubTab === 'pending' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalWorkTripPendingPages > 0
+                            ? `Showing ${workTripPendingRequests.length} request${workTripPendingRequests.length !== 1 ? 's' : ''} - Page ${workTripPendingPage} of ${totalWorkTripPendingPages}`
+                            : t.labels.noPendingRequests}
+                        </span>
+                        {totalWorkTripPendingPages > 1 && (
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setWorkTripPendingPage(Math.max(1, workTripPendingPage - 1))} disabled={workTripPendingPage === 1}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setWorkTripPendingPage(Math.min(totalWorkTripPendingPages, workTripPendingPage + 1))} disabled={workTripPendingPage === totalWorkTripPendingPages}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {workTripPendingRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">{t.labels.noPendingRequests}</p>
+                        ) : (
+                          workTripPendingRequests.map((request) => (
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee?.avatar} />
+                                    <AvatarFallback>{request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                      <Badge variant="outline" className="text-xs">
+                                        {request.employee?.department || 'N/A'}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                        <Briefcase className="h-3 w-3 mr-1" />
+                                        WT
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-1">
+                                      <span className="font-medium">{t.common?.workTripFull || 'Work Trip'}</span> • {request?.dates || 'N/A'} ({request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''})
+                                    </p>
+                                    {request?.destination && <p className="text-sm text-gray-500">{t.workTripForm?.destination || 'Destination'}: "{request.destination}"</p>}
+                                    {request?.purpose && <p className="text-sm text-gray-500">{t.workTripForm?.purpose || 'Purpose'}: "{request.purpose}"</p>}
+                                    <p className="text-xs text-gray-400 mt-1">{t.labels.submitted}: {request?.submittedDate || 'Unknown'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => handleApproveRequest(request)}>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    {t.common.approve}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDenyRequest(request)}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    {t.common.deny}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      {totalWorkTripPendingPages > 1 && workTripPendingRequests.length > 0 && (
+                        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+                          <Button variant="outline" size="sm" onClick={() => setWorkTripPendingPage(Math.max(1, workTripPendingPage - 1))} disabled={workTripPendingPage === 1}>
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            {t.common.previous}
+                          </Button>
+                          <span className="text-sm text-gray-500 mx-2">Page {workTripPendingPage} of {totalWorkTripPendingPages}</span>
+                          <Button variant="outline" size="sm" onClick={() => setWorkTripPendingPage(Math.min(totalWorkTripPendingPages, workTripPendingPage + 1))} disabled={workTripPendingPage === totalWorkTripPendingPages}>
+                            {t.common.next}
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Work Trip Approved Tab */}
+                  {workTripSubTab === 'approved' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalWorkTripApprovedPages > 0
+                            ? `Page ${workTripApprovedPage} of ${totalWorkTripApprovedPages}`
+                            : t.labels.noApprovedRequests}
+                        </span>
+                        {totalWorkTripApprovedPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setWorkTripApprovedPage(Math.max(1, workTripApprovedPage - 1))} disabled={workTripApprovedPage === 1}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setWorkTripApprovedPage(Math.min(totalWorkTripApprovedPages, workTripApprovedPage + 1))} disabled={workTripApprovedPage === totalWorkTripApprovedPages || totalWorkTripApprovedPages === 0}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {workTripApprovedRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">{t.labels.noApprovedRequests}</p>
+                        ) : (
+                          workTripApprovedRequests.map((request) => (
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-green-50 border-green-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee?.avatar} />
+                                    <AvatarFallback>
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
+                                    <div className="mt-2 space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium">{t.common?.workTripFull || 'Work Trip'}</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.destination && <p className="text-sm text-gray-500">{t.workTripForm?.destination || 'Destination'}: "{request.destination}"</p>}
+                                      <p className="text-xs text-green-600 mt-1">
+                                        {t.labels.approvedOn}: {request?.approvedDate ? new Date(request.approvedDate).toLocaleDateString() : 'Unknown'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <Badge className="bg-green-100 text-green-800">{t.labels.approvedByYou}</Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Work Trip Denied Tab */}
+                  {workTripSubTab === 'denied' && (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">
+                          {totalWorkTripDeniedPages > 0
+                            ? `Page ${workTripDeniedPage} of ${totalWorkTripDeniedPages}`
+                            : t.labels.noDeniedRequests}
+                        </span>
+                        {totalWorkTripDeniedPages > 0 && (
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => setWorkTripDeniedPage(Math.max(1, workTripDeniedPage - 1))} disabled={workTripDeniedPage === 1}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setWorkTripDeniedPage(Math.min(totalWorkTripDeniedPages, workTripDeniedPage + 1))} disabled={workTripDeniedPage === totalWorkTripDeniedPages || totalWorkTripDeniedPages === 0}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {workTripDeniedRequests.length === 0 ? (
+                          <p className="text-center text-gray-500 py-8">{t.labels.noDeniedRequests}</p>
+                        ) : (
+                          workTripDeniedRequests.map((request) => (
+                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-red-50 border-red-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={request.employee?.avatar} />
+                                    <AvatarFallback>
+                                      {request?.employee?.name ? request.employee.name.split(' ').map((n: string) => n?.[0] || '').join('') : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold">{request.employee?.name || 'Unknown'}</h4>
+                                    <p className="text-sm text-gray-600">{request.employee?.department || 'N/A'}</p>
+                                    <div className="mt-2 space-y-1">
+                                      <p className="text-sm">
+                                        <span className="font-medium">{t.common?.workTripFull || 'Work Trip'}</span> • {request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{request?.dates || 'N/A'}</p>
+                                      {request?.destination && <p className="text-sm text-gray-500">{t.workTripForm?.destination || 'Destination'}: "{request.destination}"</p>}
                                       {request?.denialReason && (
                                         <p className="text-sm text-red-600 mt-1">
                                           {t.labels.denialReason}: "{request.denialReason}"

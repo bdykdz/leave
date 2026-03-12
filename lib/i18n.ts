@@ -43,6 +43,8 @@ export interface Translations {
     leave: string
     wfh: string
     workFromHome: string
+    workTrip: string
+    workTripFull: string
     day: string
     days: string
     working: string
@@ -242,6 +244,22 @@ export interface Translations {
     submissionFailed: string
   }
 
+  // Work Trip Form
+  workTripForm: {
+    title: string
+    destination: string
+    destinationPlaceholder: string
+    purpose: string
+    purposePlaceholder: string
+    submitRequest: string
+    requestSubmitted: string
+    requestSubmittedSuccess: string
+    selectDatesDescription: string
+    yourRequestWillBeSent: string
+    submissionFailed: string
+    newWorkTrip: string
+  }
+
   // Signature
   signature: {
     digitalSignature: string
@@ -267,6 +285,7 @@ export interface Translations {
     away: string
     totalTeam: string
     workingFromHome: string
+    onWorkTrip: string
     onLeave: string
     pendingRequests: string
   }
@@ -333,6 +352,8 @@ export interface Translations {
     daysUsedThisYear: string
     managedByHR: string
     wfhThisMonth: string
+    workTripThisMonth: string
+    onWorkTripToday: string
     avgTeamWfhPercentage: string
     forLeaveApprovals: string
     noSuperior: string
@@ -858,6 +879,8 @@ export const translations: Record<Language, Translations> = {
       leave: "Leave",
       wfh: "WFH",
       workFromHome: "Work From Home",
+      workTrip: "Work Trip",
+      workTripFull: "Work Trip",
       day: "day",
       days: "days",
       working: "working",
@@ -1051,6 +1074,20 @@ export const translations: Record<Language, Translations> = {
       noAvailableDays: "All selected days overlap with your existing request.",
       submissionFailed: "Failed to submit work from home request",
     },
+    workTripForm: {
+      title: "Work Trip Request",
+      destination: "Destination",
+      destinationPlaceholder: "e.g. Client site, Bucharest office",
+      purpose: "Purpose",
+      purposePlaceholder: "Describe the purpose of this work trip",
+      submitRequest: "Submit Work Trip Request",
+      requestSubmitted: "Request Submitted",
+      requestSubmittedSuccess: "Your work trip request has been submitted for approval.",
+      selectDatesDescription: "Select the dates for your work trip",
+      yourRequestWillBeSent: "Your request will be sent to your manager for approval.",
+      submissionFailed: "Failed to submit work trip request",
+      newWorkTrip: "New Work Trip",
+    },
     signature: {
       digitalSignature: "Digital Signature",
       pleaseSignAbove: "Please sign above using your mouse or finger",
@@ -1071,6 +1108,7 @@ export const translations: Record<Language, Translations> = {
       away: "away",
       totalTeam: "Total Team",
       workingFromHome: "Working From Home",
+      onWorkTrip: "On Work Trip",
       onLeave: "On Leave",
       pendingRequests: "Pending Requests",
     },
@@ -1127,6 +1165,8 @@ export const translations: Record<Language, Translations> = {
       daysUsedThisYear: "Days used this year",
       managedByHR: "Managed by HR",
       wfhThisMonth: "WFH this month",
+      workTripThisMonth: "Work trips this month",
+      onWorkTripToday: "On Work Trip Today",
       avgTeamWfhPercentage: "Average team WFH percentage",
       forLeaveApprovals: "For leave approvals",
       noSuperior: "No Superior Assigned",
@@ -1610,6 +1650,8 @@ export const translations: Record<Language, Translations> = {
       leave: "Concediu",
       wfh: "Lucru de acasă",
       workFromHome: "Lucru de acasă",
+      workTrip: "Deplasare",
+      workTripFull: "Cerere de Deplasare",
       day: "zi",
       days: "zile",
       working: "lucrătoare",
@@ -1803,6 +1845,20 @@ export const translations: Record<Language, Translations> = {
       noAvailableDays: "Toate zilele selectate se suprapun cu cererea existentă.",
       submissionFailed: "Cererea de lucru de acasă nu a putut fi trimisă",
     },
+    workTripForm: {
+      title: "Cerere de Deplasare",
+      destination: "Destinație",
+      destinationPlaceholder: "ex. Sediul clientului, Biroul din București",
+      purpose: "Scop",
+      purposePlaceholder: "Descrieți scopul acestei deplasări",
+      submitRequest: "Trimite Cererea de Deplasare",
+      requestSubmitted: "Cerere Trimisă",
+      requestSubmittedSuccess: "Cererea dvs. de deplasare a fost trimisă pentru aprobare.",
+      selectDatesDescription: "Selectați datele pentru deplasarea dvs.",
+      yourRequestWillBeSent: "Cererea dvs. va fi trimisă managerului pentru aprobare.",
+      submissionFailed: "Cererea de deplasare nu a putut fi trimisă",
+      newWorkTrip: "Deplasare Nouă",
+    },
     signature: {
       digitalSignature: "Semnătură digitală",
       pleaseSignAbove: "Vă rugăm să semnați mai sus folosind mouse-ul sau degetul",
@@ -1823,6 +1879,7 @@ export const translations: Record<Language, Translations> = {
       away: "absent",
       totalTeam: "Total echipă",
       workingFromHome: "Lucru de acasă",
+      onWorkTrip: "În deplasare",
       onLeave: "În concediu",
       pendingRequests: "Cereri în așteptare",
     },
@@ -1879,6 +1936,8 @@ export const translations: Record<Language, Translations> = {
       daysUsedThisYear: "Zile folosite anul acesta",
       managedByHR: "Gestionat de HR",
       wfhThisMonth: "Lucru de acasă luna aceasta",
+      workTripThisMonth: "Deplasări luna aceasta",
+      onWorkTripToday: "În deplasare astăzi",
       avgTeamWfhPercentage: "Procentajul mediu WFH al echipei",
       forLeaveApprovals: "Pentru aprobări concediu",
       noSuperior: "Niciun superior alocat",

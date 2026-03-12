@@ -80,8 +80,36 @@ export async function GET() {
       }
     }
 
-    // Get pending approval requests (both leave and WFH)
-    const [pendingLeaveCount, pendingWfhCount] = await Promise.all([
+    // Get approved work trip requests that cover today for team members
+    const workTripRequestsToday = await prisma.workTripRequest.findMany({
+      where: {
+        userId: { in: teamMemberIds },
+        status: 'APPROVED',
+        startDate: { lte: today },
+        endDate: { gte: today }
+      },
+      select: {
+        userId: true,
+        selectedDates: true,
+        startDate: true,
+        endDate: true
+      }
+    })
+
+    const workTripTodayUserIds = new Set<string>()
+    for (const req of workTripRequestsToday) {
+      const selectedDates = req.selectedDates as string[] | null
+      if (selectedDates && selectedDates.length > 0) {
+        if (selectedDates.some(d => isSameDay(new Date(d), today))) {
+          workTripTodayUserIds.add(req.userId)
+        }
+      } else {
+        workTripTodayUserIds.add(req.userId)
+      }
+    }
+
+    // Get pending approval requests (leave, WFH, and work trips)
+    const [pendingLeaveCount, pendingWfhCount, pendingWorkTripCount] = await Promise.all([
       prisma.leaveRequest.count({
         where: {
           user: {
@@ -109,21 +137,40 @@ export async function GET() {
             }
           }
         }
+      }),
+      prisma.workTripRequest.count({
+        where: {
+          status: 'PENDING',
+          user: {
+            managerId: session.user.id
+          },
+          approvals: {
+            some: {
+              approverId: session.user.id,
+              status: 'PENDING'
+            }
+          }
+        }
       })
     ])
-    const pendingRequests = pendingLeaveCount + pendingWfhCount
+    const pendingRequests = pendingLeaveCount + pendingWfhCount + pendingWorkTripCount
 
     // Calculate team stats and collect member names by status
     let onLeaveToday = 0
     let workingFromHome = 0
+    let onWorkTrip = 0
     let inOffice = 0
     const inOfficeMembers: string[] = []
     const onLeaveMembers: string[] = []
     const wfhMembers: string[] = []
+    const workTripMembers: string[] = []
 
     teamMembers.forEach(member => {
       const name = `${member.firstName} ${member.lastName}`
-      if (wfhTodayUserIds.has(member.id)) {
+      if (workTripTodayUserIds.has(member.id)) {
+        onWorkTrip++
+        workTripMembers.push(name)
+      } else if (wfhTodayUserIds.has(member.id)) {
         workingFromHome++
         wfhMembers.push(name)
       } else if (member.leaveRequests.length > 0) {
@@ -139,11 +186,13 @@ export async function GET() {
       totalMembers: teamMembers.length,
       onLeaveToday,
       workingFromHome,
+      onWorkTrip,
       inOffice,
       pendingRequests,
       inOfficeMembers,
       onLeaveMembers,
-      wfhMembers
+      wfhMembers,
+      workTripMembers
     }
 
     // Cache the result

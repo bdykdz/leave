@@ -24,7 +24,7 @@ export async function POST(
     // Strip signature data before sanitizing — sanitizeComment truncates to 1000 chars
     const commentForSanitize = rawComment.replace(/\[SIGNATURE:data:image\/[^\]]+\]/, '')
     const comment = sanitizeComment(commentForSanitize)
-    const requestType = body.requestType || 'leave' // 'leave' or 'wfh'
+    const requestType = body.requestType || 'leave' // 'leave', 'wfh', or 'workTrip'
     const requestId = params.requestId
 
     console.log('Deny request:', { requestId, requestType, comment, userId: session.user.id })
@@ -32,6 +32,11 @@ export async function POST(
     // Handle WFH requests separately
     if (requestType === 'wfh') {
       return handleWFHDenial(session, requestId, comment)
+    }
+
+    // Handle work trip requests separately
+    if (requestType === 'workTrip') {
+      return handleWorkTripDenial(session, requestId, comment)
     }
 
     // Get the leave request and verify manager has permission — fetch ALL approvals for chain integrity
@@ -294,6 +299,104 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
     })
   } catch (error) {
     console.error("Error rejecting WFH request:", error)
+    return NextResponse.json({
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
+  }
+}
+
+// Helper function to handle Work Trip denials
+async function handleWorkTripDenial(session: any, requestId: string, comment: string) {
+  const cleanComment = comment
+  try {
+    const workTripRequest = await prisma.workTripRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        user: true,
+        approvals: {
+          where: {
+            approverId: session.user.id
+          }
+        }
+      }
+    })
+
+    if (!workTripRequest) {
+      return NextResponse.json({ error: "Work trip request not found" }, { status: 404 })
+    }
+
+    if (workTripRequest.userId === session.user.id) {
+      return NextResponse.json({ error: "Cannot deny your own request" }, { status: 403 })
+    }
+
+    if (workTripRequest.user.managerId !== session.user.id) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+    }
+
+    const approval = workTripRequest.approvals[0]
+    if (approval) {
+      await prisma.workTripApproval.update({
+        where: { id: approval.id },
+        data: {
+          status: 'REJECTED',
+          comments: cleanComment,
+          approvedAt: new Date()
+        }
+      })
+    } else {
+      await prisma.workTripApproval.create({
+        data: {
+          workTripRequestId: requestId,
+          approverId: session.user.id,
+          status: 'REJECTED',
+          comments: cleanComment,
+          approvedAt: new Date()
+        }
+      })
+    }
+
+    await prisma.workTripRequest.update({
+      where: { id: requestId },
+      data: { status: 'REJECTED' }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'REQUEST_DENIED',
+        entity: 'WORK_TRIP_REQUEST',
+        entityId: requestId,
+        oldValues: { status: workTripRequest.status },
+        newValues: { status: 'REJECTED', reason: cleanComment }
+      }
+    })
+
+    // Send email to employee
+    try {
+      await emailService.sendWorkTripApprovalNotification(workTripRequest.user.email, {
+        employeeName: `${workTripRequest.user.firstName} ${workTripRequest.user.lastName}`,
+        startDate: format(workTripRequest.startDate, 'dd MMMM yyyy'),
+        endDate: format(workTripRequest.endDate, 'dd MMMM yyyy'),
+        days: workTripRequest.totalDays,
+        destination: workTripRequest.destination,
+        purpose: workTripRequest.purpose,
+        approved: false,
+        managerName: `${session.user.firstName} ${session.user.lastName}`,
+        comments: cleanComment
+      })
+    } catch (emailError) {
+      console.error('Error sending work trip rejection email:', emailError)
+    }
+
+    log.info('Work trip request rejected', { requestId })
+
+    return NextResponse.json({
+      success: true,
+      message: "Work trip request rejected"
+    })
+  } catch (error) {
+    console.error("Error rejecting work trip request:", error)
     return NextResponse.json({
       error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"

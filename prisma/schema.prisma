@@ -69,6 +69,9 @@ model User {
   wfhRequests           WorkFromHomeRequest[]
   wfhApprovals          WFHApproval[]
   wfhSignatures         WFHSignature[]
+  workTripRequests      WorkTripRequest[]
+  workTripApprovals     WorkTripApproval[]
+  workTripSignatures    WorkTripSignature[]
   delegatorRelations    ApprovalDelegate[]   @relation("DelegatorRelation")
   delegateRelations     ApprovalDelegate[]   @relation("DelegateRelation")
   auditLogs             AuditLog[]
@@ -215,6 +218,7 @@ model DocumentTemplate {
   leaveType           LeaveType?             @relation(fields: [leaveTypeId], references: [id])
   generatedDocuments  GeneratedDocument[]
   wfhDocuments        WFHDocument[]
+  workTripDocuments   WorkTripDocument[]
   fieldMappings       TemplateFieldMapping[]
   signaturePlacements TemplateSignature[]
 }
@@ -382,6 +386,7 @@ enum NotificationType {
   APPROVAL_REQUIRED
   DOCUMENT_READY
   WFH_CANCELLED
+  WORK_TRIP_CANCELLED
   WIKI_PAGE_PUBLISHED
   WIKI_PAGE_UPDATED
   WIKI_COMMENT_ADDED
@@ -486,6 +491,88 @@ model WFHSignature {
   document      WFHDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   signer        User         @relation(fields: [signerId], references: [id])
   
+  @@unique([documentId, signerId, signerRole])
+  @@index([documentId])
+  @@index([signerId])
+}
+
+// Work Trip (Deplasare) Models
+model WorkTripRequest {
+  id            String                @id @default(cuid())
+  requestNumber String                @unique
+  userId        String
+  startDate     DateTime
+  endDate       DateTime
+  selectedDates Json?                 // Array of specific dates for non-consecutive trips
+  totalDays     Int
+  destination   String                // Where the trip is to
+  purpose       String                // Why the trip is needed
+  status        RequestStatus         @default(PENDING)
+  createdByHrId String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  // Relations
+  user          User                  @relation(fields: [userId], references: [id])
+  approvals     WorkTripApproval[]
+  document      WorkTripDocument?
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model WorkTripApproval {
+  id                String              @id @default(cuid())
+  workTripRequestId String
+  approverId        String
+  status            ApprovalStatus      @default(PENDING)
+  comments          String?
+  approvedAt        DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  workTripRequest   WorkTripRequest     @relation(fields: [workTripRequestId], references: [id], onDelete: Cascade)
+  approver          User                @relation(fields: [approverId], references: [id])
+
+  @@unique([workTripRequestId, approverId])
+  @@index([workTripRequestId])
+  @@index([approverId])
+}
+
+model WorkTripDocument {
+  id                String              @id @default(cuid())
+  workTripRequestId String              @unique
+  templateId        String?
+  fileUrl           String?
+  pdfData           Bytes?
+  status            DocumentStatus      @default(DRAFT)
+  completedAt       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  workTripRequest   WorkTripRequest     @relation(fields: [workTripRequestId], references: [id], onDelete: Cascade)
+  template          DocumentTemplate?   @relation(fields: [templateId], references: [id])
+  signatures        WorkTripSignature[]
+
+  @@index([workTripRequestId])
+  @@index([templateId])
+}
+
+model WorkTripSignature {
+  id            String            @id @default(cuid())
+  documentId    String
+  signerId      String
+  signerRole    String            // "employee", "manager", "hr"
+  signatureData String            // Base64 encoded signature image
+  signedAt      DateTime          @default(now())
+
+  // Relations
+  document      WorkTripDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer        User              @relation(fields: [signerId], references: [id])
+
   @@unique([documentId, signerId, signerRole])
   @@index([documentId])
   @@index([signerId])

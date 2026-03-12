@@ -656,6 +656,181 @@ ${data.approved ?
     return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
   }
 
+  generateWorkTripRequestEmail(data: {
+    employeeName: string
+    startDate: string
+    endDate: string
+    days: number
+    destination: string
+    purpose: string
+    managerName: string
+    requestId?: string
+  }): EmailTemplate {
+    const subject = `Cerere nouă de deplasare - ${data.employeeName}`
+    const h = escapeHtml
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #059669; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #059669; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Cerere de Deplasare</h2>
+        </div>
+        <div class="content">
+            <p>Bună ziua <strong>${h(data.managerName)}</strong>,</p>
+            <p><strong>${h(data.employeeName)}</strong> a trimis o cerere de deplasare care necesită aprobarea dvs.</p>
+
+            <div class="details">
+                <h3>Detalii Cerere:</h3>
+                <p><strong>Perioada:</strong> ${data.endDate ? `${h(data.startDate)} - ${h(data.endDate)}` : h(data.startDate)}</p>
+                <p><strong>Numărul de zile:</strong> ${data.days}</p>
+                <p><strong>Destinația:</strong> ${h(data.destination)}</p>
+                <p><strong>Scopul:</strong> ${h(data.purpose)}</p>
+            </div>
+
+            <p>Vă rugăm să vă conectați la sistem pentru a revizui și aproba/respinge această cerere.</p>
+
+            <a href="${process.env.NEXTAUTH_URL}/manager" class="button">Revizuiește Cererea</a>
+        </div>
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
+        </div>
+    </div>
+</body>
+</html>`
+
+    const text = `
+Cerere de Deplasare
+
+Bună ziua ${data.managerName},
+
+${data.employeeName} a trimis o cerere de deplasare care necesită aprobarea dvs.
+
+Detalii Cerere:
+- Perioada: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
+- Numărul de zile: ${data.days}
+- Destinația: ${data.destination}
+- Scopul: ${data.purpose}
+
+Vă rugăm să vă conectați la sistem pentru a revizui și aproba/respinge această cerere:
+${process.env.NEXTAUTH_URL}/manager
+
+© ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.
+`
+
+    return { subject, html, text }
+  }
+
+  generateWorkTripApprovalEmail(data: {
+    employeeName: string
+    startDate: string
+    endDate: string
+    days: number
+    destination: string
+    purpose: string
+    approved: boolean
+    managerName: string
+    comments?: string
+  }): EmailTemplate {
+    const statusText = data.approved ? 'Aprobată' : 'Respinsă'
+    const subject = `Cererea de deplasare ${statusText.toLowerCase()}`
+    const h = escapeHtml
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: ${data.approved ? '#059669' : '#ef4444'}; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9fafb; padding: 20px; }
+        .details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .status { font-weight: bold; color: ${data.approved ? '#059669' : '#ef4444'}; }
+        .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Cerere de Deplasare ${statusText}</h2>
+        </div>
+        <div class="content">
+            <p>Bună ziua <strong>${h(data.employeeName)}</strong>,</p>
+            <p>Cererea dvs. de deplasare a fost <span class="status">${statusText.toLowerCase()}</span> de ${h(data.managerName)}.</p>
+
+            <div class="details">
+                <h3>Detalii Cerere:</h3>
+                <p><strong>Perioada:</strong> ${data.endDate ? `${h(data.startDate)} - ${h(data.endDate)}` : h(data.startDate)}</p>
+                <p><strong>Numărul de zile:</strong> ${data.days}</p>
+                <p><strong>Destinația:</strong> ${h(data.destination)}</p>
+                <p><strong>Scopul:</strong> ${h(data.purpose)}</p>
+                ${data.comments && !data.comments.includes('[SIGNATURE:') ? `<p><strong>Comentarii manager:</strong> ${h(data.comments)}</p>` : ''}
+            </div>
+
+            ${data.approved ?
+              '<p>Deplasarea dvs. a fost aprobată. Vă dorim drum bun!</p>' :
+              '<p>Vă rugăm să contactați managerul dvs. dacă doriți să discutați această decizie.</p>'
+            }
+        </div>
+        <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.</p>
+            <p>Acesta este un email generat automat. Vă rugăm să nu răspundeți la acest mesaj.</p>
+        </div>
+    </div>
+</body>
+</html>`
+
+    const text = `
+Cerere de Deplasare ${statusText}
+
+Bună ziua ${data.employeeName},
+
+Cererea dvs. de deplasare a fost ${statusText.toLowerCase()} de ${data.managerName}.
+
+Detalii Cerere:
+- Perioada: ${data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate}
+- Numărul de zile: ${data.days}
+- Destinația: ${data.destination}
+- Scopul: ${data.purpose}
+${data.comments && !data.comments.includes('[SIGNATURE:') ? `- Comentarii manager: ${data.comments}` : ''}
+
+${data.approved ?
+  'Deplasarea dvs. a fost aprobată. Vă dorim drum bun!' :
+  'Vă rugăm să contactați managerul dvs. dacă doriți să discutați această decizie.'
+}
+
+© ${new Date().getFullYear()} ${process.env.COMPANY_NAME || 'TPF'}. Toate drepturile rezervate.
+`
+
+    return { subject, html, text }
+  }
+
+  async sendWorkTripRequestNotification(managerEmail: string, data: Parameters<EmailService['generateWorkTripRequestEmail']>[0]): Promise<boolean> {
+    const template = this.generateWorkTripRequestEmail(data)
+    return await this.sendEmail(managerEmail, template.subject, template.html, template.text)
+  }
+
+  async sendWorkTripApprovalNotification(employeeEmail: string, data: Parameters<EmailService['generateWorkTripApprovalEmail']>[0]): Promise<boolean> {
+    const template = this.generateWorkTripApprovalEmail(data)
+    return await this.sendEmail(employeeEmail, template.subject, template.html, template.text)
+  }
+
   generateNewUserWelcomeEmail(data: NewUserWelcomeEmailData): EmailTemplate {
     const subject = `Bun venit la ${data.companyName} - Contul dvs. a fost creat`
     const h = escapeHtml
@@ -674,7 +849,6 @@ ${data.approved ?
         .footer { background-color: #6b7280; color: white; padding: 15px; text-align: center; font-size: 12px; }
         .welcome-box { background-color: #d1fae5; color: #065f46; padding: 15px; border-radius: 5px; text-align: center; margin: 15px 0; border: 1px solid #059669; }
         .login-button { background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
-        .password-box { background-color: #fef3c7; color: #92400e; padding: 10px; border-radius: 5px; margin: 10px 0; border: 1px solid #f59e0b; }
     </style>
 </head>
 <body>
@@ -701,27 +875,17 @@ ${data.approved ?
                 </ul>
             </div>
 
-            ${data.temporaryPassword ? `
-            <div class="password-box">
-                <h4>Parola Temporară</h4>
-                <p><strong>Parola:</strong> ${h(data.temporaryPassword)}</p>
-                <p><em>Vă rugăm să schimbați această parolă la prima conectare pentru securitate.</em></p>
-            </div>
-            ` : ''}
-            
             <div style="text-align: center;">
                 <a href="${data.loginUrl}" class="login-button">
                     Conectează-te la Sistem
                 </a>
             </div>
-            
+
             <div class="details">
                 <h3>Cum să Începeți:</h3>
                 <ol>
                     <li>Faceți clic pe butonul de mai sus pentru a vă conecta</li>
-                    <li>Folosiți email-ul și parola ${data.temporaryPassword ? 'temporară' : 'furnizată'} pentru autentificare</li>
-                    ${data.temporaryPassword ? '<li>Schimbați parola temporară la prima conectare</li>' : ''}
-                    <li>Completați profilul dvs. dacă este necesar</li>
+                    <li>Autentificați-vă cu contul Microsoft de serviciu</li>
                     <li>Explorați sistemul pentru a înțelege cum să solicitați concedii</li>
                 </ol>
             </div>
@@ -753,17 +917,10 @@ Detaliile Contului Dvs.:
 - Departament: ${data.department}
 ${data.managerName ? `- Manager: ${data.managerName}` : ''}
 
-${data.temporaryPassword ? `
-🔐 Parola Temporară: ${data.temporaryPassword}
-Vă rugăm să schimbați această parolă la prima conectare pentru securitate.
-` : ''}
-
 Cum să Începeți:
 1. Accesați sistemul la: ${data.loginUrl}
-2. Folosiți email-ul și parola ${data.temporaryPassword ? 'temporară' : 'furnizată'} pentru autentificare
-${data.temporaryPassword ? '3. Schimbați parola temporară la prima conectare' : ''}
-${data.temporaryPassword ? '4' : '3'}. Completați profilul dvs. dacă este necesar
-${data.temporaryPassword ? '5' : '4'}. Explorați sistemul pentru a înțelege cum să solicitați concedii
+2. Autentificați-vă cu contul Microsoft de serviciu
+3. Explorați sistemul pentru a înțelege cum să solicitați concedii
 
 Aveți întrebări? Contactați departamentul HR sau managerul dvs. pentru asistență.
 

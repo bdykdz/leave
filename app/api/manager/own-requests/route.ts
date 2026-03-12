@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Fetch both leave and WFH requests in parallel.
     // Note: merges two tables in-memory then paginates. Acceptable since this is
     // scoped to a single user's own requests (bounded volume).
-    const [totalLeave, leaveRequests, totalWfh, wfhRequests] = await Promise.all([
+    const [totalLeave, leaveRequests, totalWfh, wfhRequests, totalWorkTrip, workTripRequests] = await Promise.all([
       prisma.leaveRequest.count({ where }),
       prisma.leaveRequest.findMany({
         where,
@@ -70,6 +70,30 @@ export async function GET(request: NextRequest) {
       }),
       prisma.workFromHomeRequest.count({ where }),
       prisma.workFromHomeRequest.findMany({
+        where,
+        include: {
+          approvals: {
+            include: {
+              approver: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'asc'
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      prisma.workTripRequest.count({ where }),
+      prisma.workTripRequest.findMany({
         where,
         include: {
           approvals: {
@@ -149,11 +173,36 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Format work trip requests
+    const formattedWorkTrip = workTripRequests.map(request => {
+      const primaryApproval = request.approvals?.[0];
+      return {
+        id: request.id,
+        type: 'Work Trip',
+        requestType: 'workTrip',
+        startDate: request.startDate,
+        endDate: request.endDate,
+        reason: `${request.destination} — ${request.purpose}`,
+        status: request.status.toLowerCase(),
+        totalDays: request.totalDays,
+        createdAt: request.createdAt,
+        approver: primaryApproval?.approver ? {
+          id: primaryApproval.approver.id,
+          name: `${primaryApproval.approver.firstName} ${primaryApproval.approver.lastName}`,
+          email: primaryApproval.approver.email
+        } : null,
+        approvals: request.approvals,
+        approverComments: primaryApproval?.comments,
+        approvedAt: primaryApproval?.approvedAt,
+        documents: []
+      };
+    });
+
     // Merge, sort by createdAt desc, then paginate
-    const allRequests = [...formattedLeave, ...formattedWfh]
+    const allRequests = [...formattedLeave, ...formattedWfh, ...formattedWorkTrip]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const totalRequests = totalLeave + totalWfh;
+    const totalRequests = totalLeave + totalWfh + totalWorkTrip;
     const paginatedRequests = allRequests.slice((safePage - 1) * limit, safePage * limit);
 
     return NextResponse.json({

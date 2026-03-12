@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { ChevronLeft, ChevronRight, Calendar, Users, X, Home, Loader2, Search } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, Users, X, Home, Loader2, Search, Briefcase } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns/format"
 import { startOfMonth } from "date-fns/startOfMonth"
@@ -25,7 +25,7 @@ import { useTranslations } from "@/components/language-provider"
 
 interface CalendarEvent {
   id: string
-  type: 'leave' | 'wfh'
+  type: 'leave' | 'wfh' | 'workTrip'
   userId: string
   userName: string
   userAvatar?: string | null
@@ -53,6 +53,7 @@ interface CalendarSummary {
   totalMembers: number
   onLeave: number
   workingFromHome: number
+  onWorkTrip: number
   pending: number
 }
 
@@ -111,12 +112,17 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
     new Map(eventsForDate.filter(e => e.type === 'wfh' && e.status === 'approved').map(e => [e.userId, e])).values()
   ), [eventsForDate])
 
+  const workTripRequests = useMemo(() => Array.from(
+    new Map(eventsForDate.filter(e => e.type === 'workTrip' && e.status === 'approved').map(e => [e.userId, e])).values()
+  ), [eventsForDate])
+
   // Search implementation
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return null
     const term = searchTerm.toLowerCase()
     const onLeaveIds = new Set(actualLeave.map(e => e.userId))
     const onWfhIds = new Set(wfhRequests.map(e => e.userId))
+    const onWorkTripIds = new Set(workTripRequests.map(e => e.userId))
 
     return allUsers
       .filter(u => u.name.toLowerCase().includes(term))
@@ -124,9 +130,10 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
         ...user,
         status: onLeaveIds.has(user.id) ? 'leave' as const
               : onWfhIds.has(user.id) ? 'wfh' as const
+              : onWorkTripIds.has(user.id) ? 'workTrip' as const
               : 'atWork' as const,
       }))
-  }, [searchTerm, actualLeave, wfhRequests, allUsers])
+  }, [searchTerm, actualLeave, wfhRequests, workTripRequests, allUsers])
 
   if (!date) return null
 
@@ -175,7 +182,8 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
                       "text-sm font-medium",
                       user.status === 'leave' && "text-red-600",
                       user.status === 'wfh' && "text-blue-600",
-                      user.status === 'atWork' && "text-green-600",
+                      user.status === 'workTrip' && "text-green-600",
+                      user.status === 'atWork' && "text-gray-600",
                     )}>
                       {user.name}
                       <span className="text-gray-400 font-normal text-xs ml-1">({user.department})</span>
@@ -186,11 +194,13 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
                         "text-xs",
                         user.status === 'leave' && "bg-red-50 text-red-700 border-red-200",
                         user.status === 'wfh' && "bg-blue-50 text-blue-700 border-blue-200",
-                        user.status === 'atWork' && "bg-green-50 text-green-700 border-green-200",
+                        user.status === 'workTrip' && "bg-green-50 text-green-700 border-green-200",
+                        user.status === 'atWork' && "bg-gray-50 text-gray-700 border-gray-200",
                       )}
                     >
                       {user.status === 'leave' ? t.calendarDetail.onLeave
                         : user.status === 'wfh' ? t.common.wfh
+                        : user.status === 'workTrip' ? t.calendarLegend.onWorkTrip
                         : t.calendarDetail.atWork}
                     </Badge>
                   </div>
@@ -237,14 +247,32 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
                   </p>
                 </div>
               )}
+
+              {/* Compact Work Trip Names */}
+              {workTripRequests.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-green-600 mb-1 flex items-center gap-1">
+                    <Briefcase className="h-4 w-4" />
+                    {t.calendarLegend.onWorkTrip} ({workTripRequests.length})
+                  </h3>
+                  <p className="text-sm leading-relaxed">
+                    {workTripRequests.map((event, i) => (
+                      <span key={event.id}>
+                        {i > 0 && <span className="text-gray-400">, </span>}
+                        <span className="text-green-600 font-medium">{event.userName}</span>
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
             </>
           )}
 
           {/* Summary Box */}
-          {(actualLeave.length > 0 || wfhRequests.length > 0) && !searchResults && (
+          {(actualLeave.length > 0 || wfhRequests.length > 0 || workTripRequests.length > 0) && !searchResults && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-semibold mb-2">{t.calendarDetail.daySummary}</h4>
-              <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="grid grid-cols-4 gap-4 text-center">
                 <div>
                   <div className="text-xl font-bold text-red-600">{actualLeave.length}</div>
                   <div className="text-xs text-gray-600">{t.calendarLegend.away}</div>
@@ -254,8 +282,12 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
                   <div className="text-xs text-gray-600">{t.common.wfh}</div>
                 </div>
                 <div>
-                  <div className="text-xl font-bold text-green-600">
-                    {Math.max(0, summary.totalMembers - actualLeave.length - wfhRequests.length)}
+                  <div className="text-xl font-bold text-green-600">{workTripRequests.length}</div>
+                  <div className="text-xs text-gray-600">{t.common.workTrip}</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-gray-600">
+                    {Math.max(0, summary.totalMembers - actualLeave.length - wfhRequests.length - workTripRequests.length)}
                   </div>
                   <div className="text-xs text-gray-600">{t.calendarDetail.inOffice}</div>
                 </div>
@@ -264,7 +296,7 @@ function DayDetailsModal({ isOpen, onClose, date, events, holidays, summary, all
           )}
 
           {/* No events */}
-          {actualLeave.length === 0 && wfhRequests.length === 0 && !holidayForDate && !searchResults && (
+          {actualLeave.length === 0 && wfhRequests.length === 0 && workTripRequests.length === 0 && !holidayForDate && !searchResults && (
             <div className="text-center py-8 text-gray-500">
               <p>{t.calendarDetail.noTeamMembersAway}</p>
             </div>
@@ -289,6 +321,7 @@ export function TeamCalendar() {
     totalMembers: 0,
     onLeave: 0,
     workingFromHome: 0,
+    onWorkTrip: 0,
     pending: 0
   })
 
@@ -311,6 +344,7 @@ export function TeamCalendar() {
             totalMembers: 0,
             onLeave: 0,
             workingFromHome: 0,
+            onWorkTrip: 0,
             pending: 0
           })
         }
@@ -433,7 +467,7 @@ export function TeamCalendar() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
@@ -447,6 +481,14 @@ export function TeamCalendar() {
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{summary.workingFromHome}</div>
               <div className="text-sm text-gray-600">{t.calendarLegend.workingFromHome}</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{summary.onWorkTrip || 0}</div>
+              <div className="text-sm text-gray-600">{t.calendarLegend.onWorkTrip}</div>
             </div>
           </CardContent>
         </Card>
@@ -488,6 +530,7 @@ export function TeamCalendar() {
               const holiday = getHolidayForDate(day)
               const leaveCount = dayEvents.filter(e => e.type === 'leave' && e.status === 'approved').length
               const wfhCount = dayEvents.filter(e => e.type === 'wfh' && e.status === 'approved').length
+              const workTripCount = dayEvents.filter(e => e.type === 'workTrip' && e.status === 'approved').length
               const isCurrentMonth = isSameMonth(day, currentMonth)
 
               return (
@@ -520,6 +563,13 @@ export function TeamCalendar() {
                     <div className="flex items-center gap-1">
                       <Home className="h-3 w-3 text-blue-500" />
                       <span className="text-xs text-blue-600">{wfhCount} {t.common.wfh}</span>
+                    </div>
+                  )}
+
+                  {workTripCount > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Briefcase className="h-3 w-3 text-green-500" />
+                      <span className="text-xs text-green-600">{workTripCount} {t.common.workTrip}</span>
                     </div>
                   )}
                 </div>

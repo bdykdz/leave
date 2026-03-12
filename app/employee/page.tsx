@@ -22,9 +22,11 @@ import {
   Building,
   ChevronDown,
   FileSignature,
+  Briefcase,
 } from "lucide-react"
 import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
+import { WorkTripRequestForm } from "@/components/work-trip-request-form"
 import { TeamCalendar } from "@/components/team-calendar"
 import { HolidaysList } from "@/components/HolidaysList"
 import { DashboardSummary } from "@/components/dashboard-summary"
@@ -52,6 +54,7 @@ export default function EmployeeDashboard() {
   const t = useTranslations()
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [showRemoteForm, setShowRemoteForm] = useState(false)
+  const [showWorkTripForm, setShowWorkTripForm] = useState(false)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("dashboard")
   const [wfhCurrentMonth, setWfhCurrentMonth] = useState(new Date()) // For WFH pagination
@@ -148,14 +151,16 @@ export default function EmployeeDashboard() {
   const fetchAllRequests = async () => {
     try {
       setLoadingRequests(true)
-      // Fetch both leave and WFH requests
-      const [leaveResponse, wfhResponse] = await Promise.all([
+      // Fetch leave, WFH, and work trip requests
+      const [leaveResponse, wfhResponse, workTripResponse] = await Promise.all([
         fetch('/api/leave-requests?year=all'),
-        fetch('/api/wfh-requests?year=all')
+        fetch('/api/wfh-requests?year=all'),
+        fetch('/api/work-trip-requests?year=all')
       ])
       
       let leaveReqs: any[] = []
       let wfhReqs: any[] = []
+      let workTripReqs: any[] = []
       
       if (leaveResponse.ok) {
         try {
@@ -186,15 +191,30 @@ export default function EmployeeDashboard() {
         console.error('Failed to fetch WFH requests:', wfhResponse.status)
         setWfhRequests([])
       }
-      
+
+      if (workTripResponse.ok) {
+        try {
+          const workTripData = await workTripResponse.json()
+          workTripReqs = workTripData.workTripRequests || []
+        } catch (parseError) {
+          console.error('Error parsing work trip requests response:', parseError)
+        }
+      }
+
       // Combine and sort all requests by created date
       const combinedRequests = [
         ...leaveReqs.map(r => ({ ...r, requestType: 'leave' })),
-        ...wfhReqs.map(r => ({ 
-          ...r, 
-          requestType: 'wfh', 
+        ...wfhReqs.map(r => ({
+          ...r,
+          requestType: 'wfh',
           leaveType: { name: 'Work From Home' },
           reason: r.location // Map location to reason for display
+        })),
+        ...workTripReqs.map(r => ({
+          ...r,
+          requestType: 'workTrip',
+          leaveType: { name: 'Work Trip' },
+          reason: `${r.destination} — ${r.purpose}`
         }))
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       
@@ -221,9 +241,11 @@ export default function EmployeeDashboard() {
 
     setCancellingRequestId(requestId);
     try {
-      // Use different endpoint for WFH requests
-      const endpoint = requestType === 'wfh' 
+      // Use different endpoint based on request type
+      const endpoint = requestType === 'wfh'
         ? `/api/wfh-requests/${requestId}/self-cancel`
+        : requestType === 'workTrip'
+        ? `/api/work-trip-requests/${requestId}/self-cancel`
         : `/api/leave-requests/${requestId}/self-cancel`;
         
       const response = await fetch(endpoint, {
@@ -454,6 +476,14 @@ export default function EmployeeDashboard() {
     }} />
   }
 
+  if (showWorkTripForm) {
+    return <WorkTripRequestForm onBack={() => {
+      setShowWorkTripForm(false)
+      // Refresh data when returning from form
+      fetchAllRequests()
+    }} />
+  }
+
   const userName = `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim() || session.user.email
 
   return (
@@ -516,6 +546,10 @@ export default function EmployeeDashboard() {
               <Button onClick={() => setShowRemoteForm(true)} variant="outline" className="flex items-center gap-2">
                 <Home className="h-4 w-4" />
                 {t.dashboard.newRemoteRequest}
+              </Button>
+              <Button onClick={() => setShowWorkTripForm(true)} variant="outline" className="flex items-center gap-2 border-green-200 text-green-700 hover:bg-green-50">
+                <Briefcase className="h-4 w-4" />
+                {t.workTripForm?.title || 'Work Trip'}
               </Button>
               <Button onClick={() => setShowRequestForm(true)} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
@@ -791,6 +825,9 @@ export default function EmployeeDashboard() {
                                   {request.requestType === 'wfh' && (
                                     <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">WFH</Badge>
                                   )}
+                                  {request.requestType === 'workTrip' && (
+                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">WT</Badge>
+                                  )}
                                   <span className="text-xs text-gray-500">• {request.totalDays} {request.totalDays > 1 ? t.common.days : t.common.day}</span>
                                 </div>
                                 <p className="text-sm text-gray-600">{formatRequestDates(request)}</p>
@@ -804,8 +841,8 @@ export default function EmployeeDashboard() {
                                 <Badge className={getStatusColor(request.status)}>
                                   {formatStatus(request.status)}
                                 </Badge>
-                                {/* Self-cancel disabled for leave requests pending HR policy decision. Remove requestType check to re-enable. */}
-                                {request.requestType !== 'leave' && (request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
+                                {/* Self-cancel disabled for leave requests pending HR policy decision. WFH and work trip can be cancelled. */}
+                                {(request.requestType === 'wfh' || request.requestType === 'workTrip') && (request.status.toUpperCase() === 'PENDING' || (request.status.toUpperCase() === 'APPROVED' && new Date(request.startDate) > new Date(new Date().setHours(0, 0, 0, 0)))) && (
                                   <Button
                                     variant="outline"
                                     size="sm"

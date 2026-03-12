@@ -12,6 +12,7 @@ import {
   Clock,
   AlertTriangle,
   ChevronRight,
+  Briefcase,
 } from "lucide-react"
 import { format } from "date-fns"
 import { useSession } from "next-auth/react"
@@ -30,6 +31,13 @@ interface DashboardSummaryData {
     id: string
     name: string
     location: string
+    avatar?: string
+    department?: string
+  }[]
+  onWorkTripToday: {
+    id: string
+    name: string
+    destination: string
     avatar?: string
     department?: string
   }[]
@@ -133,9 +141,10 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
     )
   }
 
-  const hasAnyData = data.onLeaveToday.length > 0 || 
-                    data.workingFromHomeToday.length > 0 || 
-                    data.substitutingFor.length > 0 || 
+  const hasAnyData = data.onLeaveToday.length > 0 ||
+                    data.workingFromHomeToday.length > 0 ||
+                    (data.onWorkTripToday && data.onWorkTripToday.length > 0) ||
+                    data.substitutingFor.length > 0 ||
                     data.pendingSubstituteRequests.length > 0
 
   return (
@@ -175,6 +184,19 @@ export function DashboardSummary({ userRole, className = "" }: DashboardSummaryP
                 </h3>
                 <p className="text-sm text-gray-700 px-2">
                   {data.workingFromHomeToday.map(p => p.name).join(', ')}
+                </p>
+              </div>
+            )}
+
+            {/* People on Work Trip Today - inline comma-separated list */}
+            {data.onWorkTripToday && data.onWorkTripToday.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-green-600 mb-1 flex items-center gap-1">
+                  <Briefcase className="h-4 w-4" />
+                  {t.labels.onWorkTripToday} ({data.onWorkTripToday.length})
+                </h3>
+                <p className="text-sm text-gray-700 px-2">
+                  {data.onWorkTripToday.map(p => p.name).join(', ')}
                 </p>
               </div>
             )}

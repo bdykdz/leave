@@ -38,8 +38,15 @@ export async function GET(request: Request) {
           },
           {
             // Direct report request that might not have approval record yet
+            // Exclude if the manager has already approved/rejected their approval
             user: {
               managerId: session.user.id
+            },
+            approvals: {
+              none: {
+                approverId: session.user.id,
+                status: { in: ['APPROVED', 'REJECTED'] }
+              }
             }
           }
         ]
@@ -76,9 +83,11 @@ export async function GET(request: Request) {
       take: type === 'leave' ? limit : Math.ceil(limit / 2) // Full limit when leave-only, split when combined
     })
 
-    // When type=leave, skip WFH queries entirely
+    // When type=leave, skip WFH and work trip queries entirely
     let pendingWFHRequests: any[] = []
     let totalWFHCount = 0
+    let pendingWorkTripRequests: any[] = []
+    let totalWorkTripCount = 0
 
     if (type !== 'leave') {
       // Get pending WFH requests where this user needs to approve OR from direct reports
@@ -97,6 +106,12 @@ export async function GET(request: Request) {
             {
               user: {
                 managerId: session.user.id
+              },
+              approvals: {
+                none: {
+                  approverId: session.user.id,
+                  status: { in: ['APPROVED', 'REJECTED'] }
+                }
               }
             }
           ]
@@ -141,6 +156,90 @@ export async function GET(request: Request) {
             {
               user: {
                 managerId: session.user.id
+              },
+              approvals: {
+                none: {
+                  approverId: session.user.id,
+                  status: { in: ['APPROVED', 'REJECTED'] }
+                }
+              }
+            }
+          ]
+        }
+      })
+
+      // Get pending work trip requests
+      pendingWorkTripRequests = await prisma.workTripRequest.findMany({
+        where: {
+          status: 'PENDING',
+          OR: [
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              user: {
+                managerId: session.user.id
+              },
+              approvals: {
+                none: {
+                  approverId: session.user.id,
+                  status: { in: ['APPROVED', 'REJECTED'] }
+                }
+              }
+            }
+          ]
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              department: true,
+              profileImage: true,
+              managerId: true,
+            }
+          },
+          approvals: {
+            where: {
+              approverId: session.user.id
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: Math.ceil(limit / 3)
+      })
+
+      totalWorkTripCount = await prisma.workTripRequest.count({
+        where: {
+          status: 'PENDING',
+          OR: [
+            {
+              approvals: {
+                some: {
+                  approverId: session.user.id,
+                  status: 'PENDING'
+                }
+              }
+            },
+            {
+              user: {
+                managerId: session.user.id
+              },
+              approvals: {
+                none: {
+                  approverId: session.user.id,
+                  status: { in: ['APPROVED', 'REJECTED'] }
+                }
               }
             }
           ]
@@ -164,13 +263,19 @@ export async function GET(request: Request) {
           {
             user: {
               managerId: session.user.id
+            },
+            approvals: {
+              none: {
+                approverId: session.user.id,
+                status: { in: ['APPROVED', 'REJECTED'] }
+              }
             }
           }
         ]
       }
     })
 
-    const totalCount = totalLeaveCount + totalWFHCount
+    const totalCount = totalLeaveCount + totalWFHCount + totalWorkTripCount
 
     // Transform leave requests data
     const formattedLeaveRequests = pendingLeaveRequests.map(request => ({
@@ -213,8 +318,30 @@ export async function GET(request: Request) {
       status: 'pending'
     }))
 
+    // Transform work trip requests data
+    const formattedWorkTripRequests = pendingWorkTripRequests.map((request: any) => ({
+      id: request.id,
+      requestType: 'workTrip',
+      employee: {
+        name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
+        avatar: request.user?.image || '',
+        department: request.user?.department || ''
+      },
+      type: 'Work Trip',
+      dates: `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate).toLocaleDateString()}`,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      days: request.totalDays,
+      reason: request.purpose,
+      destination: request.destination,
+      purpose: request.purpose,
+      submittedDate: request.createdAt.toISOString(),
+      substitute: null,
+      status: 'pending'
+    }))
+
     // Combine and sort all requests by submission date
-    const formattedRequests = [...formattedLeaveRequests, ...formattedWFHRequests]
+    const formattedRequests = [...formattedLeaveRequests, ...formattedWFHRequests, ...formattedWorkTripRequests]
       .sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime())
       .slice(0, limit)
 

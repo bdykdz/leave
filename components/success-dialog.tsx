@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, Calendar, Home, User, Clock, MapPin } from "lucide-react"
+import { CheckCircle, Calendar, Home, User, Clock, MapPin, Briefcase } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import {
 interface SuccessDialogProps {
   isOpen: boolean
   onClose: () => void
-  type: "leave" | "remote"
+  type: "leave" | "remote" | "workTrip"
   details: {
     requestType?: string
     days: number
@@ -26,6 +26,7 @@ interface SuccessDialogProps {
 
 export function SuccessDialog({ isOpen, onClose, type, details }: SuccessDialogProps) {
   const isWFH = type === "remote"
+  const isWorkTrip = type === "workTrip"
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
@@ -35,20 +36,20 @@ export function SuccessDialog({ isOpen, onClose, type, details }: SuccessDialogP
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
           <AlertDialogTitle className="text-xl font-semibold text-green-900">
-            {isWFH ? "Remote Work Request Submitted!" : "Leave Request Submitted!"}
+            {isWorkTrip ? "Work Trip Request Submitted!" : isWFH ? "Remote Work Request Submitted!" : "Leave Request Submitted!"}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="text-center space-y-3">
               <p className="text-gray-600">
-                Your {isWFH ? "remote work" : details.requestType?.toLowerCase()} request has been successfully submitted
+                Your {isWorkTrip ? "work trip" : isWFH ? "remote work" : details.requestType?.toLowerCase()} request has been successfully submitted
                 and is now pending approval.
               </p>
 
               <div className="bg-gray-50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-3 text-sm">
-                {isWFH ? <Home className="h-4 w-4 text-blue-600" /> : <Calendar className="h-4 w-4 text-blue-600" />}
+                {isWorkTrip ? <Briefcase className="h-4 w-4 text-green-600" /> : isWFH ? <Home className="h-4 w-4 text-blue-600" /> : <Calendar className="h-4 w-4 text-blue-600" />}
                 <span className="font-medium">
-                  {isWFH ? "Remote Work" : details.requestType} - {details.days} day
+                  {isWorkTrip ? "Work Trip" : isWFH ? "Remote Work" : details.requestType} - {details.days} day
                   {details.days > 1 ? "s" : ""}
                 </span>
               </div>

@@ -72,6 +72,36 @@ export async function GET() {
       return true // No selectedDates — date range already covers today
     })
 
+    // Get people on work trips today
+    const workTripRequestsToday = await prisma.workTripRequest.findMany({
+      where: {
+        status: 'APPROVED',
+        startDate: { lte: endOfToday },
+        endDate: { gte: startOfToday }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            department: true,
+            profileImage: true
+          }
+        }
+      }
+    })
+
+    // Filter by selectedDates: if selectedDates exists, today must be in the array
+    const onWorkTripToday = workTripRequestsToday.filter(req => {
+      const selectedDates = req.selectedDates as string[] | null
+      if (selectedDates && selectedDates.length > 0) {
+        return selectedDates.some(d => isSameDay(new Date(d), startOfToday))
+      }
+      return true
+    })
+
     // Get people the current user is substituting for (active leave requests where user is substitute)
     const substitutingFor = await prisma.leaveRequestSubstitute.findMany({
       where: {
@@ -150,6 +180,14 @@ export async function GET() {
         id: request.user.id,
         name: `${request.user.firstName} ${request.user.lastName}`,
         location: request.location,
+        avatar: request.user.profileImage,
+        department: request.user.department
+      })),
+
+      onWorkTripToday: onWorkTripToday.map(request => ({
+        id: request.user.id,
+        name: `${request.user.firstName} ${request.user.lastName}`,
+        destination: request.destination,
         avatar: request.user.profileImage,
         department: request.user.department
       })),

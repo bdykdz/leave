@@ -303,6 +303,52 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     }
   }
 
+  // Check for overlapping work trip requests
+  const overlappingWorkTrip = await prisma.workTripRequest.findFirst({
+    where: {
+      userId: session.user.id,
+      status: { in: ['APPROVED', 'PENDING'] },
+      startDate: { lte: endDate },
+      endDate: { gte: startDate }
+    },
+    select: { startDate: true, endDate: true, selectedDates: true }
+  });
+
+  if (overlappingWorkTrip) {
+    const existingWtDates = new Set<string>();
+    const wtSelectedDates = overlappingWorkTrip.selectedDates as string[] | null;
+    if (wtSelectedDates && wtSelectedDates.length > 0) {
+      for (const d of wtSelectedDates) {
+        existingWtDates.add(String(d).split('T')[0]);
+      }
+    } else {
+      const cursor = new Date(overlappingWorkTrip.startDate);
+      while (cursor <= overlappingWorkTrip.endDate) {
+        existingWtDates.add(toDateStr(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    const conflicting: string[] = [];
+    for (const dayStr of requestedDays) {
+      const normalized = dayStr.split('T')[0];
+      if (existingWtDates.has(normalized)) {
+        conflicting.push(format(new Date(dayStr), 'MMM d'));
+      }
+    }
+
+    if (conflicting.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Date conflict',
+          message: `You have a work trip request overlapping with these dates. Conflicting days: ${conflicting.join(', ')}.`,
+          conflictType: 'WORK_TRIP_CONFLICT',
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   // Perform validation
   const validationErrors = await WFHValidationService.validateWFHRequest(
     session.user.id,
