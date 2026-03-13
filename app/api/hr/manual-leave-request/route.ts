@@ -8,6 +8,7 @@ import { WorkingDaysService } from '@/lib/services/working-days-service'
 import { eachDayOfInterval, format } from 'date-fns'
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator'
 import { emailService } from '@/lib/email-service'
+import { checkSelectedDatesOverlap, hasActualDateOverlap } from '@/lib/utils/date-validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -121,6 +122,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Pre-transaction overlap check (fast check using DB outside transaction)
+    const overlapCheck = await checkSelectedDatesOverlap(userId, workingDatesList)
+    if (overlapCheck.hasOverlap) {
+      return NextResponse.json(
+        { error: 'Date conflict', message: overlapCheck.message },
+        { status: 409 }
+      )
+    }
+
     // Execute everything in a transaction (including request number generation to prevent duplicates)
     const result = await prisma.$transaction(async (tx) => {
       // Generate request number inside transaction to prevent race conditions
@@ -133,6 +143,24 @@ export async function POST(request: NextRequest) {
         },
       })
       const requestNumber = `LR-${currentYear}-${String(requestCount + 1).padStart(4, '0')}`
+
+      // In-transaction overlap check (race-condition safe)
+      const leaveCandidates = await tx.leaveRequest.findMany({
+        where: {
+          userId,
+          status: { in: ['APPROVED', 'PENDING'] },
+          startDate: { lte: parsedEndDate },
+          endDate: { gte: parsedStartDate },
+        },
+        select: { id: true, startDate: true, endDate: true, selectedDates: true }
+      })
+
+      const incomingRequest = { startDate: parsedStartDate, endDate: parsedEndDate, selectedDates: workingDatesList }
+      const overlappingLeave = leaveCandidates.find(c => hasActualDateOverlap(c, incomingRequest))
+
+      if (overlappingLeave) {
+        throw new Error(`DATE_CONFLICT:Employee already has a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. Please choose different dates.`)
+      }
 
       // 1. Create the LeaveRequest with only valid schema fields
       const leaveRequest = await tx.leaveRequest.create({
@@ -350,6 +378,12 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('DATE_CONFLICT:')) {
+      return NextResponse.json(
+        { error: 'Date conflict', message: error.message.replace('DATE_CONFLICT:', '') },
+        { status: 409 }
+      )
+    }
     console.error('Error creating manual leave request:', error)
     return NextResponse.json(
       { error: 'Failed to create leave request' },

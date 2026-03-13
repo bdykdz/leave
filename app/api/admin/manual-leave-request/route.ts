@@ -5,7 +5,9 @@ import { prisma } from '@/lib/prisma'
 import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 import { sanitizeComment } from '@/lib/utils/sanitize'
 import { emailService } from '@/lib/email-service'
-import { format } from 'date-fns'
+import { eachDayOfInterval, format } from 'date-fns'
+import { WorkingDaysService } from '@/lib/services/working-days-service'
+import { checkSelectedDatesOverlap, hasActualDateOverlap } from '@/lib/utils/date-validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,9 +87,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 })
     }
 
+    // Cap date range to prevent DoS via eachDayOfInterval memory exhaustion
+    const daySpan = Math.round((parsedEndDate.getTime() - parsedStartDate.getTime()) / (1000 * 60 * 60 * 24))
+    if (daySpan > 366) {
+      return NextResponse.json({ error: 'Date range cannot exceed 366 days' }, { status: 400 })
+    }
+
     const balanceYear = parsedStartDate.getFullYear()
     const startDateISO = parsedStartDate.toISOString().split('T')[0]
     const endDateISO = parsedEndDate.toISOString().split('T')[0]
+
+    // Compute working days (selected dates)
+    const workingDaysService = WorkingDaysService.getInstance()
+    const allDaysInRange = eachDayOfInterval({ start: parsedStartDate, end: parsedEndDate })
+    const workingDatesList: Date[] = []
+    for (const day of allDaysInRange) {
+      if (await workingDaysService.isWorkingDay(day)) {
+        workingDatesList.push(day)
+      }
+    }
+
+    // Pre-transaction overlap check
+    const overlapCheck = await checkSelectedDatesOverlap(userId, workingDatesList)
+    if (overlapCheck.hasOverlap) {
+      return NextResponse.json(
+        { error: 'Date conflict', message: overlapCheck.message },
+        { status: 409 }
+      )
+    }
 
     // Execute in transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -102,6 +129,24 @@ export async function POST(request: NextRequest) {
       })
       const requestNumber = `LR-${currentYear}-${String(requestCount + 1).padStart(4, '0')}`
 
+      // In-transaction overlap check (race-condition safe)
+      const leaveCandidates = await tx.leaveRequest.findMany({
+        where: {
+          userId,
+          status: { in: ['APPROVED', 'PENDING'] },
+          startDate: { lte: parsedEndDate },
+          endDate: { gte: parsedStartDate },
+        },
+        select: { id: true, startDate: true, endDate: true, selectedDates: true }
+      })
+
+      const incomingRequest = { startDate: parsedStartDate, endDate: parsedEndDate, selectedDates: workingDatesList }
+      const overlappingLeave = leaveCandidates.find(c => hasActualDateOverlap(c, incomingRequest))
+
+      if (overlappingLeave) {
+        throw new Error(`DATE_CONFLICT:Employee already has a leave request from ${overlappingLeave.startDate.toLocaleDateString()} to ${overlappingLeave.endDate.toLocaleDateString()}. Please choose different dates.`)
+      }
+
       // 1. Create the LeaveRequest — always PENDING
       const leaveRequest = await tx.leaveRequest.create({
         data: {
@@ -113,6 +158,7 @@ export async function POST(request: NextRequest) {
           totalDays: parsedTotalDays,
           reason: sanitizedReason,
           status: 'PENDING',
+          selectedDates: workingDatesList,
           createdByHrId: session.user.id,
           supportingDocuments: {
             createdByAdmin: true,
@@ -268,6 +314,12 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('DATE_CONFLICT:')) {
+      return NextResponse.json(
+        { error: 'Date conflict', message: error.message.replace('DATE_CONFLICT:', '') },
+        { status: 409 }
+      )
+    }
     console.error('Error creating manual leave request:', error)
     return NextResponse.json(
       { error: 'Failed to create leave request' },
