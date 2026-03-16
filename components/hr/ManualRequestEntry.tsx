@@ -594,7 +594,9 @@ export function ManualRequestEntry() {
                         <User className="h-4 w-4" />
                         <span className="font-medium">{selectedEmployee.firstName} {selectedEmployee.lastName}</span>
                         <Badge variant="outline">{selectedEmployee.role}</Badge>
-                        <span className="text-xs text-muted-foreground">({selectedEmployee.employeeId})</span>
+                        {selectedEmployee.employeeId && (
+                          <span className="text-xs text-muted-foreground">({selectedEmployee.employeeId})</span>
+                        )}
                       </div>
                       <p className="text-sm text-gray-600">
                         {selectedEmployee.department} &bull; {selectedEmployee.email}
@@ -944,7 +946,9 @@ export function ManualRequestEntry() {
                         <User className="h-4 w-4" />
                         <span className="font-medium">{selectedWorkTripEmployee.firstName} {selectedWorkTripEmployee.lastName}</span>
                         <Badge variant="outline">{selectedWorkTripEmployee.role}</Badge>
-                        <span className="text-xs text-muted-foreground">({selectedWorkTripEmployee.employeeId})</span>
+                        {selectedWorkTripEmployee.employeeId && (
+                          <span className="text-xs text-muted-foreground">({selectedWorkTripEmployee.employeeId})</span>
+                        )}
                       </div>
                       <p className="text-sm text-gray-600">
                         {selectedWorkTripEmployee.department} &bull; {selectedWorkTripEmployee.email}
