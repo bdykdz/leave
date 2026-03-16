@@ -372,7 +372,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         userId: user.managerId,
         type: 'APPROVAL_REQUIRED',
         title: 'Work Trip Request Approval Required',
-        message: `${user.firstName} ${user.lastName} has requested a ${totalDays}-day work trip to ${validatedData.destination}`,
+        message: `${user.firstName || ''} ${user.lastName || ''} has requested a ${totalDays}-day work trip to ${validatedData.destination}`.trim(),
         link: notificationLink,
       },
     });
@@ -389,13 +389,13 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       const formattedDates = formatWorkTripDates(startDate, endDate, validatedData.selectedDates);
 
       await emailService.sendWorkTripRequestNotification(user.manager!.email, {
-        employeeName: `${user.firstName} ${user.lastName}`,
+        employeeName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         startDate: formattedDates,
         endDate: '',
         days: totalDays,
         destination: validatedData.destination,
         purpose: validatedData.purpose,
-        managerName: `${user.manager!.firstName} ${user.manager!.lastName}`,
+        managerName: `${user.manager!.firstName || ''} ${user.manager!.lastName || ''}`.trim(),
         requestId: workTripRequest.id,
       });
 

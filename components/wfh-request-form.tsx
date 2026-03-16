@@ -80,13 +80,15 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
       }
 
       try {
-        // Fetch both leave requests and WFH requests in parallel
+        // Fetch leave, WFH, and work trip requests in parallel
         // Only fetch PENDING and APPROVED - cancelled/rejected should NOT block dates
         // Use cache: 'no-store' to ensure fresh data after cancellations
-        const [leaveRes, pendingWfhRes, approvedWfhRes] = await Promise.all([
+        const [leaveRes, pendingWfhRes, approvedWfhRes, pendingWtRes, approvedWtRes] = await Promise.all([
           fetch('/api/user/leave-requests', { cache: 'no-store' }),
           fetch('/api/wfh-requests?status=PENDING', { cache: 'no-store' }),
-          fetch('/api/wfh-requests?status=APPROVED', { cache: 'no-store' })
+          fetch('/api/wfh-requests?status=APPROVED', { cache: 'no-store' }),
+          fetch('/api/work-trip-requests?status=PENDING', { cache: 'no-store' }),
+          fetch('/api/work-trip-requests?status=APPROVED', { cache: 'no-store' })
         ])
 
         const allBlocked: typeof existingLeaveRequests = []
@@ -124,6 +126,29 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
             leaveType: 'WFH'
           }))
         allBlocked.push(...activeWfh)
+
+        // Merge work trip requests
+        const wtRequests: any[] = []
+        if (pendingWtRes.ok) {
+          const data = await pendingWtRes.json()
+          wtRequests.push(...(data.workTripRequests || []))
+        }
+        if (approvedWtRes.ok) {
+          const data = await approvedWtRes.json()
+          wtRequests.push(...(data.workTripRequests || []))
+        }
+        const activeWt = wtRequests
+          .filter((req: any) => req.status === 'PENDING' || req.status === 'APPROVED')
+          .map((req: any) => ({
+            startDate: req.startDate?.split('T')[0] || '',
+            endDate: req.endDate?.split('T')[0] || '',
+            selectedDates: (req.selectedDates || []).map((d: string) =>
+              typeof d === 'string' ? d.split('T')[0] : String(d).split('T')[0]
+            ),
+            status: req.status,
+            leaveType: 'Work Trip'
+          }))
+        allBlocked.push(...activeWt)
 
         setExistingLeaveRequests(allBlocked)
       } catch (error) {
@@ -400,7 +425,7 @@ export function WorkRemoteRequestForm({ onBack }: WorkRemoteRequestFormProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="home">Home</SelectItem>
-                        <SelectItem value="client-site">Client Site</SelectItem>
+
                         <SelectItem value="partner-office">Partner Office</SelectItem>
                         <SelectItem value="other-office">Other Office Location</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>

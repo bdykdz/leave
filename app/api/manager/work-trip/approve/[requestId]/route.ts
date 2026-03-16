@@ -113,10 +113,12 @@ export const POST = asyncHandler(async (
     return NextResponse.json({ error: "Request not found" }, { status: 404 });
   }
 
-  // Validate permission - must be manager of requester or have an approval record
+  // Validate permission - must be manager of requester or assigned as a pending approver
   const isManager = workTripRequest.user.managerId === session.user.id;
-  const hasApproval = workTripRequest.approvals.length > 0;
-  if (!isManager && !hasApproval) {
+  const isAssignedApprover = workTripRequest.approvals.some(
+    a => a.approverId === session.user.id && a.status === 'PENDING'
+  );
+  if (!isManager && !isAssignedApprover) {
     return NextResponse.json({ error: "Not authorized to approve this request" }, { status: 403 });
   }
 
@@ -195,14 +197,14 @@ export const POST = asyncHandler(async (
     const formattedDates = formatWorkTripDates(workTripRequest.startDate, workTripRequest.endDate, workTripRequest.selectedDates as string[] | null);
 
     await emailService.sendWorkTripApprovalNotification(workTripRequest.user.email, {
-      employeeName: `${workTripRequest.user.firstName} ${workTripRequest.user.lastName}`,
+      employeeName: `${workTripRequest.user.firstName || ''} ${workTripRequest.user.lastName || ''}`.trim(),
       startDate: formattedDates,
       endDate: '',
       days: workTripRequest.totalDays,
       destination: workTripRequest.destination,
       purpose: workTripRequest.purpose,
       approved: true,
-      managerName: `${session.user.firstName} ${session.user.lastName}`,
+      managerName: `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim(),
       comments: comment
     });
   } catch (emailError) {
@@ -278,7 +280,7 @@ export const DELETE = asyncHandler(async (
   await prisma.notification.create({
     data: {
       userId: workTripRequest.userId,
-      type: 'LEAVE_REJECTED',
+      type: 'WORK_TRIP_CANCELLED',
       title: 'Work Trip Request Rejected',
       message: `Your work trip request to ${workTripRequest.destination} has been rejected. Reason: ${comment}`,
       link: `/employee?request=${requestId}`
@@ -290,14 +292,14 @@ export const DELETE = asyncHandler(async (
     const formattedDates = formatWorkTripDates(workTripRequest.startDate, workTripRequest.endDate, workTripRequest.selectedDates as string[] | null);
 
     await emailService.sendWorkTripApprovalNotification(workTripRequest.user.email, {
-      employeeName: `${workTripRequest.user.firstName} ${workTripRequest.user.lastName}`,
+      employeeName: `${workTripRequest.user.firstName || ''} ${workTripRequest.user.lastName || ''}`.trim(),
       startDate: formattedDates,
       endDate: '',
       days: workTripRequest.totalDays,
       destination: workTripRequest.destination,
       purpose: workTripRequest.purpose,
       approved: false,
-      managerName: `${session.user.firstName} ${session.user.lastName}`,
+      managerName: `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim(),
       comments: comment
     });
   } catch (emailError) {

@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
     if (isNaN(parsedTotalDays) || parsedTotalDays <= 0) {
       return NextResponse.json({ error: 'totalDays must be a positive number' }, { status: 400 })
     }
+    if (parsedTotalDays > 366) {
+      return NextResponse.json({ error: 'totalDays cannot exceed 366' }, { status: 400 })
+    }
 
     const sanitizedDestination = sanitizeComment(String(destination)).slice(0, 200)
     const sanitizedPurpose = sanitizeComment(String(purpose)).slice(0, 1000)
@@ -165,13 +168,13 @@ export async function POST(request: NextRequest) {
     if (targetUser.manager?.email) {
       try {
         await emailService.sendWorkTripRequestNotification(targetUser.manager.email, {
-          employeeName: `${targetUser.firstName} ${targetUser.lastName}`,
+          employeeName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim(),
           startDate: format(parsedStartDate, 'dd MMMM yyyy'),
           endDate: format(parsedEndDate, 'dd MMMM yyyy'),
           days: parsedTotalDays,
           destination: sanitizedDestination,
           purpose: sanitizedPurpose,
-          managerName: `${targetUser.manager.firstName} ${targetUser.manager.lastName}`,
+          managerName: `${targetUser.manager.firstName || ''} ${targetUser.manager.lastName || ''}`.trim(),
           requestId: result.workTripRequest.id,
         })
       } catch (emailError) {
@@ -187,7 +190,7 @@ export async function POST(request: NextRequest) {
       newValues: {
         requestNumber: result.requestNumber,
         targetUserId: userId,
-        targetUserName: `${targetUser.firstName} ${targetUser.lastName}`,
+        targetUserName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim(),
         startDate: startDateISO,
         endDate: endDateISO,
         totalDays: parsedTotalDays,

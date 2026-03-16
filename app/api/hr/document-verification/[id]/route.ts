@@ -81,25 +81,12 @@ export async function POST(
     }
 
     // Wrap all mutations in a transaction for atomicity
-    const updatedRequest = await prisma.$transaction(async (tx) => {
-      // Update the leave request with verification status
-      const updated = await tx.leaveRequest.update({
-        where: { id: params.id },
-        data: {
-          hrDocumentVerified: approved,
-          hrVerifiedBy: session.user.id,
-          hrVerifiedAt: new Date(),
-          hrVerificationNotes: notes,
-          status: approved ? 'PENDING' : 'REJECTED',
-        },
-      })
-
+    const { updatedRequest, allApproved } = await prisma.$transaction(async (tx) => {
       // CRITICAL FIX: Update the HR Approval record
-      // Find the approval record for this HR user (or fallback to level 1 PENDING)
+      // Only match the approval record for this specific HR user — never fall back to
+      // level-based matching, as that can accidentally approve a manager's approval record.
       const hrApproval = leaveRequest.approvals.find(
         a => a.approverId === session.user.id && a.status === 'PENDING'
-      ) || leaveRequest.approvals.find(
-        a => a.level === 1 && a.status === 'PENDING'
       )
 
       if (hrApproval) {
@@ -112,6 +99,37 @@ export async function POST(
           },
         })
       }
+
+      // Check if ALL approvals are now complete (HR verification might be the only/last step)
+      const allApprovals = await tx.approval.findMany({
+        where: { leaveRequestId: params.id }
+      })
+      const isAllApproved = approved && allApprovals.length > 0 && allApprovals.every(
+        a => a.status === 'APPROVED' || (a.id === hrApproval?.id) // the one we just updated
+      )
+
+      // Determine the correct status:
+      // - If rejected: REJECTED
+      // - If all approvals are done: APPROVED
+      // - Otherwise: PENDING (waiting for remaining approvals)
+      let newStatus: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING'
+      if (!approved) {
+        newStatus = 'REJECTED'
+      } else if (isAllApproved) {
+        newStatus = 'APPROVED'
+      }
+
+      // Update the leave request with verification status
+      const updated = await tx.leaveRequest.update({
+        where: { id: params.id },
+        data: {
+          hrDocumentVerified: approved,
+          hrVerifiedBy: session.user.id,
+          hrVerifiedAt: new Date(),
+          hrVerificationNotes: notes,
+          status: newStatus,
+        },
+      })
 
       // If HR rejects, restore leave balance (pending → available)
       if (!approved && leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
@@ -140,25 +158,59 @@ export async function POST(
         }
       }
 
+      // If fully approved, update leave balance (pending → used)
+      if (isAllApproved && leaveRequest.leaveTypeId && leaveRequest.totalDays > 0) {
+        const balanceYear = new Date(leaveRequest.startDate).getFullYear()
+        try {
+          const balance = await tx.leaveBalance.findUnique({
+            where: {
+              userId_leaveTypeId_year: {
+                userId: leaveRequest.userId,
+                leaveTypeId: leaveRequest.leaveTypeId,
+                year: balanceYear
+              }
+            }
+          })
+          if (balance) {
+            const totalDays = leaveRequest.totalDays
+            const remainingCF = Math.max(0, balance.carriedForward - balance.carriedForwardUsed)
+            const cfDeduction = Math.min(totalDays, remainingCF)
+            await tx.leaveBalance.update({
+              where: { id: balance.id },
+              data: {
+                pending: balance.pending - totalDays,
+                used: balance.used + totalDays,
+                carriedForwardUsed: balance.carriedForwardUsed + cfDeduction,
+                available: balance.entitled + balance.carriedForward - (balance.used + totalDays) - (balance.pending - totalDays)
+              }
+            })
+          }
+        } catch (balanceError) {
+          console.error('Failed to update leave balance on full approval:', balanceError)
+          throw balanceError
+        }
+      }
+
       // Create notification for the employee
       await tx.notification.create({
         data: {
           userId: leaveRequest.userId,
           type: approved ? 'LEAVE_REQUESTED' : 'LEAVE_REJECTED',
           title: approved
-            ? 'Documents Verified'
+            ? (isAllApproved ? 'Leave Request Approved' : 'Documents Verified')
             : 'Documents Rejected',
           message: approved
-            ? `Your supporting documents for ${leaveRequest.leaveType.name} have been verified. Your request is now pending manager approval.`
+            ? (isAllApproved
+              ? `Your ${leaveRequest.leaveType.name} request has been fully approved.`
+              : `Your supporting documents for ${leaveRequest.leaveType.name} have been verified. Your request is now pending manager approval.`)
             : `Your supporting documents for ${leaveRequest.leaveType.name} were not approved. ${notes ? 'Reason: ' + notes : 'Please contact HR for more information.'}`,
           link: `/leave-requests/${leaveRequest.id}`,
         },
       })
 
-      // If approved, notify the next approver in the chain (not hardcoded to managerId,
-      // since department directors' next approver is an executive, not their managerId)
-      if (approved) {
-        const nextPending = leaveRequest.approvals.find(
+      // If approved but not fully done, notify the next approver in the chain
+      if (approved && !isAllApproved) {
+        const nextPending = allApprovals.find(
           a => a.status === 'PENDING' && a.id !== hrApproval?.id
         )
         if (nextPending?.approverId) {
@@ -188,7 +240,7 @@ export async function POST(
         },
       })
 
-      return updated
+      return { updatedRequest: updated, allApproved: isAllApproved }
     })
 
     // Send email notification to employee for ALL requiresHRVerification types

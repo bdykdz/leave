@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
         employeeId: newUser.employeeId,
         position: newUser.position,
         department: newUser.department,
-        temporaryPassword: data.password ? undefined : password, // Only include if we generated it
+        // No temporary password — users authenticate via Microsoft SSO
         managerName: newUser.manager ? `${newUser.manager.firstName} ${newUser.manager.lastName}` : undefined,
         companyName: companyName,
         loginUrl: loginUrl
@@ -211,7 +211,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'User created successfully',
       user: newUser,
-      temporaryPassword: data.password ? undefined : password // Only return if we generated it
     });
   } catch (error: any) {
     console.error('Error creating user:', error);

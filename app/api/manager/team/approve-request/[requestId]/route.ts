@@ -610,10 +610,12 @@ async function handleWorkTripApproval(session: any, requestId: string, comment: 
       return NextResponse.json({ error: "Work trip request not found" }, { status: 404 })
     }
 
-    // Validate permission
+    // Validate permission - must be manager of requester or assigned as a pending approver
     const isManager = workTripRequest.user.managerId === session.user.id
-    const hasApproval = workTripRequest.approvals.length > 0
-    if (!isManager && !hasApproval) {
+    const isAssignedApprover = workTripRequest.approvals.some(
+      (a: any) => a.approverId === session.user.id && a.status === 'PENDING'
+    )
+    if (!isManager && !isAssignedApprover) {
       return NextResponse.json({ error: "Not authorized to approve this request" }, { status: 403 })
     }
 
@@ -649,14 +651,14 @@ async function handleWorkTripApproval(session: any, requestId: string, comment: 
     // Send email to employee
     try {
       await emailService.sendWorkTripApprovalNotification(workTripRequest.user.email, {
-        employeeName: `${workTripRequest.user.firstName} ${workTripRequest.user.lastName}`,
+        employeeName: `${workTripRequest.user.firstName || ''} ${workTripRequest.user.lastName || ''}`.trim(),
         startDate: format(workTripRequest.startDate, 'dd MMMM yyyy'),
         endDate: format(workTripRequest.endDate, 'dd MMMM yyyy'),
         days: workTripRequest.totalDays,
         destination: workTripRequest.destination,
         purpose: workTripRequest.purpose,
         approved: true,
-        managerName: `${session.user.firstName} ${session.user.lastName}`,
+        managerName: `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim(),
         comments: cleanComment
       })
     } catch (emailError) {

@@ -37,6 +37,7 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
+  Briefcase,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -78,16 +79,19 @@ export function ManualRequestEntry() {
   const [loadingBalance, setLoadingBalance] = useState(false)
   const [currentBalance, setCurrentBalance] = useState<LeaveBalance | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [confirmAction, setConfirmAction] = useState<'leave' | 'wfh'>('leave')
+  const [confirmAction, setConfirmAction] = useState<'leave' | 'wfh' | 'worktrip'>('leave')
   // Popover open state per tab for employee combobox
   const [leaveEmployeeOpen, setLeaveEmployeeOpen] = useState(false)
   const [wfhEmployeeOpen, setWfhEmployeeOpen] = useState(false)
+  const [workTripEmployeeOpen, setWorkTripEmployeeOpen] = useState(false)
   // Manual search state for employee comboboxes (fixes cmdk selection bug)
   const [leaveEmployeeSearch, setLeaveEmployeeSearch] = useState("")
   const [wfhEmployeeSearch, setWfhEmployeeSearch] = useState("")
+  const [workTripEmployeeSearch, setWorkTripEmployeeSearch] = useState("")
   // Track whether totalDays was manually edited (#9)
   const leaveDaysManuallyEdited = useRef(false)
   const wfhDaysManuallyEdited = useRef(false)
+  const workTripDaysManuallyEdited = useRef(false)
 
   // Leave Request Form
   const [leaveForm, setLeaveForm] = useState({
@@ -107,6 +111,17 @@ export function ManualRequestEntry() {
     endDate: "",
     location: "home",
     totalDays: "",
+    hrNotes: "",
+  })
+
+  // Work Trip Request Form
+  const [workTripForm, setWorkTripForm] = useState({
+    userId: "",
+    startDate: "",
+    endDate: "",
+    totalDays: "",
+    destination: "",
+    purpose: "",
     hrNotes: "",
   })
 
@@ -169,6 +184,33 @@ export function ManualRequestEntry() {
       })
     return () => controller.abort()
   }, [wfhForm.startDate, wfhForm.endDate])
+
+  // Auto-calculate totalDays for Work Trip form using working days API
+  useEffect(() => {
+    if (workTripDaysManuallyEdited.current) return
+    if (!workTripForm.startDate || !workTripForm.endDate) return
+    const start = parseISO(workTripForm.startDate)
+    const end = parseISO(workTripForm.endDate)
+    if (end < start) return
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({ startDate: workTripForm.startDate, endDate: workTripForm.endDate })
+    fetch(`/api/working-days?${params}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && !workTripDaysManuallyEdited.current) {
+          setWorkTripForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
+        }
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return
+        const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        if (days > 0 && !workTripDaysManuallyEdited.current) {
+          setWorkTripForm(prev => ({ ...prev, totalDays: String(days) }))
+        }
+      })
+    return () => controller.abort()
+  }, [workTripForm.startDate, workTripForm.endDate])
 
   // Fetch balance when employee + leave type + valid date selected (#11 — guard against empty date)
   useEffect(() => {
@@ -247,6 +289,27 @@ export function ManualRequestEntry() {
     setShowConfirmDialog(true)
   }
 
+  const handleWorkTripSubmit = () => {
+    if (!workTripForm.userId || !workTripForm.startDate || !workTripForm.endDate) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+    if (!workTripForm.totalDays || parseInt(workTripForm.totalDays) <= 0) {
+      toast.error('Total days must be greater than 0')
+      return
+    }
+    if (!workTripForm.destination) {
+      toast.error('Destination is required')
+      return
+    }
+    if (!workTripForm.purpose) {
+      toast.error('Purpose is required')
+      return
+    }
+    setConfirmAction('worktrip')
+    setShowConfirmDialog(true)
+  }
+
   const executeSubmit = async () => {
     setShowConfirmDialog(false)
     setLoading(true)
@@ -278,7 +341,7 @@ export function ManualRequestEntry() {
           const error = await response.json()
           toast.error(error.error || 'Failed to create leave request')
         }
-      } else {
+      } else if (confirmAction === 'wfh') {
         const response = await fetch('/api/hr/manual-wfh-request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -302,6 +365,33 @@ export function ManualRequestEntry() {
         } else {
           const error = await response.json()
           toast.error(error.error || 'Failed to create WFH request')
+        }
+      } else {
+        // Work Trip
+        const response = await fetch('/api/hr/manual-work-trip-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: workTripForm.userId,
+            startDate: workTripForm.startDate,
+            endDate: workTripForm.endDate,
+            totalDays: parseInt(workTripForm.totalDays),
+            destination: workTripForm.destination,
+            purpose: workTripForm.purpose,
+            hrNotes: workTripForm.hrNotes || undefined,
+          })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.warning) {
+            toast.warning(data.warning)
+          }
+          toast.success(data.message || 'Work trip request created successfully')
+          resetWorkTripForm()
+        } else {
+          const error = await response.json()
+          toast.error(error.error || 'Failed to create work trip request')
         }
       }
     } catch {
@@ -337,8 +427,22 @@ export function ManualRequestEntry() {
     wfhDaysManuallyEdited.current = false
   }
 
+  const resetWorkTripForm = () => {
+    setWorkTripForm({
+      userId: "",
+      startDate: "",
+      endDate: "",
+      totalDays: "",
+      destination: "",
+      purpose: "",
+      hrNotes: "",
+    })
+    workTripDaysManuallyEdited.current = false
+  }
+
   const selectedEmployee = employees.find(e => e.id === leaveForm.userId)
   const selectedWfhEmployee = employees.find(e => e.id === wfhForm.userId)
+  const selectedWorkTripEmployee = employees.find(e => e.id === workTripForm.userId)
   const selectedLeaveType = leaveTypes.find(lt => lt.id === leaveForm.leaveTypeId)
 
   // Manual filtering for employee comboboxes (bypasses cmdk's buggy internal filtering)
@@ -354,6 +458,7 @@ export function ManualRequestEntry() {
   }
   const filteredLeaveEmployees = filterEmployees(employees, leaveEmployeeSearch)
   const filteredWfhEmployees = filterEmployees(employees, wfhEmployeeSearch)
+  const filteredWorkTripEmployees = filterEmployees(employees, workTripEmployeeSearch)
 
   // Calculate projected balance after this request
   const projectedAvailable = currentBalance && leaveForm.totalDays
@@ -371,13 +476,21 @@ export function ManualRequestEntry() {
         dates: `${leaveForm.startDate} to ${leaveForm.endDate}`,
         days: leaveForm.totalDays,
       }
-    } else {
+    } else if (confirmAction === 'wfh') {
       const emp = employees.find(e => e.id === wfhForm.userId)
       return {
         employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown',
         type: 'Work From Home',
         dates: `${wfhForm.startDate} to ${wfhForm.endDate}`,
         days: wfhForm.totalDays,
+      }
+    } else {
+      const emp = employees.find(e => e.id === workTripForm.userId)
+      return {
+        employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown',
+        type: `Work Trip — ${workTripForm.destination || 'N/A'}`,
+        dates: `${workTripForm.startDate} to ${workTripForm.endDate}`,
+        days: workTripForm.totalDays,
       }
     }
   }
@@ -393,7 +506,7 @@ export function ManualRequestEntry() {
                 Manual Request Entry
               </CardTitle>
               <CardDescription>
-                Create leave or WFH requests on behalf of employees — requests will be sent to the employee&apos;s manager for approval
+                Create leave, WFH, or work trip requests on behalf of employees — requests will be sent to the employee&apos;s manager for approval
               </CardDescription>
             </div>
             <Badge variant="secondary" className="flex items-center gap-1">
@@ -412,7 +525,7 @@ export function ManualRequestEntry() {
           </Alert>
 
           <Tabs defaultValue="leave" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="leave" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Leave Request
@@ -420,6 +533,10 @@ export function ManualRequestEntry() {
               <TabsTrigger value="wfh" className="flex items-center gap-2">
                 <Home className="h-4 w-4" />
                 Work From Home
+              </TabsTrigger>
+              <TabsTrigger value="worktrip" className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Work Trip
               </TabsTrigger>
             </TabsList>
 
@@ -772,6 +889,158 @@ export function ManualRequestEntry() {
                 </Button>
               </div>
             </TabsContent>
+
+            {/* Work Trip Tab */}
+            <TabsContent value="worktrip" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label>Select Employee *</Label>
+                  <Popover open={workTripEmployeeOpen} onOpenChange={(open) => {
+                    setWorkTripEmployeeOpen(open)
+                    if (!open) setWorkTripEmployeeSearch("")
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={workTripEmployeeOpen}
+                        className="w-full justify-between font-normal"
+                      >
+                        {selectedWorkTripEmployee
+                          ? `${selectedWorkTripEmployee.firstName} ${selectedWorkTripEmployee.lastName} — ${selectedWorkTripEmployee.department}`
+                          : "Choose an employee"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command shouldFilter={false}>
+                        <CommandInput placeholder="Search employees..." value={workTripEmployeeSearch} onValueChange={setWorkTripEmployeeSearch} />
+                        <CommandList>
+                          <CommandEmpty>No employees found.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredWorkTripEmployees.map(emp => (
+                              <CommandItem
+                                key={emp.id}
+                                value={emp.id}
+                                onSelect={() => {
+                                  setWorkTripForm(prev => ({ ...prev, userId: emp.id }))
+                                  setWorkTripEmployeeOpen(false)
+                                  setWorkTripEmployeeSearch("")
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", workTripForm.userId === emp.id ? "opacity-100" : "opacity-0")} />
+                                {emp.firstName} {emp.lastName} — {emp.department} ({emp.email})
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {selectedWorkTripEmployee && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <span className="font-medium">{selectedWorkTripEmployee.firstName} {selectedWorkTripEmployee.lastName}</span>
+                        <Badge variant="outline">{selectedWorkTripEmployee.role}</Badge>
+                        <span className="text-xs text-muted-foreground">({selectedWorkTripEmployee.employeeId})</span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {selectedWorkTripEmployee.department} &bull; {selectedWorkTripEmployee.email}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Destination *</Label>
+                  <Input
+                    value={workTripForm.destination}
+                    onChange={(e) => setWorkTripForm(prev => ({ ...prev, destination: e.target.value }))}
+                    placeholder="e.g. Bucharest, Cluj-Napoca"
+                    maxLength={200}
+                  />
+                </div>
+
+                <div>
+                  <Label>Purpose *</Label>
+                  <Input
+                    value={workTripForm.purpose}
+                    onChange={(e) => setWorkTripForm(prev => ({ ...prev, purpose: e.target.value }))}
+                    placeholder="e.g. Client meeting, Conference"
+                    maxLength={1000}
+                  />
+                </div>
+
+                <div>
+                  <Label>Start Date *</Label>
+                  <Input
+                    type="date"
+                    value={workTripForm.startDate}
+                    onChange={(e) => {
+                      workTripDaysManuallyEdited.current = false
+                      setWorkTripForm(prev => ({ ...prev, startDate: e.target.value }))
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <Label>End Date *</Label>
+                  <Input
+                    type="date"
+                    value={workTripForm.endDate}
+                    onChange={(e) => {
+                      workTripDaysManuallyEdited.current = false
+                      setWorkTripForm(prev => ({ ...prev, endDate: e.target.value }))
+                    }}
+                    min={workTripForm.startDate}
+                  />
+                </div>
+
+                <div>
+                  <Label>Total Days *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="366"
+                    step="1"
+                    value={workTripForm.totalDays}
+                    onChange={(e) => {
+                      workTripDaysManuallyEdited.current = true
+                      setWorkTripForm(prev => ({ ...prev, totalDays: e.target.value }))
+                    }}
+                    placeholder="Auto-calculated from dates"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label>HR Notes (internal)</Label>
+                  <Textarea
+                    value={workTripForm.hrNotes}
+                    onChange={(e) => setWorkTripForm(prev => ({ ...prev, hrNotes: e.target.value }))}
+                    placeholder="Internal notes — stored in record, not shown to employee"
+                    rows={2}
+                    maxLength={1000}
+                    className="bg-yellow-50"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={resetWorkTripForm}>
+                  Clear Form
+                </Button>
+                <Button
+                  onClick={handleWorkTripSubmit}
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Create Work Trip Request
+                </Button>
+              </div>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -783,7 +1052,7 @@ export function ManualRequestEntry() {
             <AlertDialogTitle>Confirm Manual Entry</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>You are about to create a manual {confirmAction === 'leave' ? 'leave' : 'WFH'} request:</p>
+                <p>You are about to create a manual {confirmAction === 'leave' ? 'leave' : confirmAction === 'wfh' ? 'WFH' : 'work trip'} request:</p>
                 {(() => {
                   const summary = getConfirmSummary()
                   return (

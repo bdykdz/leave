@@ -336,7 +336,8 @@ export function WorkTripRequestForm({ onBack }: WorkTripRequestFormProps) {
                 <LeaveCalendar
                   selectedDates={selectedDates}
                   onDateSelect={handleDateSelect}
-                  isWFHCalendar={true}
+                  isWFHCalendar={false}
+                  showExistingRequests={true}
                   existingLeaveRequests={existingLeaveRequests}
                 />
               </CardContent>

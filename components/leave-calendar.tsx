@@ -25,6 +25,7 @@ interface LeaveCalendarProps {
   blockedDates?: string[]
   blockedDateDetails?: Record<string, { status: string; leaveType: string }>
   isWFHCalendar?: boolean // Add prop to indicate if this is for WFH requests
+  showExistingRequests?: boolean // Show existing request overlaps without WFH date restrictions
   existingLeaveRequests?: Array<{
     startDate: string
     endDate: string
@@ -34,7 +35,7 @@ interface LeaveCalendarProps {
   }>
 }
 
-export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false, existingLeaveRequests = [] }: LeaveCalendarProps) {
+export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false, showExistingRequests = false, existingLeaveRequests = [] }: LeaveCalendarProps) {
   const t = useTranslations()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [companyHolidays, setCompanyHolidays] = useState<Date[]>([])
@@ -136,7 +137,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
   }
 
   const hasExistingLeaveRequest = (date: Date) => {
-    if (!isWFHCalendar || !existingLeaveRequests.length) return null
+    if ((!isWFHCalendar && !showExistingRequests) || !existingLeaveRequests.length) return null
     
     const dateStr = format(date, 'yyyy-MM-dd')
     
@@ -161,7 +162,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     if (!isSameMonth(date, currentMonth)) return undefined
 
     // Show tooltip for existing leave/WFH requests on the calendar
-    if (isWFHCalendar) {
+    if (isWFHCalendar || showExistingRequests) {
       const existingRequest = hasExistingLeaveRequest(date)
       if (existingRequest) {
         const statusLabel = existingRequest.status === 'APPROVED' ? t.status.approved : t.status.pending
@@ -202,8 +203,8 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       return cn(baseClasses, "bg-gray-200 text-gray-500 cursor-not-allowed")
     }
 
-    // For WFH calendar, show existing leave/wfh requests
-    if (isWFHCalendar) {
+    // For WFH calendar or showExistingRequests, show existing leave/wfh requests
+    if (isWFHCalendar || showExistingRequests) {
       const existingRequest = hasExistingLeaveRequest(date)
       if (existingRequest) {
         if (existingRequest.status === 'APPROVED') {
@@ -263,6 +264,13 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       // Leave request restrictions
       if (isCompanyHoliday(date)) {
         return
+      }
+      // Block clicks on dates with existing requests when showExistingRequests is true
+      if (showExistingRequests) {
+        const existingRequest = hasExistingLeaveRequest(date)
+        if (existingRequest && (existingRequest.status === 'APPROVED' || existingRequest.status === 'PENDING')) {
+          return
+        }
       }
     }
     
