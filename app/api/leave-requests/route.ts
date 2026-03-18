@@ -961,7 +961,11 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
     }
   }
 
-  // Convert workflow roles to actual approvers
+  // Convert workflow roles to actual approvers.
+  // Only create the FIRST approval level — subsequent levels are created by the
+  // escalation service if the first approver doesn't respond within the configured
+  // timeout (default: 3 business days). This prevents requests from getting stuck
+  // waiting for ALL levels to approve when levels are meant as fallbacks.
   const approvals = [];
   let level = 1;
 
@@ -1132,6 +1136,20 @@ async function generateApprovalWorkflow(user: any, leaveTypeId: string, days: nu
           level: level++,
           status: 'PENDING',
         });
+        // For HR verification leave types, create both HR + manager approvals upfront
+        // (HR verification is a prerequisite, not a fallback). For all other cases,
+        // only create the first approval — escalation service handles subsequent levels.
+        const isHRVerificationType = leaveType?.requiresHRVerification;
+        const isHRRole = approvalLevel.role === 'HR' || approvalLevel.role === 'hr_verification';
+        if (!isHRVerificationType && approvals.length >= 1) {
+          console.log('[generateApprovalWorkflow] Stopping after first approval level — escalation service will handle subsequent levels');
+          break;
+        }
+        if (isHRVerificationType && !isHRRole && approvals.length >= 2) {
+          // HR + one manager level is enough
+          console.log('[generateApprovalWorkflow] Stopping after HR + manager approval levels');
+          break;
+        }
       }
     } else {
       console.warn('[generateApprovalWorkflow] No approver found for role:', {

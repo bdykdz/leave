@@ -448,6 +448,26 @@ export async function POST(
       }
     }
 
+    // Create in-app notification for the employee when fully approved
+    if (allApproved) {
+      try {
+        const leaveType = await prisma.leaveType.findUnique({
+          where: { id: leaveRequest.leaveTypeId }
+        })
+        await prisma.notification.create({
+          data: {
+            userId: leaveRequest.userId,
+            type: 'LEAVE_APPROVED',
+            title: 'Leave Request Approved',
+            message: `Your ${leaveType?.name || 'leave'} request from ${format(leaveRequest.startDate, 'dd MMM yyyy')} to ${format(leaveRequest.endDate, 'dd MMM yyyy')} has been approved.`,
+            link: `/employee?tab=requests`
+          }
+        })
+      } catch (notifError) {
+        console.error('Warning: Failed to create approval notification:', notifError)
+      }
+    }
+
     // Invalidate related caches after approval
     try {
       await CacheService.invalidateTeamCache(session.user.id)

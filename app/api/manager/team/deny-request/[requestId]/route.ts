@@ -193,6 +193,24 @@ export async function POST(
       // Don't fail the denial if email fails
     }
 
+    // Create in-app notification for the employee
+    try {
+      const leaveType = await prisma.leaveType.findUnique({
+        where: { id: leaveRequest.leaveTypeId }
+      })
+      await prisma.notification.create({
+        data: {
+          userId: leaveRequest.userId,
+          type: 'LEAVE_REJECTED',
+          title: 'Leave Request Rejected',
+          message: `Your ${leaveType?.name || 'leave'} request from ${format(leaveRequest.startDate, 'dd MMM yyyy')} to ${format(leaveRequest.endDate, 'dd MMM yyyy')} has been rejected.${comment ? ' Reason: ' + comment : ''}`,
+          link: `/employee?tab=requests`
+        }
+      })
+    } catch (notifError) {
+      console.error('Warning: Failed to create rejection notification:', notifError)
+    }
+
     return NextResponse.json({
       success: true,
       message: "Request denied successfully"
