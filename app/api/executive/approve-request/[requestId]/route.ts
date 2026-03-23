@@ -148,7 +148,35 @@ export async function POST(
         where: { leaveRequestId: params.requestId }
       });
 
-      const isAllApproved = allApprovals.every(approval => approval.status === 'APPROVED');
+      let isAllApproved = allApprovals.every(approval => approval.status === 'APPROVED');
+
+      // Clean up escalation fallback approvals from old workflow (pre-9ec7382).
+      // Old workflow created all levels upfront; new workflow creates only level 1.
+      // Remaining PENDING levels above the current one are escalation fallbacks.
+      // Exception: HR-verification types need sequential approval (HR → manager).
+      if (!isAllApproved && isAssignedApprover) {
+        const executiveApprovalLevel = leaveRequest.approvals.find(
+          (a: any) => a.approverId === session.user.id
+        )?.level ?? 0;
+        const leaveTypeForCheck = await tx.leaveRequest.findUnique({
+          where: { id: params.requestId },
+          select: { leaveType: { select: { requiresHRVerification: true } } }
+        });
+        if (!leaveTypeForCheck?.leaveType?.requiresHRVerification) {
+          const remainingPending = allApprovals.filter(
+            (a: any) => a.status === 'PENDING' && a.level > executiveApprovalLevel
+          );
+          if (remainingPending.length > 0) {
+            console.log('[executive-approve] Cleaning up escalation fallback approvals:',
+              remainingPending.map((a: any) => ({ id: a.id, level: a.level, approverId: a.approverId }))
+            );
+            await tx.approval.deleteMany({
+              where: { id: { in: remainingPending.map((a: any) => a.id) } }
+            });
+            isAllApproved = true;
+          }
+        }
+      }
 
       const updated = await tx.leaveRequest.update({
         where: { id: params.requestId },

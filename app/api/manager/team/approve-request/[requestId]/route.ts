@@ -233,7 +233,33 @@ export async function POST(
         where: { leaveRequestId: requestId }
       })
 
-      const isAllApproved = allApprovals.every(a => a.status === 'APPROVED')
+      let isAllApproved = allApprovals.every(a => a.status === 'APPROVED')
+
+      // Clean up escalation fallback approvals from old workflow (pre-9ec7382).
+      // Old workflow created all levels upfront; new workflow creates only level 1.
+      // Remaining PENDING levels above the current one are escalation fallbacks.
+      // Exception: HR-verification types need sequential approval (HR → manager).
+      if (!isAllApproved) {
+        const leaveTypeForCheck = await tx.leaveType.findUnique({
+          where: { id: leaveRequest.leaveTypeId },
+          select: { requiresHRVerification: true }
+        })
+        if (!leaveTypeForCheck?.requiresHRVerification) {
+          const currentLevel = pendingApproval!.level
+          const remainingPending = allApprovals.filter(
+            a => a.status === 'PENDING' && a.level > currentLevel
+          )
+          if (remainingPending.length > 0) {
+            console.log('[approve-request] Cleaning up escalation fallback approvals:',
+              remainingPending.map(a => ({ id: a.id, level: a.level, approverId: a.approverId }))
+            )
+            await tx.approval.deleteMany({
+              where: { id: { in: remainingPending.map(a => a.id) } }
+            })
+            isAllApproved = true
+          }
+        }
+      }
 
       // Update leave request status if all approvals are done
       if (isAllApproved) {
