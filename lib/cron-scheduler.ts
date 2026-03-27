@@ -17,8 +17,8 @@ export function scheduleCronJobs() {
     headers['Authorization'] = `Bearer ${cronSecret}`
   }
 
-  // WFH auto-cancel: Every Friday at 18:00 Bucharest time (16:00 UTC)
-  cron.schedule('0 16 * * 5', async () => {
+  // WFH auto-cancel: Every Friday at 23:59 UTC (Saturday 01:59 Bucharest)
+  cron.schedule('59 23 * * 5', async () => {
     console.log('[CRON] Running WFH auto-cancel...')
     try {
       const res = await fetch(`${baseUrl}/api/cron/wfh-auto-cancel`, { headers })
@@ -66,7 +66,7 @@ export function scheduleCronJobs() {
   }, { timezone: 'UTC' })
 
   console.log('[CRON] Scheduled jobs:')
-  console.log('  - WFH auto-cancel: Friday 16:00 UTC (18:00 Bucharest)')
+  console.log('  - WFH auto-cancel: Friday 23:59 UTC (01:59 Bucharest Saturday)')
   console.log('  - Escalation check: every 4 hours')
   console.log('  - Document cleanup: DISABLED')
   console.log('  - Admin cleanup: daily 02:00 UTC')

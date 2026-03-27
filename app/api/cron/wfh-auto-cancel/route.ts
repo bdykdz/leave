@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, startOfDay, endOfWeek } from 'date-fns';
 
-// Called by cron every Friday at 18:00 Bucharest time (16:00 UTC)
+// Called by cron every Friday at 23:59 UTC (Saturday 01:59 Bucharest time)
 // Cancels any PENDING WFH requests for the upcoming week (next Mon-Sun)
 // Also catches any stale PENDING requests from past dates
 export async function GET(request: NextRequest) {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
           wfhRequestId: req.id,
           status: 'PENDING'
         },
-        data: { status: 'REJECTED', comments: 'Auto-cancelled: not approved by Friday 18:00' }
+        data: { status: 'REJECTED', comments: 'Auto-cancelled: not approved by end of Friday' }
       });
 
       // Notify the user
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
           userId: req.userId,
           type: 'WFH_CANCELLED',
           title: 'WFH Request Auto-Cancelled',
-          message: `Your WFH request for ${req.startDate.toISOString().split('T')[0]} to ${req.endDate.toISOString().split('T')[0]} was automatically cancelled because it was not approved by Friday 18:00.`,
+          message: `Your WFH request for ${req.startDate.toISOString().split('T')[0]} to ${req.endDate.toISOString().split('T')[0]} was automatically cancelled because it was not approved by end of Friday.`,
           link: '/employee/remote'
         }
       });

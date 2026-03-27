@@ -8,7 +8,7 @@
 # Run escalation check every 6 hours (optional - comment out if not needed)
 # 0 */6 * * * /app/scripts/escalation-cron.sh >> /var/log/cron.log 2>&1
 
-# Auto-cancel pending WFH requests every Friday at 16:00 UTC (18:00 Bucharest time)
-0 16 * * 5 curl -s -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/wfh-auto-cancel >> /var/log/cron.log 2>&1
+# Auto-cancel pending WFH requests every Friday at 23:59 UTC (Saturday 01:59 Bucharest time)
+59 23 * * 5 curl -s -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3000/api/cron/wfh-auto-cancel >> /var/log/cron.log 2>&1
 
 # Keep a newline at the end of this file
