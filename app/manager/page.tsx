@@ -124,6 +124,7 @@ export default function ManagerDashboard() {
   const [superior, setSuperior] = useState<any>(null)
   const [loadingSuperior, setLoadingSuperior] = useState(true)
   const [pendingDocSignatures, setPendingDocSignatures] = useState<any[]>([])
+  const [processingRequestIds, setProcessingRequestIds] = useState<Set<string>>(new Set())
 
   // Manager's WFH stats
   const [managerWfhStats, setManagerWfhStats] = useState({ 
@@ -534,6 +535,13 @@ export default function ManagerDashboard() {
   }
 
   const handleApprove = async (requestId: string, comment?: string, signature?: string): Promise<boolean> => {
+    // Prevent double-processing
+    if (processingRequestIds.has(requestId)) {
+      toast.error('This request is already being processed')
+      return false
+    }
+    setProcessingRequestIds(prev => new Set(prev).add(requestId))
+
     try {
       const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/approve-request/${requestId}`, {
@@ -544,7 +552,15 @@ export default function ManagerDashboard() {
 
       if (response.ok) {
         toast.success(t.messages.requestApprovedSuccess)
-        // Refresh all data
+        // Optimistically remove from pending list immediately
+        if (requestType === 'wfh') {
+          setWfhPendingRequests(prev => prev.filter(r => r.id !== requestId))
+        } else if (requestType === 'workTrip') {
+          setWorkTripPendingRequests(prev => prev.filter(r => r.id !== requestId))
+        } else {
+          setPendingRequests(prev => prev.filter(r => r.id !== requestId))
+        }
+        // Refresh all data in the background
         const refreshPromises: Promise<void>[] = [fetchTeamStats()]
         if (requestType === 'wfh') {
           refreshPromises.push(fetchWfhPendingRequests(), fetchWfhApprovedRequests())
@@ -553,22 +569,45 @@ export default function ManagerDashboard() {
         } else {
           refreshPromises.push(fetchPendingRequests(), fetchApprovedRequests())
         }
-        await Promise.all(refreshPromises)
+        Promise.all(refreshPromises).finally(() => {
+          setProcessingRequestIds(prev => {
+            const next = new Set(prev)
+            next.delete(requestId)
+            return next
+          })
+        })
         return true
       } else {
         const errorData = await response.json().catch(() => ({}))
         console.error('API Error:', errorData)
         toast.error(errorData.error || errorData.details || t.messages.failedToApprove)
+        setProcessingRequestIds(prev => {
+          const next = new Set(prev)
+          next.delete(requestId)
+          return next
+        })
         return false
       }
     } catch (error) {
       console.error('Error approving request:', error)
       toast.error(t.messages.failedToApprove)
+      setProcessingRequestIds(prev => {
+        const next = new Set(prev)
+        next.delete(requestId)
+        return next
+      })
       return false
     }
   }
 
-  const handleDeny = async (requestId: string, comment?: string) => {
+  const handleDeny = async (requestId: string, comment?: string): Promise<boolean> => {
+    // Prevent double-processing
+    if (processingRequestIds.has(requestId)) {
+      toast.error('This request is already being processed')
+      return false
+    }
+    setProcessingRequestIds(prev => new Set(prev).add(requestId))
+
     try {
       const requestType = approvalDetails?.request?.requestType || 'leave'
       const response = await fetch(`/api/manager/team/deny-request/${requestId}`, {
@@ -579,7 +618,15 @@ export default function ManagerDashboard() {
 
       if (response.ok) {
         toast.success(t.messages.requestDeniedSuccess)
-        // Refresh all data
+        // Optimistically remove from pending list immediately
+        if (requestType === 'wfh') {
+          setWfhPendingRequests(prev => prev.filter(r => r.id !== requestId))
+        } else if (requestType === 'workTrip') {
+          setWorkTripPendingRequests(prev => prev.filter(r => r.id !== requestId))
+        } else {
+          setPendingRequests(prev => prev.filter(r => r.id !== requestId))
+        }
+        // Refresh all data in the background
         const refreshPromises: Promise<void>[] = [fetchTeamStats()]
         if (requestType === 'wfh') {
           refreshPromises.push(fetchWfhPendingRequests(), fetchWfhDeniedRequests())
@@ -588,15 +635,34 @@ export default function ManagerDashboard() {
         } else {
           refreshPromises.push(fetchPendingRequests(), fetchDeniedRequests())
         }
-        await Promise.all(refreshPromises)
+        Promise.all(refreshPromises).finally(() => {
+          setProcessingRequestIds(prev => {
+            const next = new Set(prev)
+            next.delete(requestId)
+            return next
+          })
+        })
         setShowApprovalDialog(false)
+        return true
       } else {
         const errorData = await response.json().catch(() => ({}))
         toast.error(errorData.error || errorData.details || t.messages.failedToDeny)
+        setProcessingRequestIds(prev => {
+          const next = new Set(prev)
+          next.delete(requestId)
+          return next
+        })
+        return false
       }
     } catch (error) {
       console.error('Error denying request:', error)
       toast.error(t.messages.failedToDeny)
+      setProcessingRequestIds(prev => {
+        const next = new Set(prev)
+        next.delete(requestId)
+        return next
+      })
+      return false
     }
   }
 
@@ -635,6 +701,7 @@ export default function ManagerDashboard() {
   }
 
   const handleApproveRequest = (request: any) => {
+    if (processingRequestIds.has(request?.id)) return
     setApprovalDetails({
       action: "approve",
       request: {
@@ -650,6 +717,7 @@ export default function ManagerDashboard() {
   }
 
   const handleDenyRequest = (request: any) => {
+    if (processingRequestIds.has(request?.id)) return
     setApprovalDetails({
       action: "deny",
       request: {
@@ -1254,18 +1322,20 @@ export default function ManagerDashboard() {
                               </div>
                             </div>
                             <div className="flex gap-1">
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 className="h-7 px-2"
+                                disabled={processingRequestIds.has(request.id)}
                                 onClick={() => handleApproveRequest(request)}
                               >
                                 <CheckCircle className="h-3.5 w-3.5 text-green-600" />
                               </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 className="h-7 px-2"
+                                disabled={processingRequestIds.has(request.id)}
                                 onClick={() => handleDenyRequest(request)}
                               >
                                 <XCircle className="h-3.5 w-3.5 text-red-600" />
@@ -1756,13 +1826,14 @@ export default function ManagerDashboard() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleApproveRequest(request)}>
+                            <Button size="sm" disabled={processingRequestIds.has(request.id)} onClick={() => handleApproveRequest(request)}>
                               <CheckCircle className="h-4 w-4 mr-1" />
                               {t.common.approve}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={processingRequestIds.has(request.id)}
                               onClick={() => handleDenyRequest(request)}
                               className="text-red-600 hover:text-red-700"
                             >
@@ -2017,13 +2088,14 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
-                                  <Button size="sm" onClick={() => handleApproveRequest(request)}>
+                                  <Button size="sm" disabled={processingRequestIds.has(request.id)} onClick={() => handleApproveRequest(request)}>
                                     <CheckCircle className="h-4 w-4 mr-1" />
                                     {t.common.approve}
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    disabled={processingRequestIds.has(request.id)}
                                     onClick={() => handleDenyRequest(request)}
                                     className="text-red-600 hover:text-red-700"
                                   >
@@ -2233,13 +2305,14 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
-                                  <Button size="sm" onClick={() => handleApproveRequest(request)}>
+                                  <Button size="sm" disabled={processingRequestIds.has(request.id)} onClick={() => handleApproveRequest(request)}>
                                     <CheckCircle className="h-4 w-4 mr-1" />
                                     {t.common.approve}
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    disabled={processingRequestIds.has(request.id)}
                                     onClick={() => handleDenyRequest(request)}
                                     className="text-red-600 hover:text-red-700"
                                   >

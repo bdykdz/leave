@@ -6,16 +6,17 @@ import { prisma } from '@/lib/prisma';
 // GET: Fetch single department details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { departmentId: string } }
+  { params }: { params: Promise<{ departmentId: string }> }
 ) {
   try {
+    const { departmentId } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const department = await prisma.department.findUnique({
-      where: { id: params.departmentId },
+      where: { id: departmentId },
       include: {
         manager: {
           select: {
@@ -86,9 +87,10 @@ export async function GET(
 // PATCH: Update department details
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { departmentId: string } }
+  { params }: { params: Promise<{ departmentId: string }> }
 ) {
   try {
+    const { departmentId } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -108,7 +110,7 @@ export async function PATCH(
 
     // Check if department exists
     const existingDept = await prisma.department.findUnique({
-      where: { id: params.departmentId }
+      where: { id: departmentId }
     });
 
     if (!existingDept) {
@@ -123,7 +125,7 @@ export async function PATCH(
             equals: data.name,
             mode: 'insensitive'
           },
-          id: { not: params.departmentId }
+          id: { not: departmentId }
         }
       });
 
@@ -137,7 +139,7 @@ export async function PATCH(
 
     // Prevent circular parent relationships
     if (data.parentDepartmentId) {
-      if (data.parentDepartmentId === params.departmentId) {
+      if (data.parentDepartmentId === departmentId) {
         return NextResponse.json(
           { error: 'Department cannot be its own parent' },
           { status: 400 }
@@ -146,7 +148,7 @@ export async function PATCH(
 
       // Check if the new parent is a child of this department
       const isCircular = await checkCircularDependency(
-        params.departmentId,
+        departmentId,
         data.parentDepartmentId
       );
 
@@ -160,7 +162,7 @@ export async function PATCH(
 
     // Update department
     const updatedDepartment = await prisma.department.update({
-      where: { id: params.departmentId },
+      where: { id: departmentId },
       data: {
         name: data.name || undefined,
         description: data.description,
@@ -209,9 +211,10 @@ export async function PATCH(
 // DELETE: Delete or deactivate department
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { departmentId: string } }
+  { params }: { params: Promise<{ departmentId: string }> }
 ) {
   try {
+    const { departmentId } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -229,7 +232,7 @@ export async function DELETE(
 
     // Check if department has users
     const userCount = await prisma.user.count({
-      where: { departmentId: params.departmentId }
+      where: { departmentId: departmentId }
     });
 
     if (userCount > 0) {
@@ -241,7 +244,7 @@ export async function DELETE(
 
     // Check if department has child departments
     const childCount = await prisma.department.count({
-      where: { parentDepartmentId: params.departmentId }
+      where: { parentDepartmentId: departmentId }
     });
 
     if (childCount > 0) {
@@ -253,7 +256,7 @@ export async function DELETE(
 
     // Soft delete (deactivate) the department
     const updatedDepartment = await prisma.department.update({
-      where: { id: params.departmentId },
+      where: { id: departmentId },
       data: {
         isActive: false,
         managerId: null,

@@ -6,9 +6,10 @@ import { prisma } from '@/lib/prisma';
 // POST: Assign users to department
 export async function POST(
   request: NextRequest,
-  { params }: { params: { departmentId: string } }
+  { params }: { params: Promise<{ departmentId: string }> }
 ) {
   try {
+    const { departmentId } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -35,7 +36,7 @@ export async function POST(
 
     // Check if department exists
     const department = await prisma.department.findUnique({
-      where: { id: params.departmentId }
+      where: { id: departmentId }
     });
 
     if (!department) {
@@ -49,7 +50,7 @@ export async function POST(
           id: { in: userIds }
         },
         data: {
-          departmentId: params.departmentId
+          departmentId: departmentId
         }
       });
 
@@ -62,7 +63,7 @@ export async function POST(
       const result = await prisma.user.updateMany({
         where: {
           id: { in: userIds },
-          departmentId: params.departmentId
+          departmentId: departmentId
         },
         data: {
           departmentId: null,
@@ -93,9 +94,10 @@ export async function POST(
 // PATCH: Update department leadership (manager/director)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { departmentId: string } }
+  { params }: { params: Promise<{ departmentId: string }> }
 ) {
   try {
+    const { departmentId } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -115,7 +117,7 @@ export async function PATCH(
 
     // Check if department exists
     const department = await prisma.department.findUnique({
-      where: { id: params.departmentId }
+      where: { id: departmentId }
     });
 
     if (!department) {
@@ -128,7 +130,7 @@ export async function PATCH(
     // Update manager
     if (managerId !== undefined) {
       updateData.managerId = managerId || null;
-      
+
       if (managerId) {
         // Update the user's role to MANAGER
         userUpdates.push(
@@ -136,16 +138,16 @@ export async function PATCH(
             where: { id: managerId },
             data: {
               role: 'MANAGER',
-              departmentId: params.departmentId
+              departmentId: departmentId
             }
           })
         );
-        
+
         // Update all department users to have this manager
         userUpdates.push(
           prisma.user.updateMany({
             where: {
-              departmentId: params.departmentId,
+              departmentId: departmentId,
               id: { not: managerId }
             },
             data: {
@@ -159,7 +161,7 @@ export async function PATCH(
     // Update director
     if (directorId !== undefined) {
       updateData.directorId = directorId || null;
-      
+
       if (directorId) {
         // Update the user's role
         userUpdates.push(
@@ -167,16 +169,16 @@ export async function PATCH(
             where: { id: directorId },
             data: {
               role: 'MANAGER',
-              departmentId: params.departmentId
+              departmentId: departmentId
             }
           })
         );
-        
+
         // Update all department users to have this director
         userUpdates.push(
           prisma.user.updateMany({
             where: {
-              departmentId: params.departmentId,
+              departmentId: departmentId,
               id: { not: directorId }
             },
             data: {
@@ -190,7 +192,7 @@ export async function PATCH(
     // Execute all updates in a transaction
     const [updatedDepartment, ...userUpdateResults] = await prisma.$transaction([
       prisma.department.update({
-        where: { id: params.departmentId },
+        where: { id: departmentId },
         data: updateData,
         include: {
           manager: true,

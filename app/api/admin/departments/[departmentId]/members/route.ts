@@ -5,9 +5,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { departmentId: string } }
+  { params }: { params: Promise<{ departmentId: string }> }
 ) {
   try {
+    const { departmentId } = await params;
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,7 +25,7 @@ export async function GET(
 
     // Get department name from ID
     const dept = await prisma.department.findUnique({
-      where: { id: params.departmentId },
+      where: { id: departmentId },
       select: { name: true }
     });
 

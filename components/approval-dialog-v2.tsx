@@ -53,6 +53,7 @@ export function ApprovalDialogV2({ isOpen, onClose, action, request, onConfirm }
       setShowConfirmation(true)
       setTimeout(() => {
         handleClose()
+        window.location.reload()
       }, 2000)
     } catch (err) {
       setSubmitting(false)
