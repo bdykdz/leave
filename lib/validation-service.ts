@@ -1,6 +1,7 @@
 import { startOfDay, endOfDay, isAfter, isBefore, isWithinInterval, addDays } from 'date-fns';
 import { log } from './logger';
 import { prisma } from './prisma';
+import { isNoSubstituteUser } from './no-substitute-user';
 import { WorkingDaysService } from './services/working-days-service';
 const workingDaysService = WorkingDaysService.getInstance();
 
@@ -173,7 +174,16 @@ export class ValidationService {
     requestingUserId?: string
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
-    
+
+    // Skip all validation for the "Fără Înlocuitor" virtual substitute user
+    const substituteUser = await prisma.user.findUnique({
+      where: { id: substituteId },
+      select: { employeeId: true, isActive: true }
+    });
+    if (substituteUser && isNoSubstituteUser(substituteUser.employeeId)) {
+      return errors;
+    }
+
     // Check if substitute is the same as requesting user (self-substitution)
     if (substituteId === requestingUserId) {
       errors.push({
@@ -231,13 +241,8 @@ export class ValidationService {
       }
     }
     
-    // Check if substitute is inactive
-    const substitute = await prisma.user.findUnique({
-      where: { id: substituteId },
-      select: { isActive: true, firstName: true, lastName: true }
-    });
-    
-    if (!substitute?.isActive) {
+    // Check if substitute is inactive (reuse data fetched earlier)
+    if (!substituteUser?.isActive) {
       errors.push({
         field: 'substituteId',
         message: 'Selected substitute is no longer active',

@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth"
 import AzureADProvider from "next-auth/providers/azure-ad"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
+import { NO_SUBSTITUTE_USER } from "@/lib/no-substitute-user"
 import { Role } from "@prisma/client"
 
 export const authOptions: NextAuthOptions = {
@@ -158,7 +159,13 @@ export const authOptions: NextAuthOptions = {
         hasProfile: !!profile,
         timestamp: new Date().toISOString(),
       })
-      
+
+      // Block virtual system users from signing in
+      if (user?.email === NO_SUBSTITUTE_USER.EMAIL) {
+        console.log('[AUTH] Blocked sign-in attempt for virtual substitute user')
+        return false
+      }
+
       // Allow development credentials provider in development and UAT
       if (account?.provider === "credentials" && ((process.env.NODE_ENV === "development" || process.env.APP_ENV === "uat") && process.env.SHOW_DEV_LOGIN === "true")) {
         console.log('Allowing credentials provider login')

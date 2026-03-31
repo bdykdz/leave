@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { NO_SUBSTITUTE_USER } from '@/lib/no-substitute-user';
 import { emailService } from '@/lib/email-service';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest) {
     }
 
     const users = await prisma.user.findMany({
+      where: {
+        employeeId: { not: NO_SUBSTITUTE_USER.EMPLOYEE_ID },
+      },
       select: {
         id: true,
         email: true,

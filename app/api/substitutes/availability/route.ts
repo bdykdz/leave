@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
+import { NO_SUBSTITUTE_USER } from "@/lib/no-substitute-user"
 import { startOfDay, endOfDay, isWithinInterval, format } from "date-fns"
 
 export async function POST(request: NextRequest) {
@@ -187,6 +188,32 @@ export async function POST(request: NextRequest) {
       const order = { available: 0, partial: 1, unavailable: 2 }
       return order[a.availabilityStatus] - order[b.availabilityStatus]
     })
+
+    // Prepend the "Fără Înlocuitor" virtual user (always available, all departments)
+    const noSubstituteUser = await prisma.user.findUnique({
+      where: { employeeId: NO_SUBSTITUTE_USER.EMPLOYEE_ID },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        department: true,
+        role: true,
+        profileImage: true,
+        employeeId: true,
+      }
+    })
+
+    if (noSubstituteUser) {
+      sortedSubstitutes.unshift({
+        ...noSubstituteUser,
+        name: `${noSubstituteUser.firstName} ${noSubstituteUser.lastName}`,
+        conflicts: [],
+        availabilityStatus: 'available' as const,
+        isRecommended: true,
+        isVirtualUser: true,
+      })
+    }
 
     return NextResponse.json({
       substitutes: sortedSubstitutes,

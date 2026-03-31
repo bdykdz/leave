@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
+import { isNoSubstituteUser } from '@/lib/no-substitute-user'
 import { format } from 'date-fns'
 import { join } from 'path'
 import { getFromMinio, uploadToMinio, generateLeaveDocumentName } from '@/lib/minio'
@@ -886,7 +887,12 @@ export class SmartDocumentGenerator {
       console.log('Executive request - no substitute needed')
       return 'N/A (Executive Request)'
     }
-    
+
+    // Check for "Fără Înlocuitor" virtual substitute
+    if (leaveRequest.substitute && isNoSubstituteUser(leaveRequest.substitute.employeeId)) {
+      return 'Fără Înlocuitor'
+    }
+
     if (leaveRequest.substitutes && leaveRequest.substitutes.length > 0) {
       console.log(
         `Found ${leaveRequest.substitutes.length} substitutes:`,
@@ -920,7 +926,12 @@ export class SmartDocumentGenerator {
     if (leaveRequest.supportingDocuments?.isExecutiveRequest) {
       return 'N/A (Executive Request)'
     }
-    
+
+    // Check for "Fără Înlocuitor" virtual substitute
+    if (leaveRequest.substitute && isNoSubstituteUser(leaveRequest.substitute.employeeId)) {
+      return 'N/A (Fără Înlocuitor)'
+    }
+
     if (leaveRequest.substitutes && leaveRequest.substitutes.length > 0) {
       return leaveRequest.substitutes
         .map((sub: AnyObj) => sub.user.email)
