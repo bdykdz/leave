@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { NO_SUBSTITUTE_USER } from '@/lib/no-substitute-user';
 
 // GET: List all employees for HR dashboard with pagination and filtering
 export async function GET(request: NextRequest) {
@@ -31,9 +32,11 @@ export async function GET(request: NextRequest) {
     const department = searchParams.get('department');
     const role = searchParams.get('role');
     
-    // Build where clause for filtering
-    const whereClause: any = {};
-    
+    // Build where clause for filtering (exclude virtual substitute user)
+    const whereClause: any = {
+      employeeId: { not: NO_SUBSTITUTE_USER.EMPLOYEE_ID },
+    };
+
     if (search) {
       whereClause.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },

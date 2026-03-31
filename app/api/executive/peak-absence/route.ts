@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { NO_SUBSTITUTE_USER } from '@/lib/no-substitute-user';
 import { addMonths, format, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
 
 export async function GET(request: NextRequest) {
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest) {
     const today = new Date();
     const threeMonthsOut = addMonths(today, 3);
 
-    // Count total active employees
+    // Count total active employees (exclude virtual substitute user)
     const totalEmployees = await prisma.user.count({
-      where: { isActive: true }
+      where: { isActive: true, employeeId: { not: NO_SUBSTITUTE_USER.EMPLOYEE_ID } }
     });
 
     if (totalEmployees === 0) {

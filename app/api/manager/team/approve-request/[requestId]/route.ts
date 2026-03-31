@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
+import { isNoSubstituteUser } from "@/lib/no-substitute-user"
 import { SmartDocumentGenerator } from "@/lib/smart-document-generator"
 import { emailService } from "@/lib/email-service"
 import { CacheService } from "@/lib/services/cache-service"
@@ -446,13 +447,14 @@ export async function POST(
           });
           console.log(`Approval email sent to user ID: ${updatedLeaveRequest.user.id}`);
 
-          // Send substitute notification if a substitute is assigned
+          // Send substitute notification if a substitute is assigned (skip virtual user)
           if (updatedLeaveRequest.substituteId) {
             const substitute = await prisma.user.findUnique({
-              where: { id: updatedLeaveRequest.substituteId }
+              where: { id: updatedLeaveRequest.substituteId },
+              select: { email: true, firstName: true, lastName: true, employeeId: true }
             });
 
-            if (substitute?.email) {
+            if (substitute?.email && !isNoSubstituteUser(substitute.employeeId)) {
               await emailService.sendSubstituteAssignmentEmail(substitute.email, {
                 substituteName: `${substitute.firstName} ${substitute.lastName}`,
                 employeeName: `${updatedLeaveRequest.user.firstName} ${updatedLeaveRequest.user.lastName}`,
