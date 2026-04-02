@@ -248,21 +248,38 @@ export class EscalationService {
               }
             });
 
-            // Restore pending leave balance
+            // Restore pending leave balance (if balance record exists)
             const balanceYear = new Date(request.startDate).getFullYear();
-            await tx.leaveBalance.update({
+            const balance = await tx.leaveBalance.findUnique({
               where: {
                 userId_leaveTypeId_year: {
                   userId: request.userId,
                   leaveTypeId: request.leaveTypeId,
                   year: balanceYear
                 }
-              },
-              data: {
-                pending: { decrement: request.totalDays },
-                available: { increment: request.totalDays }
               }
             });
+            if (balance && balance.pending >= request.totalDays) {
+              await tx.leaveBalance.update({
+                where: { id: balance.id },
+                data: {
+                  pending: { decrement: request.totalDays },
+                  available: { increment: request.totalDays }
+                }
+              });
+            } else if (balance) {
+              // Pending is less than expected (possible prior adjustment) — zero it out safely
+              await tx.leaveBalance.update({
+                where: { id: balance.id },
+                data: {
+                  pending: 0,
+                  available: balance.entitled + balance.carriedForward - balance.used
+                }
+              });
+              console.warn(`Balance pending (${balance.pending}) < totalDays (${request.totalDays}) for request ${request.id} — recalculated available`);
+            } else {
+              console.warn(`No balance record found for year ${balanceYear}, user ${request.userId}, leaveType ${request.leaveTypeId} — skipping balance restore`);
+            }
 
             // Notify the employee
             await tx.notification.create({
@@ -620,6 +637,18 @@ export class EscalationService {
         console.log(`Approval record already exists for approver ${escalateToId} on request ${approval.leaveRequestId}`);
       }
 
+      // Determine correct notification link based on the escalated approver's role
+      const escalatedApprover = await tx.user.findUnique({
+        where: { id: escalateToId },
+        select: { role: true }
+      });
+      let notificationLink = `/manager/approvals/${leaveRequest.id}`;
+      if (escalatedApprover?.role === 'HR') {
+        notificationLink = `/hr?request=${leaveRequest.id}`;
+      } else if (escalatedApprover?.role === 'EXECUTIVE') {
+        notificationLink = `/executive?request=${leaveRequest.id}`;
+      }
+
       // Create notification for the new approver
       await tx.notification.create({
         data: {
@@ -627,7 +656,7 @@ export class EscalationService {
           type: 'APPROVAL_REQUIRED',
           title: 'Cerere de concediu escaladată',
           message: `Cererea de concediu de la ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} a fost escaladată către dvs. pentru aprobare`,
-          link: `/manager/approvals/${leaveRequest.id}`
+          link: notificationLink
         }
       });
 

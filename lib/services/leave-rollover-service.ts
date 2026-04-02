@@ -53,8 +53,8 @@ export class LeaveRolloverService {
       const config = this.getRolloverConfig(balance.leaveType)
       if (!config) continue
 
-      // Calculate unused days
-      const unused = Math.max(0, balance.entitled + balance.carriedForward - balance.used)
+      // Calculate unused days (pending requests are reserved and not available for carry-forward)
+      const unused = Math.max(0, balance.entitled + balance.carriedForward - balance.used - balance.pending)
       
       // Calculate how much can be carried forward
       const carryForwardPercentage = config.carryForwardPercentage || 100

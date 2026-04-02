@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
 import { emailService } from '@/lib/email-service';
-import { format } from 'date-fns';
+import { format, eachDayOfInterval } from 'date-fns';
 import { log } from '@/lib/logger';
 import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { ValidationService } from '@/lib/validation-service';
@@ -342,6 +342,21 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         );
       }
     } else {
+      // For date range, also check for blocked holiday conflicts
+      const allDatesInRange = eachDayOfInterval({ start: startDate, end: endDate })
+        .map(d => d.toISOString().split('T')[0]);
+      const holidayCheck = await checkHolidayConflicts(allDatesInRange);
+      if (holidayCheck.hasConflict) {
+        return NextResponse.json(
+          {
+            error: 'Holiday conflict',
+            message: holidayCheck.message,
+            blockedDates: holidayCheck.blockedDates
+          },
+          { status: 400 }
+        );
+      }
+
       // For date range, calculate working days between start and end
       const workingDaysService = WorkingDaysService.getInstance();
       actualDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
