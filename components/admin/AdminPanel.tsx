@@ -26,6 +26,7 @@ import { LeaveBalanceSettings } from "./LeaveBalanceSettings"
 import { RequestsResetManager } from "./RequestsResetManager"
 import { SelectedDatesMigration } from "./SelectedDatesMigration"
 import { HistoricalBalanceImport } from "./HistoricalBalanceImport"
+import { DocumentExportPanel } from "./DocumentExportPanel"
 import { 
   FileText,
   Calendar,
@@ -51,6 +52,7 @@ import {
   ChevronRight,
   FolderOpen,
   CheckCircle,
+  Download,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -129,6 +131,7 @@ export function AdminPanel() {
         { id: 'templates', title: 'Templates', icon: FileText },
         { id: 'documents', title: 'Documents', icon: FolderOpen },
         { id: 'verification', title: 'Verification', icon: CheckCircle },
+        { id: 'document-export', title: 'Export', icon: Download },
         { id: 'leave-types', title: 'Leave Types', icon: Calendar },
         { id: 'leave-balance', title: 'Balance', icon: Calculator },
         { id: 'holidays', title: 'Holidays', icon: Calendar },
@@ -175,6 +178,8 @@ export function AdminPanel() {
         return <DocumentFileManager />
       case 'verification':
         return <DocumentVerification />
+      case 'document-export':
+        return <DocumentExportPanel />
       case 'leave-types':
         return <LeaveTypesManager />
       case 'leave-balance':

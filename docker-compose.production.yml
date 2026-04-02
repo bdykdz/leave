@@ -36,6 +36,7 @@ services:
         max-file: "10"
         tag: "leave-production"
     volumes:
+      - /opt/leave-management/document-exports:/app/document-exports
       - production_app_logs:/app/logs
     # Security: resource limits
     deploy:

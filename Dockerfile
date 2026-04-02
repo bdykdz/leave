@@ -42,6 +42,9 @@ COPY --from=builder /app/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
+# Create document export directory
+RUN mkdir -p /app/document-exports && chown nextjs:nodejs /app/document-exports
+
 # Copy the standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

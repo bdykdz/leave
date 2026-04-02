@@ -17,6 +17,7 @@ echo "✅ Database schema sync completed"
 # Change ownership and switch to nextjs user
 chown -R nextjs:nodejs /app/.next
 chown -R nextjs:nodejs /app/node_modules/.prisma
+chown -R nextjs:nodejs /app/document-exports 2>/dev/null || true
 
 # Start the Next.js application as nextjs user
 echo "🌐 Starting Next.js application..."

@@ -65,9 +65,25 @@ export function scheduleCronJobs() {
     }
   }, { timezone: 'UTC' })
 
+  // Document export sync: Daily at 01:00 UTC
+  cron.schedule('0 1 * * *', async () => {
+    console.log('[CRON] Running document export sync...')
+    try {
+      const res = await fetch(`${baseUrl}/api/cron/document-export`, {
+        method: 'POST',
+        headers,
+      })
+      const data = await res.json()
+      console.log('[CRON] Document export sync result:', data)
+    } catch (error) {
+      console.error('[CRON] Document export sync failed:', error)
+    }
+  }, { timezone: 'UTC' })
+
   console.log('[CRON] Scheduled jobs:')
   console.log('  - WFH auto-cancel: Friday 23:59 UTC (01:59 Bucharest Saturday)')
   console.log('  - Escalation check: every 4 hours')
   console.log('  - Document cleanup: DISABLED')
   console.log('  - Admin cleanup: daily 02:00 UTC')
+  console.log('  - Document export sync: daily 01:00 UTC')
 }

@@ -12,7 +12,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['node-cron'],
+  serverExternalPackages: ['node-cron', 'archiver'],
 }
 
 // Sentry configuration options
