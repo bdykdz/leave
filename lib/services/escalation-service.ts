@@ -220,38 +220,65 @@ export class EscalationService {
     if (staleRequests.length > 0) {
       console.log(`Found ${staleRequests.length} stale leave requests (leave dates already passed) - auto-cancelling`);
       for (const request of staleRequests) {
-        await prisma.$transaction(async (tx) => {
-          await tx.leaveRequest.update({
-            where: { id: request.id },
-            data: {
-              status: 'CANCELLED'
-            }
-          });
+        try {
+          await prisma.$transaction(async (tx) => {
+            // Re-check status inside transaction to prevent race conditions
+            const current = await tx.leaveRequest.findUnique({
+              where: { id: request.id },
+              select: { status: true }
+            });
+            if (current?.status !== 'PENDING') return;
 
-          // Reject all pending approvals for this request
-          await tx.approval.updateMany({
-            where: {
-              leaveRequestId: request.id,
-              status: 'PENDING'
-            },
-            data: {
-              status: 'REJECTED',
-              comments: 'Auto-cancelled: leave period has passed without approval'
-            }
-          });
+            await tx.leaveRequest.update({
+              where: { id: request.id },
+              data: {
+                status: 'CANCELLED'
+              }
+            });
 
-          // Notify the employee
-          await tx.notification.create({
-            data: {
-              userId: request.userId,
-              type: 'LEAVE_REJECTED',
-              title: 'Cerere de concediu anulată automat',
-              message: `Cererea dvs. de concediu (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')}) a fost anulată automat deoarece perioada de concediu a trecut fără aprobare.`,
-              link: `/leave/${request.id}`
-            }
+            // Reject all pending approvals for this request
+            await tx.approval.updateMany({
+              where: {
+                leaveRequestId: request.id,
+                status: 'PENDING'
+              },
+              data: {
+                status: 'REJECTED',
+                comments: 'Auto-cancelled: leave period has passed without approval'
+              }
+            });
+
+            // Restore pending leave balance
+            const balanceYear = new Date(request.startDate).getFullYear();
+            await tx.leaveBalance.update({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: request.userId,
+                  leaveTypeId: request.leaveTypeId,
+                  year: balanceYear
+                }
+              },
+              data: {
+                pending: { decrement: request.totalDays },
+                available: { increment: request.totalDays }
+              }
+            });
+
+            // Notify the employee
+            await tx.notification.create({
+              data: {
+                userId: request.userId,
+                type: 'LEAVE_REJECTED',
+                title: 'Cerere de concediu anulată automat',
+                message: `Cererea dvs. de concediu (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')}) a fost anulată automat deoarece perioada de concediu a trecut fără aprobare.`,
+                link: `/leave/${request.id}`
+              }
+            });
           });
-        });
-        console.log(`Auto-cancelled stale request ${request.id} for user ${request.user.firstName} ${request.user.lastName} (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')})`);
+          console.log(`Auto-cancelled stale request ${request.id} for user ${request.user.firstName} ${request.user.lastName} (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')})`);
+        } catch (err) {
+          console.error(`Failed to auto-cancel stale request ${request.id}:`, err);
+        }
       }
     }
 

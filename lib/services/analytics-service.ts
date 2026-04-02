@@ -278,7 +278,7 @@ export class AnalyticsService {
     const approvalRate = totalApprovals > 0 ? (approvedCount / totalApprovals) * 100 : 0
 
     // Calculate escalation rate
-    const escalatedCount = approvals.filter(a => a.escalatedTo !== null).length
+    const escalatedCount = approvals.filter(a => a.escalatedToId !== null).length
     const escalationRate = totalApprovals > 0 ? (escalatedCount / totalApprovals) * 100 : 0
 
     // Top approvers
