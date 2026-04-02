@@ -56,7 +56,12 @@ export async function POST(
         where: { id: params.id },
         data: {
           status: 'CANCELLED',
-          approverComments: reason || 'Cancelled by administrator'
+          supportingDocuments: {
+            ...(leaveRequest.supportingDocuments as any || {}),
+            cancellationReason: reason || 'Cancelled by administrator',
+            cancelledBy: session.user.email,
+            cancelledAt: new Date().toISOString(),
+          }
         }
       });
 

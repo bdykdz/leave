@@ -474,6 +474,7 @@ export interface Translations {
     approved: string
     denied: string
     employees: string
+    leaveRequests: string
     calendar: string
     analytics: string
     verification: string
@@ -1283,6 +1284,7 @@ export const translations: Record<Language, Translations> = {
       approved: "Approved",
       denied: "Denied",
       employees: "Employees",
+      leaveRequests: "Leave Requests",
       calendar: "Calendar",
       analytics: "Analytics",
       verification: "Verification",
@@ -2054,6 +2056,7 @@ export const translations: Record<Language, Translations> = {
       approved: "Aprobate",
       denied: "Respinse",
       employees: "Angajați",
+      leaveRequests: "Cereri Concediu",
       calendar: "Calendar",
       analytics: "Analiză",
       verification: "Verificare",
