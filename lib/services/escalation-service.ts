@@ -489,45 +489,42 @@ export class EscalationService {
       escalationReason += `. Skipped absent approvers: ${skippedApprovers.length}`;
     }
     
-    // Use transaction to ensure atomicity
-    await prisma.$transaction(async (tx) => {
-
     // If the approval chain is exhausted (no next approver), flag HR to follow up
     // HR does NOT become an approver — they just nudge the last approver to take action
     if (!escalateToId) {
       console.log(`Approval chain exhausted for request ${leaveRequest.id} - flagging HR to follow up with ${currentApprover.firstName} ${currentApprover.lastName}`);
 
-      // Mark that we already flagged HR so we don't spam them every cron cycle
-      await tx.approval.update({
-        where: { id: approval.id },
-        data: {
-          escalatedAt: new Date(),
-          escalationReason: `Approval chain exhausted. HR flagged to follow up with ${currentApprover.firstName} ${currentApprover.lastName}.`
-        }
-      });
-
-      // Find HR users to notify
-      const hrUsers = await tx.user.findMany({
-        where: {
-          role: 'HR',
-          isActive: true
-        },
-        select: { id: true, email: true, firstName: true, lastName: true }
-      });
-
-      for (const hrUser of hrUsers) {
-        // In-app notification
-        await tx.notification.create({
+      await prisma.$transaction(async (tx) => {
+        // Mark that we already flagged HR so we don't spam them every cron cycle
+        await tx.approval.update({
+          where: { id: approval.id },
           data: {
-            userId: hrUser.id,
-            type: 'APPROVAL_REQUIRED',
-            title: 'Cerere de concediu fără răspuns',
-            message: `Cererea de concediu a angajatului ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} (${format(new Date(leaveRequest.startDate), 'dd.MM.yyyy')} - ${format(new Date(leaveRequest.endDate), 'dd.MM.yyyy')}) așteaptă aprobarea lui ${currentApprover.firstName} ${currentApprover.lastName} de ${config.escalationDaysBeforeAutoApproval}+ zile. Vă rugăm să contactați aprobatorul.`,
-            link: `/hr?request=${leaveRequest.id}`
+            escalatedAt: new Date(),
+            escalationReason: `Approval chain exhausted. HR flagged to follow up with ${currentApprover.firstName} ${currentApprover.lastName}.`
           }
         });
-      }
-      }); // End transaction
+
+        // Find HR users to notify
+        const hrUsers = await tx.user.findMany({
+          where: {
+            role: 'HR',
+            isActive: true
+          },
+          select: { id: true, email: true, firstName: true, lastName: true }
+        });
+
+        for (const hrUser of hrUsers) {
+          await tx.notification.create({
+            data: {
+              userId: hrUser.id,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Cerere de concediu fără răspuns',
+              message: `Cererea de concediu a angajatului ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} (${format(new Date(leaveRequest.startDate), 'dd.MM.yyyy')} - ${format(new Date(leaveRequest.endDate), 'dd.MM.yyyy')}) așteaptă aprobarea lui ${currentApprover.firstName} ${currentApprover.lastName} de ${config.escalationDaysBeforeAutoApproval}+ zile. Vă rugăm să contactați aprobatorul.`,
+              link: `/hr?request=${leaveRequest.id}`
+            }
+          });
+        }
+      });
 
       // Send email to HR users (outside transaction)
       const hrUsersForEmail = await prisma.user.findMany({
@@ -561,62 +558,63 @@ export class EscalationService {
     }
 
     // Escalate to the next person in the chain (manager → director)
-    // Update the current approval with escalation info
-    await tx.approval.update({
-      where: { id: approval.id },
-      data: {
-        escalatedToId: escalateToId,
-        escalatedAt: new Date(),
-        escalationReason
-      }
-    });
-
-    // Check if an approval record already exists for this approver
-    const existingApproval = await tx.approval.findFirst({
-      where: {
-        leaveRequestId: approval.leaveRequestId,
-        approverId: escalateToId,
-        status: 'PENDING'
-      }
-    });
-
-    // Create a new approval record for the escalated approver only if one doesn't exist
-    if (!existingApproval) {
-      await tx.approval.create({
+    await prisma.$transaction(async (tx) => {
+      // Update the current approval with escalation info
+      await tx.approval.update({
+        where: { id: approval.id },
         data: {
-          leaveRequestId: approval.leaveRequestId,
-          approverId: escalateToId,
-          level: approval.level + 1,
-          status: 'PENDING',
-          comments: `Escalated from ${currentApprover.firstName} ${currentApprover.lastName}`
+          escalatedToId: escalateToId,
+          escalatedAt: new Date(),
+          escalationReason
         }
       });
-    } else {
-      console.log(`Approval record already exists for approver ${escalateToId} on request ${approval.leaveRequestId}`);
-    }
 
-    // Create notification for the new approver
-    await tx.notification.create({
-      data: {
-        userId: escalateToId,
-        type: 'APPROVAL_REQUIRED',
-        title: 'Cerere de concediu escaladată',
-        message: `Cererea de concediu de la ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} a fost escaladată către dvs. pentru aprobare`,
-        link: `/manager/approvals/${leaveRequest.id}`
-      }
-    });
+      // Check if an approval record already exists for this approver
+      const existingApproval = await tx.approval.findFirst({
+        where: {
+          leaveRequestId: approval.leaveRequestId,
+          approverId: escalateToId,
+          status: 'PENDING'
+        }
+      });
 
-    // Create notification for the employee
-    await tx.notification.create({
-      data: {
-        userId: leaveRequest.userId,
-        type: 'LEAVE_REQUESTED',
-        title: 'Cerere de concediu escaladată',
-        message: `Cererea dvs. de concediu a fost escaladată către un superior pentru aprobare`,
-        link: `/leave/${leaveRequest.id}`
+      // Create a new approval record for the escalated approver only if one doesn't exist
+      if (!existingApproval) {
+        await tx.approval.create({
+          data: {
+            leaveRequestId: approval.leaveRequestId,
+            approverId: escalateToId,
+            level: approval.level + 1,
+            status: 'PENDING',
+            comments: `Escalated from ${currentApprover.firstName} ${currentApprover.lastName}`
+          }
+        });
+      } else {
+        console.log(`Approval record already exists for approver ${escalateToId} on request ${approval.leaveRequestId}`);
       }
+
+      // Create notification for the new approver
+      await tx.notification.create({
+        data: {
+          userId: escalateToId,
+          type: 'APPROVAL_REQUIRED',
+          title: 'Cerere de concediu escaladată',
+          message: `Cererea de concediu de la ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} a fost escaladată către dvs. pentru aprobare`,
+          link: `/manager/approvals/${leaveRequest.id}`
+        }
+      });
+
+      // Create notification for the employee
+      await tx.notification.create({
+        data: {
+          userId: leaveRequest.userId,
+          type: 'LEAVE_REQUESTED',
+          title: 'Cerere de concediu escaladată',
+          message: `Cererea dvs. de concediu a fost escaladată către un superior pentru aprobare`,
+          link: `/leave/${leaveRequest.id}`
+        }
+      });
     });
-    }); // End transaction
 
     // Send email notification to the escalated-to approver (outside transaction)
     try {
