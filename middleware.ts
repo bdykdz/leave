@@ -116,6 +116,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/dev") ||
     pathname.startsWith("/api/docs") ||
     pathname.startsWith("/api/health") ||
+    pathname.startsWith("/api/cron") ||
     pathname.startsWith("/setup") ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/_next") ||
