@@ -3,6 +3,7 @@ import { log } from './logger';
 import { prisma } from './prisma';
 import { isNoSubstituteUser } from './no-substitute-user';
 import { WorkingDaysService } from './services/working-days-service';
+import { hasActualDateOverlap } from '@/lib/utils/date-validation';
 const workingDaysService = WorkingDaysService.getInstance();
 
 export interface ValidationError {
@@ -19,7 +20,8 @@ export class ValidationService {
     userId: string,
     startDate: Date,
     endDate: Date,
-    excludeRequestId?: string
+    excludeRequestId?: string,
+    selectedDates?: Date[]
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
     const now = startOfDay(new Date());
@@ -58,7 +60,8 @@ export class ValidationService {
       userId,
       startDate,
       endDate,
-      excludeRequestId
+      excludeRequestId,
+      selectedDates
     );
     
     if (overlapping.length > 0) {
@@ -100,8 +103,10 @@ export class ValidationService {
     userId: string,
     startDate: Date,
     endDate: Date,
-    excludeRequestId?: string
+    excludeRequestId?: string,
+    selectedDates?: Date[]
   ): Promise<string[]> {
+    // Coarse range filter to narrow DB results
     const existingRequests = await prisma.leaveRequest.findMany({
       where: {
         userId,
@@ -129,10 +134,17 @@ export class ValidationService {
         requestNumber: true,
         startDate: true,
         endDate: true,
+        selectedDates: true,
       },
     });
-    
-    return existingRequests.map(req => 
+
+    // Fine filter: check actual selected-date overlap, not just range overlap
+    const incomingRequest = { startDate, endDate, selectedDates: selectedDates ?? null };
+    const actualOverlaps = existingRequests.filter(req =>
+      hasActualDateOverlap(req, incomingRequest)
+    );
+
+    return actualOverlaps.map(req =>
       `${req.requestNumber} (${req.startDate.toLocaleDateString()} - ${req.endDate.toLocaleDateString()})`
     );
   }
@@ -435,17 +447,19 @@ export class ValidationService {
       endDate: Date;
       totalDays: number;
       substituteIds?: string[];
+      selectedDates?: Date[];
     },
     excludeRequestId?: string
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
-    
+
     // Date validations
     const dateErrors = await this.validateLeaveRequestDates(
       userId,
       data.startDate,
       data.endDate,
-      excludeRequestId
+      excludeRequestId,
+      data.selectedDates
     );
     errors.push(...dateErrors);
     

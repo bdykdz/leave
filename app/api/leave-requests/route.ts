@@ -386,6 +386,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         endDate,
         totalDays: actualDays,
         substituteIds: validatedData.substituteIds,
+        selectedDates: validatedData.selectedDates?.map((d: string) => new Date(d)),
       }
     );
 
