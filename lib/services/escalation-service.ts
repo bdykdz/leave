@@ -199,14 +199,78 @@ export class EscalationService {
       config.escalationDaysBeforeAutoApproval
     );
 
+    // Auto-cancel leave requests where the leave period has already passed
+    // No point escalating or keeping pending a request for dates that are gone
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const staleRequests = await prisma.leaveRequest.findMany({
+      where: {
+        status: 'PENDING',
+        endDate: {
+          lt: today
+        }
+      },
+      include: {
+        user: true,
+        approvals: true
+      }
+    });
+
+    if (staleRequests.length > 0) {
+      console.log(`Found ${staleRequests.length} stale leave requests (leave dates already passed) - auto-cancelling`);
+      for (const request of staleRequests) {
+        await prisma.$transaction(async (tx) => {
+          await tx.leaveRequest.update({
+            where: { id: request.id },
+            data: {
+              status: 'CANCELLED'
+            }
+          });
+
+          // Reject all pending approvals for this request
+          await tx.approval.updateMany({
+            where: {
+              leaveRequestId: request.id,
+              status: 'PENDING'
+            },
+            data: {
+              status: 'REJECTED',
+              comments: 'Auto-cancelled: leave period has passed without approval'
+            }
+          });
+
+          // Notify the employee
+          await tx.notification.create({
+            data: {
+              userId: request.userId,
+              type: 'LEAVE_REJECTED',
+              title: 'Cerere de concediu anulată automat',
+              message: `Cererea dvs. de concediu (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')}) a fost anulată automat deoarece perioada de concediu a trecut fără aprobare.`,
+              link: `/leave/${request.id}`
+            }
+          });
+        });
+        console.log(`Auto-cancelled stale request ${request.id} for user ${request.user.firstName} ${request.user.lastName} (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')})`);
+      }
+    }
+
     // Find all pending approvals that are older than the threshold
+    // Only for leave requests where the leave period has NOT yet passed
     const pendingApprovals = await prisma.approval.findMany({
       where: {
         status: 'PENDING',
         createdAt: {
           lte: escalationThreshold
         },
-        escalatedToId: null // Not already escalated
+        escalatedToId: null, // Not already escalated to someone
+        escalatedAt: null, // Not already flagged to HR (chain exhausted case sets escalatedAt without escalatedToId)
+        leaveRequest: {
+          status: 'PENDING',
+          endDate: {
+            gte: today // Only escalate if leave dates are still in the future
+          }
+        }
       },
       include: {
         leaveRequest: {
@@ -224,7 +288,7 @@ export class EscalationService {
       }
     });
 
-    console.log(`Found ${pendingApprovals.length} approvals to escalate`);
+    console.log(`Found ${pendingApprovals.length} approvals to escalate (excluding past-dated requests)`);
 
     for (const approval of pendingApprovals) {
       await this.escalateApproval(approval);
@@ -352,25 +416,14 @@ export class EscalationService {
 
     if (!user) return { approverId: null, skippedApprovers };
 
-    // Build approval chain
+    // Build approval chain — only manager and department director
+    // HR is NOT part of the approval chain; they only get flagged if the chain is exhausted
     const approvalChain: string[] = [];
-    
+
     if (user.managerId) approvalChain.push(user.managerId);
     if (user.departmentDirectorId && user.departmentDirectorId !== user.managerId) {
       approvalChain.push(user.departmentDirectorId);
     }
-    
-    // Add HR or Executive as final escalation (excluding people already in chain and the user themselves)
-    const excludeIds = [...approvalChain, userId];
-    const hrExecutive = await prisma.user.findFirst({
-      where: {
-        role: { in: ['HR', 'EXECUTIVE'] },
-        isActive: true,
-        id: { notIn: excludeIds }
-      }
-    });
-    
-    if (hrExecutive) approvalChain.push(hrExecutive.id);
 
     // Find the current approver's position in the chain
     const currentIndex = approvalChain.indexOf(currentApproverId);
@@ -439,47 +492,76 @@ export class EscalationService {
     // Use transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {
 
-    // Check if we've reached max escalation levels
+    // If the approval chain is exhausted (no next approver), flag HR to follow up
+    // HR does NOT become an approver — they just nudge the last approver to take action
     if (!escalateToId) {
-      if (config.autoApproveAfterMaxEscalations && approval.level >= config.maxEscalationLevels) {
-        // Auto-approve the request
-        console.log(`Auto-approving request ${leaveRequest.id} after ${approval.level} escalations`);
-        
-        await tx.leaveRequest.update({
-          where: { id: leaveRequest.id },
-          data: {
-            status: 'APPROVED'
-          }
-        });
+      console.log(`Approval chain exhausted for request ${leaveRequest.id} - flagging HR to follow up with ${currentApprover.firstName} ${currentApprover.lastName}`);
 
-        await tx.approval.update({
-          where: { id: approval.id },
-          data: {
-            status: 'APPROVED',
-            approvedAt: new Date(),
-            comments: 'Auto-approved by system after maximum escalations'
-          }
-        });
+      // Mark that we already flagged HR so we don't spam them every cron cycle
+      await tx.approval.update({
+        where: { id: approval.id },
+        data: {
+          escalatedAt: new Date(),
+          escalationReason: `Approval chain exhausted. HR flagged to follow up with ${currentApprover.firstName} ${currentApprover.lastName}.`
+        }
+      });
 
-        // Create notification for the employee
+      // Find HR users to notify
+      const hrUsers = await tx.user.findMany({
+        where: {
+          role: 'HR',
+          isActive: true
+        },
+        select: { id: true, email: true, firstName: true, lastName: true }
+      });
+
+      for (const hrUser of hrUsers) {
+        // In-app notification
         await tx.notification.create({
           data: {
-            userId: leaveRequest.userId,
-            type: 'LEAVE_APPROVED',
-            title: 'Leave Request Auto-Approved',
-            message: `Your leave request has been automatically approved after reaching maximum escalation levels`,
-            link: `/leave/${leaveRequest.id}`
+            userId: hrUser.id,
+            type: 'APPROVAL_REQUIRED',
+            title: 'Cerere de concediu fără răspuns',
+            message: `Cererea de concediu a angajatului ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} (${format(new Date(leaveRequest.startDate), 'dd.MM.yyyy')} - ${format(new Date(leaveRequest.endDate), 'dd.MM.yyyy')}) așteaptă aprobarea lui ${currentApprover.firstName} ${currentApprover.lastName} de ${config.escalationDaysBeforeAutoApproval}+ zile. Vă rugăm să contactați aprobatorul.`,
+            link: `/hr?request=${leaveRequest.id}`
           }
         });
+      }
+      }); // End transaction
 
-        return;
+      // Send email to HR users (outside transaction)
+      const hrUsersForEmail = await prisma.user.findMany({
+        where: { role: 'HR', isActive: true },
+        select: { id: true, email: true, firstName: true, lastName: true }
+      });
+
+      for (const hrUser of hrUsersForEmail) {
+        if (hrUser.email) {
+          try {
+            await emailService.sendEscalationNotification(hrUser.email, {
+              employeeName: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+              leaveType: leaveRequest.leaveType?.name || 'Concediu',
+              startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
+              endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
+              days: leaveRequest.totalDays,
+              escalatedFromName: `${currentApprover.firstName} ${currentApprover.lastName}`,
+              escalatedToName: `${hrUser.firstName} ${hrUser.lastName}`,
+              escalationReason: `Aprobatorul ${currentApprover.firstName} ${currentApprover.lastName} nu a răspuns de ${config.escalationDaysBeforeAutoApproval}+ zile. Vă rugăm să îl contactați pentru a lua o decizie.`,
+              companyName: process.env.COMPANY_NAME || 'TPF',
+              requestId: leaveRequest.id
+            });
+            console.log(`HR flag email sent to ${hrUser.email}`);
+          } catch (emailError) {
+            console.error(`Error sending HR flag email to ${hrUser.email}:`, emailError);
+          }
+        }
       }
 
-      console.log(`Cannot escalate approval ${approval.id} - no higher authority found`);
       return;
     }
 
-    // Update the approval with escalation information
+    // Escalate to the next person in the chain (manager → director)
+    // Update the current approval with escalation info
     await tx.approval.update({
       where: { id: approval.id },
       data: {
@@ -513,30 +595,14 @@ export class EscalationService {
       console.log(`Approval record already exists for approver ${escalateToId} on request ${approval.leaveRequestId}`);
     }
 
-    // Check if the new approver is HR employee to determine correct link
-    const escalatedApprover = await tx.user.findUnique({
-      where: { id: escalateToId },
-      select: { role: true, department: true }
-    });
-    
-    let notificationLink = `/manager/approvals/${leaveRequest.id}`;
-    if (escalatedApprover) {
-      if (escalatedApprover.role === 'HR' || 
-          (escalatedApprover.role === 'EMPLOYEE' && (escalatedApprover.department?.toLowerCase() === 'hr' || escalatedApprover.department?.toLowerCase() === 'human resources'))) {
-        notificationLink = `/hr?request=${leaveRequest.id}`;
-      } else if (escalatedApprover.role === 'EXECUTIVE') {
-        notificationLink = `/executive?request=${leaveRequest.id}`;
-      }
-    }
-    
     // Create notification for the new approver
     await tx.notification.create({
       data: {
         userId: escalateToId,
         type: 'APPROVAL_REQUIRED',
-        title: 'Escalated Leave Request Approval Required',
-        message: `Leave request from ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} has been escalated to you for approval`,
-        link: notificationLink
+        title: 'Cerere de concediu escaladată',
+        message: `Cererea de concediu de la ${leaveRequest.user.firstName} ${leaveRequest.user.lastName} a fost escaladată către dvs. pentru aprobare`,
+        link: `/manager/approvals/${leaveRequest.id}`
       }
     });
 
@@ -545,8 +611,8 @@ export class EscalationService {
       data: {
         userId: leaveRequest.userId,
         type: 'LEAVE_REQUESTED',
-        title: 'Leave Request Escalated',
-        message: `Your leave request has been escalated to a higher authority for approval`,
+        title: 'Cerere de concediu escaladată',
+        message: `Cererea dvs. de concediu a fost escaladată către un superior pentru aprobare`,
         link: `/leave/${leaveRequest.id}`
       }
     });
@@ -556,7 +622,7 @@ export class EscalationService {
     try {
       const escalatedToUser = await prisma.user.findUnique({
         where: { id: escalateToId },
-        select: { 
+        select: {
           email: true,
           firstName: true,
           lastName: true
@@ -566,7 +632,7 @@ export class EscalationService {
       if (escalatedToUser?.email) {
         await emailService.sendEscalationNotification(escalatedToUser.email, {
           employeeName: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
-          leaveType: leaveRequest.leaveType?.name || 'Leave Request',
+          leaveType: leaveRequest.leaveType?.name || 'Concediu',
           startDate: format(new Date(leaveRequest.startDate), 'dd MMMM yyyy'),
           endDate: format(new Date(leaveRequest.endDate), 'dd MMMM yyyy'),
           days: leaveRequest.totalDays,
@@ -576,12 +642,11 @@ export class EscalationService {
           companyName: process.env.COMPANY_NAME || 'TPF',
           requestId: leaveRequest.id
         });
-        
+
         console.log(`Escalation email sent to ${escalatedToUser.email}`);
       }
     } catch (emailError) {
       console.error('Error sending escalation email:', emailError);
-      // Don't fail the escalation if email fails
     }
 
     console.log(`Successfully escalated approval ${approval.id} to user ${escalateToId}`);
