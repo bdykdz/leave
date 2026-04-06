@@ -642,11 +642,13 @@ export class EscalationService {
         where: { id: escalateToId },
         select: { role: true }
       });
-      let notificationLink = `/manager/approvals/${leaveRequest.id}`;
+      let notificationLink = `/leave-requests/${leaveRequest.id}`;
       if (escalatedApprover?.role === 'HR') {
         notificationLink = `/hr?request=${leaveRequest.id}`;
       } else if (escalatedApprover?.role === 'EXECUTIVE') {
         notificationLink = `/executive?request=${leaveRequest.id}`;
+      } else if (escalatedApprover?.role === 'MANAGER' || escalatedApprover?.role === 'DEPARTMENT_DIRECTOR') {
+        notificationLink = `/manager?request=${leaveRequest.id}`;
       }
 
       // Create notification for the new approver
@@ -667,7 +669,7 @@ export class EscalationService {
           type: 'LEAVE_REQUESTED',
           title: 'Cerere de concediu escaladată',
           message: `Cererea dvs. de concediu a fost escaladată către un superior pentru aprobare`,
-          link: `/leave/${leaveRequest.id}`
+          link: `/leave-requests/${leaveRequest.id}`
         }
       });
     });
@@ -831,13 +833,15 @@ export class EscalationService {
       select: { role: true, department: true }
     });
     
-    let notificationLink = `/manager/approvals/${leaveRequestId}`;
+    let notificationLink = `/leave-requests/${leaveRequestId}`;
     if (initialApprover) {
-      if (initialApprover.role === 'HR' || 
+      if (initialApprover.role === 'HR' ||
           (initialApprover.role === 'EMPLOYEE' && (initialApprover.department?.toLowerCase() === 'hr' || initialApprover.department?.toLowerCase() === 'human resources'))) {
         notificationLink = `/hr?request=${leaveRequestId}`;
       } else if (initialApprover.role === 'EXECUTIVE') {
         notificationLink = `/executive?request=${leaveRequestId}`;
+      } else if (initialApprover.role === 'MANAGER' || initialApprover.role === 'DEPARTMENT_DIRECTOR') {
+        notificationLink = `/manager?request=${leaveRequestId}`;
       }
     }
     

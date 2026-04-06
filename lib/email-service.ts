@@ -428,7 +428,7 @@ ${process.env.NEXTAUTH_URL}/employee
             <p><strong>Acțiune Necesară:</strong> Această cerere necesită aprobarea dvs. urgentă. Vă rugăm să revizuiți și să luați o decizie în cel mai scurt timp posibil.</p>
             
             <div style="text-align: center;">
-                <a href="${process.env.NEXTAUTH_URL}/manager/approvals" class="action-button">
+                <a href="${process.env.NEXTAUTH_URL}/leave-requests/${data.requestId}" class="action-button">
                     Revizuiește Cererea
                 </a>
             </div>
@@ -463,7 +463,7 @@ Detalii Cerere:
 Acțiune Necesară: Această cerere necesită aprobarea dvs. urgentă. Vă rugăm să revizuiți și să luați o decizie în cel mai scurt timp posibil.
 
 Pentru a revizui cererea, vă rugăm să vă conectați la sistem:
-${process.env.NEXTAUTH_URL}/manager/approvals
+${process.env.NEXTAUTH_URL}/leave-requests/${data.requestId}
 
 © ${new Date().getFullYear()} ${data.companyName}. Toate drepturile rezervate.
     `
