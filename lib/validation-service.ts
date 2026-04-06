@@ -377,13 +377,24 @@ export class ValidationService {
     leaveTypeId: string,
     requestedDays: number,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    selectedDates?: Date[]
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
     const currentYear = startDate.getFullYear();
-    
-    // Calculate actual working days
-    const actualWorkingDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
+
+    // Calculate actual working days — use selectedDates when available (non-consecutive dates)
+    let actualWorkingDays: number;
+    if (selectedDates && selectedDates.length > 0) {
+      actualWorkingDays = 0;
+      for (const date of selectedDates) {
+        if (await workingDaysService.isWorkingDay(date)) {
+          actualWorkingDays++;
+        }
+      }
+    } else {
+      actualWorkingDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
+    }
     
     const balance = await prisma.leaveBalance.findUnique({
       where: {
@@ -469,7 +480,8 @@ export class ValidationService {
       data.leaveTypeId,
       data.totalDays,
       data.startDate,
-      data.endDate
+      data.endDate,
+      data.selectedDates
     );
     errors.push(...balanceErrors);
     
