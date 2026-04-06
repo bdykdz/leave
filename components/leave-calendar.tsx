@@ -17,7 +17,8 @@ import { startOfDay } from "date-fns/startOfDay"
 import { startOfWeek } from "date-fns/startOfWeek"
 import { addWeeks } from "date-fns/addWeeks"
 import { cn } from "@/lib/utils"
-import { useTranslations } from "@/components/language-provider"
+import { useLanguage } from "@/components/language-provider"
+import { getDateLocale } from "@/lib/date-locale"
 
 interface LeaveCalendarProps {
   selectedDates: Date[]
@@ -36,7 +37,8 @@ interface LeaveCalendarProps {
 }
 
 export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], blockedDateDetails = {}, isWFHCalendar = false, showExistingRequests = false, existingLeaveRequests = [] }: LeaveCalendarProps) {
-  const t = useTranslations()
+  const { language, t } = useLanguage()
+  const dateLocale = getDateLocale(language)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [companyHolidays, setCompanyHolidays] = useState<Date[]>([])
   const [blockedHolidays, setBlockedHolidays] = useState<Date[]>([]) // Holidays where WFH is blocked
@@ -289,7 +291,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
     <div className="space-y-4">
       {/* Calendar Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{format(currentMonth, "MMMM yyyy")}</h3>
+        <h3 className="text-lg font-semibold">{format(currentMonth, "MMMM yyyy", { locale: dateLocale })}</h3>
         <div className="flex gap-1">
           <Button variant="outline" size="sm" onClick={previousMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -303,7 +305,7 @@ export function LeaveCalendar({ selectedDates, onDateSelect, blockedDates = [], 
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1">
         {/* Day headers */}
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+        {[t.teamCalendar.mon, t.teamCalendar.tue, t.teamCalendar.wed, t.teamCalendar.thu, t.teamCalendar.fri, t.teamCalendar.sat, t.teamCalendar.sun].map((day) => (
           <div key={day} className="h-10 w-10 flex items-center justify-center text-sm font-medium text-gray-500">
             {day}
           </div>

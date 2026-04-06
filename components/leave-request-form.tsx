@@ -20,7 +20,8 @@ import { BasicSubstitutePicker } from "@/components/basic-substitute-picker"
 import { ConflictResolutionWizard } from "@/components/conflict-resolution-wizard"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "next-auth/react"
-import { useTranslations } from "@/components/language-provider"
+import { useLanguage } from "@/components/language-provider"
+import { getDateLocale } from "@/lib/date-locale"
 
 interface LeaveType {
   id: string
@@ -54,7 +55,8 @@ interface Approver {
 
 export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const { data: session } = useSession()
-  const t = useTranslations()
+  const { language, t } = useLanguage()
+  const dateLocale = getDateLocale(language)
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
   const [leaveType, setLeaveType] = useState("")
   const [reason, setReason] = useState("")
@@ -371,9 +373,9 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
     return groups
       .map((group) => {
         if (group.length === 1) {
-          return format(group[0], "MMM d")
+          return format(group[0], "MMM d", { locale: dateLocale })
         } else {
-          return `${format(group[0], "MMM d")} - ${format(group[group.length - 1], "MMM d")}`
+          return `${format(group[0], "MMM d", { locale: dateLocale })} - ${format(group[group.length - 1], "MMM d", { locale: dateLocale })}`
         }
       })
       .join(", ")
@@ -459,7 +461,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                             className="text-xs cursor-pointer hover:bg-red-50"
                             onClick={() => handleRemoveDate(date)}
                           >
-                            {format(date, "MMM d")}
+                            {format(date, "MMM d", { locale: dateLocale })}
                             <X className="h-3 w-3 ml-1" />
                           </Badge>
                         ))}
@@ -508,12 +510,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                               )}
                               {grouped[cat].map((type) => (
                                 <SelectItem key={type.id} value={type.id}>
-                                  <div className="flex items-center justify-between w-full">
-                                    <span>{type.name}</span>
-                                    <Badge variant="secondary" className="ml-2">
-                                      {type.balance.available} {t.leaveForm.days}
-                                    </Badge>
-                                  </div>
+                                  {type.name} — {type.balance.available} {t.leaveForm.days}
                                 </SelectItem>
                               ))}
                               {idx < categories.length - 1 && <SelectSeparator />}

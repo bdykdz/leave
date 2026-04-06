@@ -18,6 +18,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "TPF - Sistem de Management Concedii",
   description: "Manage leave requests and work remote arrangements",
+  other: { google: "notranslate" },
 }
 
 export default function RootLayout({
@@ -27,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <body className="font-sans" suppressHydrationWarning>
+      <body className="font-sans notranslate" translate="no" suppressHydrationWarning>
         <AuthProvider>
           <AppProviders>
             <ThemeProvider 

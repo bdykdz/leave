@@ -340,10 +340,7 @@ export function HRLeaveForm({ onBack, preSelectedEmployee = "" }: HRLeaveFormPro
                         <SelectItem value="bereavement">Bereavement</SelectItem>
                         <SelectItem value="maternity">Maternity/Paternity</SelectItem>
                         <SelectItem value="medical">
-                          <div className="flex items-center gap-2">
-                            <Heart className="h-4 w-4 text-red-500" />
-                            Medical Leave (HR Only)
-                          </div>
+                          Medical Leave (HR Only)
                         </SelectItem>
                         <SelectItem value="emergency">Emergency Leave</SelectItem>
                         <SelectItem value="jury_duty">Jury Duty</SelectItem>
