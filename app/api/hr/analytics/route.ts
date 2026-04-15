@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
-import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths, startOfYear, startOfDay, isSameDay } from 'date-fns'
 
 interface AnalyticsCacheData {
   stats: Array<{
@@ -126,22 +126,24 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // Employees on leave today
-      prisma.leaveRequest.count({
+      // Employees on leave today (raw — filtered by selectedDates below)
+      prisma.leaveRequest.findMany({
         where: {
           status: 'APPROVED',
           startDate: { lte: today },
           endDate: { gte: today }
-        }
+        },
+        select: { selectedDates: true }
       }),
 
-      // Employees working from home today
-      prisma.workFromHomeRequest.count({
+      // Employees working from home today (raw — filtered by selectedDates below)
+      prisma.workFromHomeRequest.findMany({
         where: {
           status: 'APPROVED',
           startDate: { lte: today },
           endDate: { gte: today }
-        }
+        },
+        select: { selectedDates: true }
       }),
 
       // Pending leave approvals
@@ -189,6 +191,19 @@ export async function GET(request: NextRequest) {
         select: { nameEn: true, date: true }
       })
     ])
+
+    // Filter by selectedDates for non-consecutive leave/WFH
+    const todayStart = startOfDay(today);
+    const onLeaveTodayCount = employeesOnLeaveToday.filter(req => {
+      const sd = req.selectedDates as any[] | null;
+      if (sd && sd.length > 0) return sd.some(d => isSameDay(new Date(d), todayStart));
+      return true;
+    }).length;
+    const wfhTodayCount = employeesWFHToday.filter(req => {
+      const sd = req.selectedDates as any[] | null;
+      if (sd && sd.length > 0) return sd.some(d => isSameDay(new Date(d), todayStart));
+      return true;
+    }).length;
 
     // Process department leave data
     const departmentLeaveData = departmentStats.map(dept => {
@@ -276,8 +291,8 @@ export async function GET(request: NextRequest) {
         },
         {
           title: "Away Today",
-          value: `${employeesOnLeaveToday + employeesWFHToday}`,
-          change: `${employeesOnLeaveToday} leave, ${employeesWFHToday} WFH`,
+          value: `${onLeaveTodayCount + wfhTodayCount}`,
+          change: `${onLeaveTodayCount} leave, ${wfhTodayCount} WFH`,
           icon: "Users",
           color: "text-purple-600"
         },

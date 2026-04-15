@@ -357,6 +357,22 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         );
       }
 
+      // Check for overlapping dates with existing requests (date-range path)
+      const overlapCheck = await checkSelectedDatesOverlap(
+        session.user.id,
+        allDatesInRange
+      );
+      if (overlapCheck.hasOverlap) {
+        return NextResponse.json(
+          {
+            error: 'Date conflict',
+            message: overlapCheck.message,
+            conflictingDates: overlapCheck.conflictingDates
+          },
+          { status: 400 }
+        );
+      }
+
       // For date range, calculate working days between start and end
       const workingDaysService = WorkingDaysService.getInstance();
       actualDays = await workingDaysService.calculateWorkingDays(startDate, endDate, true);
@@ -601,15 +617,17 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         }
       }
       
-      await prisma.notification.create({
-        data: {
-          userId: firstApprover.approverId,
-          type: 'APPROVAL_REQUIRED',
-          title: 'Leave Request Approval Required',
-          message: `${user.firstName} ${user.lastName} has requested ${actualDays} days of leave`,
-          link: notificationLink,
-        },
-      });
+      await safeAsync(async () => {
+        await prisma.notification.create({
+          data: {
+            userId: firstApprover.approverId,
+            type: 'APPROVAL_REQUIRED',
+            title: 'Leave Request Approval Required',
+            message: `${user.firstName} ${user.lastName} has requested ${actualDays} days of leave`,
+            link: notificationLink,
+          },
+        });
+      }, undefined, `Failed to create notification for approver ${firstApprover.approverId}`);
     }
     
     // Check if this is sick leave using the already fetched leave type
@@ -638,7 +656,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
 
       log.info('Sick leave submitted - notifying all HR users', {
         requestId: leaveRequest.id,
-        requestNumber,
+        requestNumber: leaveRequest.requestNumber,
         hrUserCount: hrUsers.length,
         documentsUploaded: uploadedDocumentUrls.length
       });
@@ -672,9 +690,9 @@ export const POST = asyncHandler(async (request: NextRequest) => {
             requestId: leaveRequest.id
           });
           
-          log.info('Sick leave email sent to HR', { 
+          log.info('Sick leave email sent to HR', {
             to: hrUser.email,
-            requestNumber 
+            requestNumber: leaveRequest.requestNumber
           });
         }, undefined, `Failed to send sick leave email to ${hrUser.email}`);
       }
@@ -704,7 +722,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
 
       log.info('Special leave submitted - notifying all HR users', {
         requestId: leaveRequest.id,
-        requestNumber,
+        requestNumber: leaveRequest.requestNumber,
         leaveType: leaveRequest.leaveType.code,
         hrUserCount: hrUsers.length,
         documentsUploaded: uploadedDocumentUrls.length
@@ -743,7 +761,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
 
           log.info('Special leave email sent to HR', {
             to: hrUser.email,
-            requestNumber,
+            requestNumber: leaveRequest.requestNumber,
             leaveType: leaveRequest.leaveType.code
           });
         }, undefined, `Failed to send special leave email to ${hrUser.email}`);

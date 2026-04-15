@@ -42,6 +42,15 @@ export async function GET() {
       }
     })
 
+    // Filter by selectedDates: if selectedDates exists, today must be in the array
+    const onLeaveTodayFiltered = onLeaveToday.filter(req => {
+      const selectedDates = req.selectedDates as any[] | null
+      if (selectedDates && selectedDates.length > 0) {
+        return selectedDates.some(d => isSameDay(new Date(d), startOfToday))
+      }
+      return true // No selectedDates — date range already covers today
+    })
+
     // Get people working from home today
     const wfhRequestsToday = await prisma.workFromHomeRequest.findMany({
       where: {
@@ -135,6 +144,15 @@ export async function GET() {
       }
     })
 
+    // Filter substitutingFor by selectedDates
+    const substitutingForFiltered = substitutingFor.filter(sub => {
+      const selectedDates = sub.leaveRequest.selectedDates as any[] | null
+      if (selectedDates && selectedDates.length > 0) {
+        return selectedDates.some(d => isSameDay(new Date(d), startOfToday))
+      }
+      return true
+    })
+
     // Get pending substitute requests where the current user is requested as substitute
     const pendingSubstituteRequests = await prisma.leaveRequestSubstitute.findMany({
       where: {
@@ -168,7 +186,7 @@ export async function GET() {
 
     // Format the data for the frontend
     const summaryData = {
-      onLeaveToday: onLeaveToday.map(request => ({
+      onLeaveToday: onLeaveTodayFiltered.map(request => ({
         id: request.user.id,
         name: `${request.user.firstName} ${request.user.lastName}`,
         leaveType: request.leaveType.name,
@@ -192,7 +210,7 @@ export async function GET() {
         department: request.user.department
       })),
       
-      substitutingFor: substitutingFor.map(substitute => ({
+      substitutingFor: substitutingForFiltered.map(substitute => ({
         id: substitute.leaveRequest.user.id,
         requestId: substitute.leaveRequest.id,
         name: `${substitute.leaveRequest.user.firstName} ${substitute.leaveRequest.user.lastName}`,

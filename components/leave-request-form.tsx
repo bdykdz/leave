@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -63,6 +63,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [signature, setSignature] = useState("")
   const [isValidSignature, setIsValidSignature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDetails, setErrorDetails] = useState({ title: "", message: "" })
@@ -218,6 +219,8 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (submittingRef.current) return
+
     if (selectedDates.length === 0) {
       showError(t.errors.noDatesSelected, t.errors.selectDateForLeaveRequest)
       return
@@ -243,6 +246,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
       return
     }
 
+    submittingRef.current = true
     setIsSubmitting(true)
 
     try {
@@ -324,6 +328,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
         errorMessage,
       )
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }

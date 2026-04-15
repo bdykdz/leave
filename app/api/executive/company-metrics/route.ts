@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { NO_SUBSTITUTE_USER } from '@/lib/no-substitute-user';
-import { startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfDay, endOfDay, isSameDay } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,23 +28,39 @@ export async function GET(request: NextRequest) {
       where: { isActive: true, employeeId: { not: NO_SUBSTITUTE_USER.EMPLOYEE_ID } }
     });
 
-    // Get employees on leave today
-    const onLeaveToday = await prisma.leaveRequest.count({
+    // Get employees on leave today (filter by selectedDates for non-consecutive leave)
+    const leaveRequestsToday = await prisma.leaveRequest.findMany({
       where: {
         status: 'APPROVED',
         startDate: { lte: todayEnd },
         endDate: { gte: todayStart }
-      }
+      },
+      select: { selectedDates: true }
     });
+    const onLeaveToday = leaveRequestsToday.filter(req => {
+      const selectedDates = req.selectedDates as any[] | null;
+      if (selectedDates && selectedDates.length > 0) {
+        return selectedDates.some(d => isSameDay(new Date(d), todayStart));
+      }
+      return true;
+    }).length;
 
-    // Get employees working remote today
-    const workingRemoteToday = await prisma.workFromHomeRequest.count({
+    // Get employees working remote today (filter by selectedDates)
+    const wfhRequestsToday = await prisma.workFromHomeRequest.findMany({
       where: {
         status: 'APPROVED',
         startDate: { lte: todayEnd },
         endDate: { gte: todayStart }
-      }
+      },
+      select: { selectedDates: true }
     });
+    const workingRemoteToday = wfhRequestsToday.filter(req => {
+      const selectedDates = req.selectedDates as any[] | null;
+      if (selectedDates && selectedDates.length > 0) {
+        return selectedDates.some(d => isSameDay(new Date(d), todayStart));
+      }
+      return true;
+    }).length;
 
     // Calculate in office today
     const inOfficeToday = Math.max(0, totalEmployees - onLeaveToday - workingRemoteToday);

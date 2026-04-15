@@ -173,7 +173,11 @@ export async function GET() {
       } else if (wfhTodayUserIds.has(member.id)) {
         workingFromHome++
         wfhMembers.push(name)
-      } else if (member.leaveRequests.length > 0) {
+      } else if (member.leaveRequests.some(lr => {
+        const sd = lr.selectedDates as any[] | null
+        if (sd && sd.length > 0) return sd.some(d => isSameDay(new Date(d), today))
+        return true
+      })) {
         onLeaveToday++
         onLeaveMembers.push(name)
       } else {
