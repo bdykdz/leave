@@ -301,6 +301,8 @@ export class EscalationService {
 
     // Find all pending approvals that are older than the threshold
     // Only for leave requests where the leave period has NOT yet passed
+    // Exclude BDL (Blood Donation Leave): it has an explicit 2-level manager→HR flow handled in-app.
+    // Escalating a 1-day donation to the director creates approval conflicts that block the manager.
     const pendingApprovals = await prisma.approval.findMany({
       where: {
         status: 'PENDING',
@@ -313,6 +315,9 @@ export class EscalationService {
           status: 'PENDING',
           endDate: {
             gte: today // Only escalate if leave dates are still in the future
+          },
+          leaveType: {
+            code: { not: 'BDL' }
           }
         }
       },

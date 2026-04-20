@@ -42,6 +42,39 @@ export async function generateApprovalWorkflow(user: any, leaveTypeId: string, d
 
   console.log('[generateApprovalWorkflow] Leave type info:', leaveType);
 
+  // BDL (Blood Donation Leave) has an explicit 2-level flow:
+  //   level 1 = direct manager approves
+  //   level 2 = HR validates the donation certificate (= final approval)
+  // Escalation is disabled for BDL in escalation-service (1-day request should not escalate to director).
+  if (leaveType?.code === 'BDL') {
+    const bdlManagerId = user.managerId || user.manager?.id;
+    if (!bdlManagerId) {
+      throw new Error('Cererea de Concediu Donare necesită un manager atribuit angajatului.');
+    }
+    const bdlHrUser = await prisma.user.findFirst({
+      where: {
+        id: { not: user.id },
+        isActive: true,
+        OR: [
+          { role: 'HR' },
+          { role: 'EMPLOYEE', department: { contains: 'hr', mode: 'insensitive' } }
+        ]
+      },
+      select: { id: true }
+    });
+    if (!bdlHrUser) {
+      throw new Error('Nu există utilizator HR activ pentru validarea cererii de Concediu Donare.');
+    }
+    console.log('[generateApprovalWorkflow] BDL 2-level flow:', {
+      managerId: bdlManagerId,
+      hrId: bdlHrUser.id
+    });
+    return [
+      { approverId: bdlManagerId, level: 1, status: 'PENDING' as const },
+      { approverId: bdlHrUser.id, level: 2, status: 'PENDING' as const }
+    ];
+  }
+
   // Determine approval requirements based on user role
   let approvalLevels = [];
 

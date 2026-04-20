@@ -69,6 +69,7 @@ export async function POST(
       where: { id: requestId },
       include: {
         user: true,
+        leaveType: { select: { code: true, name: true } },
         approvals: {
           orderBy: { level: 'asc' }
         }
@@ -216,6 +217,8 @@ export async function POST(
     const cleanComment = comment
 
     // Wrap approval update + status check + balance update in a transaction
+    const isBDLRequest = leaveRequest.leaveType?.code === 'BDL'
+    const isBDLHRValidation = isBDLRequest && pendingApproval!.level === 2
     const { allApproved } = await prisma.$transaction(async (tx) => {
       // Update the approval
       await tx.approval.update({
@@ -229,6 +232,19 @@ export async function POST(
         }
       })
 
+      // For BDL: when HR (level 2) approves, also mark the donation certificate as validated
+      if (isBDLHRValidation) {
+        await tx.leaveRequest.update({
+          where: { id: requestId },
+          data: {
+            hrDocumentVerified: true,
+            hrVerifiedBy: session.user.id,
+            hrVerifiedAt: new Date(),
+            hrVerificationNotes: cleanComment || null
+          }
+        })
+      }
+
       // Check if all approvals are complete (inside transaction)
       const allApprovals = await tx.approval.findMany({
         where: { leaveRequestId: requestId }
@@ -239,13 +255,16 @@ export async function POST(
       // Clean up escalation fallback approvals from old workflow (pre-9ec7382).
       // Old workflow created all levels upfront; new workflow creates only level 1.
       // Remaining PENDING levels above the current one are escalation fallbacks.
-      // Exception: HR-verification types need sequential approval (HR → manager).
+      // Exceptions (multi-level types needing sequential approval):
+      //   - requiresHRVerification=true (HR → manager)
+      //   - code='BDL' (manager → HR validates certificate)
       if (!isAllApproved) {
         const leaveTypeForCheck = await tx.leaveType.findUnique({
           where: { id: leaveRequest.leaveTypeId },
-          select: { requiresHRVerification: true }
+          select: { requiresHRVerification: true, code: true }
         })
-        if (!leaveTypeForCheck?.requiresHRVerification) {
+        const isMultiLevelType = leaveTypeForCheck?.requiresHRVerification || leaveTypeForCheck?.code === 'BDL'
+        if (!isMultiLevelType) {
           const currentLevel = pendingApproval!.level
           const remainingPending = allApprovals.filter(
             a => a.status === 'PENDING' && a.level > currentLevel
@@ -319,21 +338,94 @@ export async function POST(
     })
 
     // Notify the next approver in the chain if not fully approved yet
+    const isBDL = isBDLRequest
     if (!allApproved) {
       try {
         const allApprovals = await prisma.approval.findMany({
           where: { leaveRequestId: requestId },
           orderBy: { level: 'asc' },
-          include: { approver: { select: { firstName: true, lastName: true } } }
+          include: { approver: { select: { firstName: true, lastName: true, email: true } } }
         })
         const nextPending = allApprovals.find(a => a.status === 'PENDING')
-        if (nextPending?.approverId) {
+        const employeeFullName = `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`
+        const startDateFmt = format(leaveRequest.startDate, 'dd MMMM yyyy')
+
+        if (isBDL) {
+          // BDL — manager just approved (level 1). Notify: HR (validator), employee, manager.
+          const bdlNotifications: Array<{ userId: string; type: 'APPROVAL_REQUIRED' | 'LEAVE_APPROVED'; title: string; message: string; link: string }> = []
+
+          if (nextPending?.approverId) {
+            bdlNotifications.push({
+              userId: nextPending.approverId,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Concediu Donare — validare document',
+              message: `${employeeFullName} așteaptă validarea certificatului de donare pentru ${startDateFmt}. Vă rugăm să verificați documentul justificativ și să confirmați cererea.`,
+              link: `/hr?tab=bdl-validation&request=${requestId}`
+            })
+          }
+
+          bdlNotifications.push({
+            userId: leaveRequest.userId,
+            type: 'LEAVE_APPROVED',
+            title: 'Concediu Donare aprobat de manager — transmiteți certificatul la HR',
+            message: `Cererea dvs. de Concediu Donare pentru ${startDateFmt} a fost aprobată de manager. Pentru validarea finală, transmiteți certificatul de donare către HR.`,
+            link: `/employee?tab=requests`
+          })
+
+          bdlNotifications.push({
+            userId: session.user.id,
+            type: 'LEAVE_APPROVED',
+            title: 'Ați aprobat Concediu Donare',
+            message: `Ați aprobat cererea de Concediu Donare pentru ${employeeFullName} (${startDateFmt}). HR va valida certificatul de donare pentru finalizarea cererii.`,
+            link: `/manager?tab=team`
+          })
+
+          await prisma.notification.createMany({ data: bdlNotifications })
+
+          // Email HR-ul atribuit ca level 2 validator (dacă există email)
+          if (nextPending?.approver?.email) {
+            try {
+              await emailService.sendLeaveRequestNotification(nextPending.approver.email, {
+                employeeName: employeeFullName,
+                leaveType: 'Concediu Donare — validare certificat',
+                startDate: format(leaveRequest.startDate, 'dd MMMM yyyy'),
+                endDate: format(leaveRequest.endDate, 'dd MMMM yyyy'),
+                days: leaveRequest.totalDays,
+                managerName: `${nextPending.approver.firstName} ${nextPending.approver.lastName}`,
+                companyName: process.env.COMPANY_NAME || 'TPF',
+                requestId
+              })
+            } catch (e) {
+              console.error('Warning: Failed to send BDL HR validation email:', e)
+            }
+          }
+
+          // Email angajat — reminder doc către HR
+          if (leaveRequest.user.email) {
+            try {
+              await emailService.sendApprovalNotification(leaveRequest.user.email, {
+                employeeName: employeeFullName,
+                leaveType: 'Concediu Donare (aprobare intermediară)',
+                startDate: format(leaveRequest.startDate, 'dd MMMM yyyy'),
+                endDate: format(leaveRequest.endDate, 'dd MMMM yyyy'),
+                days: leaveRequest.totalDays,
+                approverName: 'Manager',
+                status: 'approved',
+                comments: 'Cererea a fost aprobată de manager. Pentru validarea finală, vă rugăm să transmiteți certificatul de donare către HR.',
+                companyName: process.env.COMPANY_NAME || 'TPF',
+                requestId
+              })
+            } catch (e) {
+              console.error('Warning: Failed to send BDL employee intermediate email:', e)
+            }
+          }
+        } else if (nextPending?.approverId) {
           await prisma.notification.create({
             data: {
               userId: nextPending.approverId,
               type: 'APPROVAL_REQUIRED',
               title: 'Leave Request Pending Your Approval',
-              message: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}'s leave request has been approved at the previous level and now requires your approval.`,
+              message: `${employeeFullName}'s leave request has been approved at the previous level and now requires your approval.`,
               link: `/leave-requests/${requestId}`,
             },
           })
@@ -349,9 +441,8 @@ export async function POST(
         where: { id: session.user.id }
       })
 
-      // This endpoint only allows the direct manager to approve,
-      // so the signature role is always 'manager' regardless of the approver's system role
-      const signatureRole = 'manager'
+      // Signature role — default 'manager'. For BDL's HR validation (level 2) use 'hr'.
+      const signatureRole = isBDLHRValidation ? 'hr' : 'manager'
 
       // Check if there's already a generated document
       let existingDoc = await prisma.generatedDocument.findUnique({
@@ -482,15 +573,43 @@ export async function POST(
         const leaveType = await prisma.leaveType.findUnique({
           where: { id: leaveRequest.leaveTypeId }
         })
-        await prisma.notification.create({
-          data: {
-            userId: leaveRequest.userId,
-            type: 'LEAVE_APPROVED',
-            title: 'Leave Request Approved',
-            message: `Your ${leaveType?.name || 'leave'} request from ${format(leaveRequest.startDate, 'dd MMM yyyy')} to ${format(leaveRequest.endDate, 'dd MMM yyyy')} has been approved.`,
-            link: `/employee?tab=requests`
+        const employeeFullName = `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`
+        const dateRange = `${format(leaveRequest.startDate, 'dd MMM yyyy')} - ${format(leaveRequest.endDate, 'dd MMM yyyy')}`
+
+        if (isBDLRequest) {
+          await prisma.notification.create({
+            data: {
+              userId: leaveRequest.userId,
+              type: 'LEAVE_APPROVED',
+              title: 'Concediu Donare validat complet',
+              message: `Cererea dvs. de Concediu Donare (${dateRange}) a fost validată complet (manager + HR).`,
+              link: `/employee?tab=requests`
+            }
+          })
+          // Notify the manager (level 1 approver) that HR finished the validation
+          const managerApproval = leaveRequest.approvals.find(a => a.level === 1)
+          if (managerApproval?.approverId && managerApproval.approverId !== session.user.id) {
+            await prisma.notification.create({
+              data: {
+                userId: managerApproval.approverId,
+                type: 'LEAVE_APPROVED',
+                title: 'BDL validat de HR',
+                message: `HR a validat certificatul de donare pentru ${employeeFullName} (${dateRange}). Cererea este acum finalizată.`,
+                link: `/manager?tab=team`
+              }
+            })
           }
-        })
+        } else {
+          await prisma.notification.create({
+            data: {
+              userId: leaveRequest.userId,
+              type: 'LEAVE_APPROVED',
+              title: 'Leave Request Approved',
+              message: `Your ${leaveType?.name || 'leave'} request from ${format(leaveRequest.startDate, 'dd MMM yyyy')} to ${format(leaveRequest.endDate, 'dd MMM yyyy')} has been approved.`,
+              link: `/employee?tab=requests`
+            }
+          })
+        }
       } catch (notifError) {
         console.error('Warning: Failed to create approval notification:', notifError)
       }
