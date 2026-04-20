@@ -15,6 +15,7 @@ import { LeaveTypesManager } from "@/components/admin/LeaveTypesManager"
 import { ManualRequestEntry } from "@/components/hr/ManualRequestEntry"
 import { HistoricalBalanceImport } from "@/components/admin/HistoricalBalanceImport"
 import { LeaveRequestsManager } from "@/components/hr/LeaveRequestsManager"
+import { WFHRequestsManager } from "@/components/hr/WFHRequestsManager"
 import { Shield, FolderOpen, LogOut, Settings, User, ChevronLeft, Calendar, RotateCcw, ListChecks, BookOpen, FileText, Calculator, ClipboardList } from "lucide-react"
 import {
   DropdownMenu,
@@ -160,11 +161,15 @@ export default function HRDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="employees">{t.tabs.employees}</TabsTrigger>
           <TabsTrigger value="leave-requests" className="flex items-center gap-1">
             <ClipboardList className="h-3 w-3" />
             {t.tabs.leaveRequests || "Leave Requests"}
+          </TabsTrigger>
+          <TabsTrigger value="wfh-requests" className="flex items-center gap-1">
+            <ClipboardList className="h-3 w-3" />
+            WFH Requests
           </TabsTrigger>
           <TabsTrigger value="calendar">{t.tabs.calendar}</TabsTrigger>
           <TabsTrigger value="analytics">{t.tabs.analytics}</TabsTrigger>
@@ -199,6 +204,10 @@ export default function HRDashboard() {
 
         <TabsContent value="leave-requests" className="space-y-4">
           <LeaveRequestsManager />
+        </TabsContent>
+
+        <TabsContent value="wfh-requests" className="space-y-4">
+          <WFHRequestsManager />
         </TabsContent>
 
         <TabsContent value="calendar" className="space-y-4">

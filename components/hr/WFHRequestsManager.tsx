@@ -43,17 +43,15 @@ import {
 import { toast } from "sonner"
 import { format } from "date-fns"
 
-interface LeaveRequestItem {
+interface WFHRequestItem {
   id: string
   requestNumber: string
   status: string
   startDate: string
   endDate: string
   totalDays: number
-  reason: string
-  leaveTypeId: string
-  selectedDates: string[]
-  supportingDocuments: any
+  location: string
+  createdByHrId: string | null
   user: {
     id: string
     firstName: string
@@ -62,22 +60,8 @@ interface LeaveRequestItem {
     department: string
     role: string
   }
-  leaveType: {
-    id: string
-    name: string
-    code: string
-  }
-  substitutes: {
-    userId: string
-    user: {
-      id: string
-      firstName: string
-      lastName: string
-    }
-  }[]
   approvals: {
     id: string
-    level: number
     status: string
     approver: {
       id: string
@@ -88,22 +72,15 @@ interface LeaveRequestItem {
   }[]
 }
 
-interface LeaveTypeOption {
-  id: string
-  name: string
-  code: string
-}
-
 const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-green-100 text-green-800",
   REJECTED: "bg-red-100 text-red-800",
   CANCELLED: "bg-gray-100 text-gray-800",
-  DRAFT: "bg-blue-100 text-blue-800",
 }
 
-export function LeaveRequestsManager() {
-  const [requests, setRequests] = useState<LeaveRequestItem[]>([])
+export function WFHRequestsManager() {
+  const [requests, setRequests] = useState<WFHRequestItem[]>([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -117,34 +94,21 @@ export function LeaveRequestsManager() {
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [editingRequest, setEditingRequest] = useState<LeaveRequestItem | null>(null)
+  const [editingRequest, setEditingRequest] = useState<WFHRequestItem | null>(null)
   const [editForm, setEditForm] = useState({
-    leaveTypeId: "",
     startDate: "",
     endDate: "",
     totalDays: "",
-    reason: "",
+    location: "",
     editReason: "",
   })
   const [editSubmitting, setEditSubmitting] = useState(false)
-  const [calculatingDays, setCalculatingDays] = useState(false)
 
   // Cancel dialog state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [cancellingRequest, setCancellingRequest] = useState<LeaveRequestItem | null>(null)
+  const [cancellingRequest, setCancellingRequest] = useState<WFHRequestItem | null>(null)
   const [cancelReason, setCancelReason] = useState("")
   const [cancelSubmitting, setCancelSubmitting] = useState(false)
-
-  // Leave types
-  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeOption[]>([])
-
-  // Balance preview
-  const [balancePreview, setBalancePreview] = useState<{
-    entitled: number
-    used: number
-    pending: number
-    available: number
-  } | null>(null)
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -156,14 +120,14 @@ export function LeaveRequestsManager() {
         search,
         year: yearFilter,
       })
-      const res = await fetch(`/api/hr/leave-requests?${params}`)
+      const res = await fetch(`/api/hr/wfh-requests?${params}`)
       if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
       setRequests(data.requests)
       setTotalCount(data.totalCount)
       setTotalPages(data.totalPages)
     } catch {
-      toast.error("Failed to load leave requests")
+      toast.error("Failed to load WFH requests")
     } finally {
       setLoading(false)
     }
@@ -172,17 +136,6 @@ export function LeaveRequestsManager() {
   useEffect(() => {
     fetchRequests()
   }, [fetchRequests])
-
-  useEffect(() => {
-    fetch("/api/hr/leave-types")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setLeaveTypes(data)
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   // Debounced search
   const [searchInput, setSearchInput] = useState("")
@@ -194,64 +147,19 @@ export function LeaveRequestsManager() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  // Auto-calculate working days when dates change in edit form
-  useEffect(() => {
-    if (!editForm.startDate || !editForm.endDate) return
-
-    const start = new Date(editForm.startDate)
-    const end = new Date(editForm.endDate)
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return
-
-    setCalculatingDays(true)
-    const params = new URLSearchParams({
-      startDate: editForm.startDate,
-      endDate: editForm.endDate,
-    })
-    fetch(`/api/working-days?${params}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.workingDays !== undefined) {
-          setEditForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
-        }
-      })
-      .catch(() => {})
-      .finally(() => setCalculatingDays(false))
-  }, [editForm.startDate, editForm.endDate])
-
-  // Fetch balance when leave type or user changes in edit
-  useEffect(() => {
-    if (!editingRequest || !editForm.leaveTypeId) return
-
-    const params = new URLSearchParams({
-      userId: editingRequest.user.id,
-      leaveTypeId: editForm.leaveTypeId,
-      year: editForm.startDate ? String(new Date(editForm.startDate).getFullYear()) : yearFilter,
-    })
-    fetch(`/api/hr/leave-balance?${params}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.entitled !== undefined) {
-          setBalancePreview(data)
-        }
-      })
-      .catch(() => setBalancePreview(null))
-  }, [editingRequest, editForm.leaveTypeId, editForm.startDate, yearFilter])
-
-  const openEditDialog = (request: LeaveRequestItem) => {
+  const openEditDialog = (request: WFHRequestItem) => {
     setEditingRequest(request)
     setEditForm({
-      leaveTypeId: request.leaveTypeId,
       startDate: format(new Date(request.startDate), "yyyy-MM-dd"),
       endDate: format(new Date(request.endDate), "yyyy-MM-dd"),
       totalDays: String(request.totalDays),
-      reason: request.reason,
+      location: request.location,
       editReason: "",
     })
-    setBalancePreview(null)
     setEditDialogOpen(true)
   }
 
-  const openCancelDialog = (request: LeaveRequestItem) => {
+  const openCancelDialog = (request: WFHRequestItem) => {
     setCancellingRequest(request)
     setCancelReason("")
     setCancelDialogOpen(true)
@@ -266,17 +174,15 @@ export function LeaveRequestsManager() {
 
     setEditSubmitting(true)
     try {
-      const res = await fetch(`/api/hr/leave-requests/${editingRequest.id}/edit`, {
+      const res = await fetch(`/api/hr/wfh-requests/${editingRequest.id}/edit`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          leaveTypeId: editForm.leaveTypeId,
           startDate: editForm.startDate,
           endDate: editForm.endDate,
-          totalDays: parseFloat(editForm.totalDays),
-          reason: editForm.reason,
+          totalDays: parseInt(editForm.totalDays),
+          location: editForm.location,
           editReason: editForm.editReason,
-          substituteIds: editingRequest.substitutes.map(s => s.userId),
         }),
       })
 
@@ -286,7 +192,7 @@ export function LeaveRequestsManager() {
         return
       }
 
-      toast.success(data.message || "Request updated successfully")
+      toast.success(data.message || "WFH request updated successfully")
       setEditDialogOpen(false)
       setEditingRequest(null)
       fetchRequests()
@@ -302,7 +208,7 @@ export function LeaveRequestsManager() {
 
     setCancelSubmitting(true)
     try {
-      const res = await fetch(`/api/leave-requests/${cancellingRequest.id}/cancel`, {
+      const res = await fetch(`/api/hr/wfh-requests/${cancellingRequest.id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: cancelReason }),
@@ -314,7 +220,7 @@ export function LeaveRequestsManager() {
         return
       }
 
-      toast.success("Leave request cancelled successfully")
+      toast.success("WFH request cancelled successfully")
       setCancelDialogOpen(false)
       setCancellingRequest(null)
       fetchRequests()
@@ -325,7 +231,7 @@ export function LeaveRequestsManager() {
     }
   }
 
-  const canEdit = (request: LeaveRequestItem) => {
+  const canEdit = (request: WFHRequestItem) => {
     if (request.status === "CANCELLED") return false
     if (request.status === "APPROVED") {
       const today = new Date()
@@ -335,7 +241,7 @@ export function LeaveRequestsManager() {
     return true
   }
 
-  const canCancel = (request: LeaveRequestItem) => {
+  const canCancel = (request: WFHRequestItem) => {
     if (request.status === "CANCELLED" || request.status === "REJECTED") return false
     if (request.status === "APPROVED") {
       const today = new Date()
@@ -352,7 +258,7 @@ export function LeaveRequestsManager() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Leave Requests ({totalCount})</span>
+          <span>WFH Requests ({totalCount})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -399,7 +305,7 @@ export function LeaveRequestsManager() {
           </div>
         ) : requests.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No leave requests found
+            No WFH requests found
           </div>
         ) : (
           <div className="rounded-md border overflow-x-auto">
@@ -408,9 +314,9 @@ export function LeaveRequestsManager() {
                 <TableRow>
                   <TableHead>Request #</TableHead>
                   <TableHead>Employee</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>Dates</TableHead>
                   <TableHead className="text-center">Days</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Approvals</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -426,7 +332,6 @@ export function LeaveRequestsManager() {
                         <div className="text-xs text-muted-foreground">{request.user.department}</div>
                       </div>
                     </TableCell>
-                    <TableCell>{request.leaveType.name}</TableCell>
                     <TableCell className="text-sm">
                       <div>{format(new Date(request.startDate), "dd MMM yyyy")}</div>
                       {request.startDate !== request.endDate && (
@@ -434,6 +339,7 @@ export function LeaveRequestsManager() {
                       )}
                     </TableCell>
                     <TableCell className="text-center">{request.totalDays}</TableCell>
+                    <TableCell className="text-sm">{request.location}</TableCell>
                     <TableCell>
                       <Badge className={statusColors[request.status] || "bg-gray-100 text-gray-800"} variant="outline">
                         {request.status}
@@ -524,7 +430,7 @@ export function LeaveRequestsManager() {
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Leave Request</DialogTitle>
+              <DialogTitle>Edit WFH Request</DialogTitle>
               <DialogDescription>
                 {editingRequest && (
                   <>
@@ -536,34 +442,15 @@ export function LeaveRequestsManager() {
 
             {editingRequest && (
               <div className="space-y-4">
-                {/* Warning banner */}
+                {/* Info banner */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-2">
                   <AlertTriangle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
                   <p className="text-sm text-blue-800">
                     Editing this request will preserve the current approval status.
-                    {editingRequest.status === "APPROVED" && " The leave balance will be recalculated based on the changes."}
-                    {editingRequest.status === "REJECTED" && " This rejected request will remain rejected."}
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <div>
-                    <Label>Leave Type</Label>
-                    <Select
-                      value={editForm.leaveTypeId}
-                      onValueChange={(v) => setEditForm(prev => ({ ...prev, leaveTypeId: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {leaveTypes.map(lt => (
-                          <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Start Date</Label>
@@ -584,50 +471,24 @@ export function LeaveRequestsManager() {
                   </div>
 
                   <div>
-                    <Label>Total Working Days {calculatingDays && <Loader2 className="inline h-3 w-3 animate-spin ml-1" />}</Label>
+                    <Label>Total Days</Label>
                     <Input
                       type="number"
-                      step="0.5"
-                      min="0.5"
+                      step="1"
+                      min="1"
                       value={editForm.totalDays}
                       onChange={(e) => setEditForm(prev => ({ ...prev, totalDays: e.target.value }))}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated from dates. Override if needed.</p>
                   </div>
 
                   <div>
-                    <Label>Reason</Label>
-                    <Textarea
-                      value={editForm.reason}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, reason: e.target.value }))}
-                      rows={2}
+                    <Label>Location</Label>
+                    <Input
+                      value={editForm.location}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="e.g. home"
                     />
                   </div>
-
-                  {/* Balance Preview */}
-                  {balancePreview && (
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm font-medium mb-1">Balance Preview</p>
-                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                        <div>
-                          <div className="font-semibold">{balancePreview.entitled}</div>
-                          <div className="text-muted-foreground">Entitled</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold">{balancePreview.used}</div>
-                          <div className="text-muted-foreground">Used</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold">{balancePreview.pending}</div>
-                          <div className="text-muted-foreground">Pending</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold">{balancePreview.available}</div>
-                          <div className="text-muted-foreground">Available</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   <div>
                     <Label className="text-red-600">Reason for Edit *</Label>
@@ -664,12 +525,11 @@ export function LeaveRequestsManager() {
         <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cancel Leave Request</DialogTitle>
+              <DialogTitle>Cancel WFH Request</DialogTitle>
               <DialogDescription>
                 {cancellingRequest && (
                   <>
                     Are you sure you want to cancel {cancellingRequest.requestNumber}?
-                    This will restore the employee&apos;s leave balance.
                   </>
                 )}
               </DialogDescription>
@@ -679,9 +539,9 @@ export function LeaveRequestsManager() {
               <div className="space-y-4">
                 <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
                   <div><span className="font-medium">Employee:</span> {cancellingRequest.user.firstName} {cancellingRequest.user.lastName}</div>
-                  <div><span className="font-medium">Type:</span> {cancellingRequest.leaveType.name}</div>
                   <div><span className="font-medium">Dates:</span> {format(new Date(cancellingRequest.startDate), "dd MMM yyyy")} - {format(new Date(cancellingRequest.endDate), "dd MMM yyyy")}</div>
                   <div><span className="font-medium">Days:</span> {cancellingRequest.totalDays}</div>
+                  <div><span className="font-medium">Location:</span> {cancellingRequest.location}</div>
                   <div><span className="font-medium">Status:</span> {cancellingRequest.status}</div>
                 </div>
 

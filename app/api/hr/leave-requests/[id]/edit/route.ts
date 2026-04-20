@@ -5,7 +5,6 @@ import { prisma } from '@/lib/prisma'
 import { createAuditLog, AuditAction } from '@/lib/utils/audit-log'
 import { sanitizeComment } from '@/lib/utils/sanitize'
 import { checkSelectedDatesOverlap, hasActualDateOverlap } from '@/lib/utils/date-validation'
-import { generateApprovalWorkflow } from '@/lib/services/approval-workflow-service'
 import { WorkingDaysService } from '@/lib/services/working-days-service'
 import { emailService } from '@/lib/email-service'
 import { eachDayOfInterval, format } from 'date-fns'
@@ -167,13 +166,6 @@ export async function PUT(
       newEndDate.getTime() !== existingRequest.endDate.getTime() ||
       newTotalDays !== existingRequest.totalDays
 
-    // Generate new approval workflow
-    const approvalWorkflow = await generateApprovalWorkflow(
-      existingRequest.user,
-      newLeaveTypeId,
-      newTotalDays
-    )
-
     // Store old values for audit
     const oldValues = {
       leaveTypeId: existingRequest.leaveTypeId,
@@ -248,51 +240,74 @@ export async function PUT(
       }
       // REJECTED: no balance reversal needed
 
-      // 2. APPLY new balance impact (new status will be PENDING)
-      const existingNewBalance = await tx.leaveBalance.findUnique({
-        where: {
-          userId_leaveTypeId_year: {
-            userId: existingRequest.userId,
-            leaveTypeId: newLeaveTypeId,
-            year: newBalanceYear,
-          }
-        }
-      })
-
-      if (existingNewBalance) {
-        // Check if enough balance is available
-        const projectedAvailable = existingNewBalance.available - newTotalDays
-        if (projectedAvailable < -existingNewBalance.carriedForward) {
-          throw new Error('INSUFFICIENT_BALANCE:Insufficient leave balance for this modification')
-        }
-
-        await tx.leaveBalance.update({
+      // 2. APPLY new balance impact (preserving current status)
+      if (existingRequest.status !== 'REJECTED') {
+        const existingNewBalance = await tx.leaveBalance.findUnique({
           where: {
             userId_leaveTypeId_year: {
               userId: existingRequest.userId,
               leaveTypeId: newLeaveTypeId,
               year: newBalanceYear,
             }
-          },
-          data: {
-            pending: { increment: newTotalDays },
-            available: { decrement: newTotalDays },
           }
         })
-      } else {
-        // Create a new balance record if none exists
-        await tx.leaveBalance.create({
-          data: {
-            userId: existingRequest.userId,
-            leaveTypeId: newLeaveTypeId,
-            year: newBalanceYear,
-            entitled: 0,
-            used: 0,
-            pending: newTotalDays,
-            available: -newTotalDays,
+
+        if (existingNewBalance) {
+          // Check if enough balance is available
+          const projectedAvailable = existingNewBalance.available - newTotalDays
+          if (projectedAvailable < -existingNewBalance.carriedForward) {
+            throw new Error('INSUFFICIENT_BALANCE:Insufficient leave balance for this modification')
           }
-        })
+
+          if (existingRequest.status === 'APPROVED') {
+            // Apply as used — preserve approved status
+            const cfConsumed = Math.min(newTotalDays, Math.max(0, existingNewBalance.carriedForward - existingNewBalance.carriedForwardUsed))
+            await tx.leaveBalance.update({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: existingRequest.userId,
+                  leaveTypeId: newLeaveTypeId,
+                  year: newBalanceYear,
+                }
+              },
+              data: {
+                used: existingNewBalance.used + newTotalDays,
+                carriedForwardUsed: existingNewBalance.carriedForwardUsed + cfConsumed,
+                available: existingNewBalance.entitled + existingNewBalance.carriedForward - (existingNewBalance.used + newTotalDays) - existingNewBalance.pending,
+              }
+            })
+          } else {
+            // PENDING — apply as pending
+            await tx.leaveBalance.update({
+              where: {
+                userId_leaveTypeId_year: {
+                  userId: existingRequest.userId,
+                  leaveTypeId: newLeaveTypeId,
+                  year: newBalanceYear,
+                }
+              },
+              data: {
+                pending: { increment: newTotalDays },
+                available: { decrement: newTotalDays },
+              }
+            })
+          }
+        } else {
+          // Create a new balance record if none exists
+          await tx.leaveBalance.create({
+            data: {
+              userId: existingRequest.userId,
+              leaveTypeId: newLeaveTypeId,
+              year: newBalanceYear,
+              entitled: 0,
+              used: existingRequest.status === 'APPROVED' ? newTotalDays : 0,
+              pending: existingRequest.status === 'PENDING' ? newTotalDays : 0,
+              available: -newTotalDays,
+            }
+          })
+        }
       }
+      // REJECTED: no balance impact needed
 
       // 3. Update the leave request
       const updatedRequest = await tx.leaveRequest.update({
@@ -304,7 +319,7 @@ export async function PUT(
           totalDays: newTotalDays,
           reason: newReason,
           selectedDates: workingDatesList,
-          status: 'PENDING',
+          status: existingRequest.status,
           hrDocumentVerified: datesOrTypeChanged ? false : existingRequest.hrDocumentVerified,
           hrVerifiedBy: datesOrTypeChanged ? null : existingRequest.hrVerifiedBy,
           hrVerifiedAt: datesOrTypeChanged ? null : existingRequest.hrVerifiedAt,
@@ -322,24 +337,7 @@ export async function PUT(
         }
       })
 
-      // 4. Reset approval chain
-      await tx.approval.deleteMany({
-        where: { leaveRequestId: params.id }
-      })
-
-      for (const approval of approvalWorkflow) {
-        await tx.approval.create({
-          data: {
-            leaveRequestId: params.id,
-            approverId: approval.approverId,
-            level: approval.level,
-            status: 'PENDING',
-            comments: `Request modified by HR: ${currentUser.firstName} ${currentUser.lastName}`,
-          }
-        })
-      }
-
-      // 5. Update substitutes
+      // 4. Update substitutes
       await tx.leaveRequestSubstitute.deleteMany({
         where: { leaveRequestId: params.id }
       })
@@ -386,33 +384,33 @@ export async function PUT(
           userId: existingRequest.userId,
           type: 'LEAVE_REQUESTED',
           title: `Leave Request Modified (${updatedRequest.leaveType.name})`,
-          message: `Your leave request ${existingRequest.requestNumber} has been modified by HR. It requires re-approval.`,
+          message: `Your leave request ${existingRequest.requestNumber} has been modified by HR.`,
           link: '/employee',
         }
       })
 
-      // Notify first approver
-      if (approvalWorkflow.length > 0) {
-        const firstApprover = approvalWorkflow[0]
-        let notificationLink = `/manager?request=${params.id}`
-        if (existingRequest.user.manager) {
-          if (existingRequest.user.manager.role === 'HR' ||
-              (existingRequest.user.manager.role === 'EMPLOYEE' && (existingRequest.user.manager.department?.toLowerCase() === 'hr' || existingRequest.user.manager.department?.toLowerCase() === 'human resources'))) {
+      // Notify approvers (informational — no re-approval needed)
+      if (existingRequest.approvals.length > 0) {
+        for (const approval of existingRequest.approvals) {
+          let notificationLink = `/manager?request=${params.id}`
+          const approverRole = existingRequest.user.manager?.role
+          if (approverRole === 'HR' ||
+              (approverRole === 'EMPLOYEE' && (existingRequest.user.manager?.department?.toLowerCase() === 'hr' || existingRequest.user.manager?.department?.toLowerCase() === 'human resources'))) {
             notificationLink = `/hr?request=${params.id}`
-          } else if (existingRequest.user.manager.role === 'EXECUTIVE') {
+          } else if (approverRole === 'EXECUTIVE') {
             notificationLink = `/executive?request=${params.id}`
           }
-        }
 
-        await tx.notification.create({
-          data: {
-            userId: firstApprover.approverId,
-            type: 'APPROVAL_REQUIRED',
-            title: 'Leave Request Approval Required',
-            message: `${existingRequest.user.firstName} ${existingRequest.user.lastName}'s leave request has been modified by HR and requires your approval.`,
-            link: notificationLink,
-          }
-        })
+          await tx.notification.create({
+            data: {
+              userId: approval.approverId,
+              type: 'LEAVE_REQUESTED',
+              title: 'Leave Request Modified by HR',
+              message: `${existingRequest.user.firstName} ${existingRequest.user.lastName}'s leave request has been modified by HR.`,
+              link: notificationLink,
+            }
+          })
+        }
       }
 
       return updatedRequest
@@ -426,7 +424,7 @@ export async function PUT(
       endDate: newEndDate.toISOString(),
       totalDays: newTotalDays,
       reason: newReason,
-      status: 'PENDING',
+      status: existingRequest.status,
       substituteIds: substituteIds || oldValues.substituteIds,
     }
 
@@ -464,7 +462,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      message: `Leave request ${existingRequest.requestNumber} updated successfully. Status reset to PENDING.`,
+      message: `Leave request ${existingRequest.requestNumber} updated successfully.`,
       request: result,
     })
   } catch (error) {

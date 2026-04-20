@@ -12,6 +12,7 @@ export enum AuditAction {
   APPROVE_WFH = 'APPROVE_WFH',
   REJECT_WFH = 'REJECT_WFH',
   CREATE_WFH = 'CREATE_WFH',
+  EDIT_WFH = 'EDIT_WFH',
   
   // Employee Management
   CREATE_EMPLOYEE = 'CREATE_EMPLOYEE',
