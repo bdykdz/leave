@@ -339,7 +339,7 @@ export function ManualRequestEntry() {
           resetLeaveForm()
         } else {
           const error = await response.json()
-          toast.error(error.error || 'Failed to create leave request')
+          toast.error(error.error || 'Failed to create leave request', error.message ? { description: error.message } : undefined)
         }
       } else if (confirmAction === 'wfh') {
         const response = await fetch('/api/hr/manual-wfh-request', {
@@ -364,7 +364,7 @@ export function ManualRequestEntry() {
           resetWfhForm()
         } else {
           const error = await response.json()
-          toast.error(error.error || 'Failed to create WFH request')
+          toast.error(error.error || 'Failed to create WFH request', error.message ? { description: error.message } : undefined)
         }
       } else {
         // Work Trip
@@ -391,7 +391,7 @@ export function ManualRequestEntry() {
           resetWorkTripForm()
         } else {
           const error = await response.json()
-          toast.error(error.error || 'Failed to create work trip request')
+          toast.error(error.error || 'Failed to create work trip request', error.message ? { description: error.message } : undefined)
         }
       }
     } catch {
