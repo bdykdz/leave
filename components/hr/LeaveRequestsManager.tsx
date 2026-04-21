@@ -327,21 +327,11 @@ export function LeaveRequestsManager() {
 
   const canEdit = (request: LeaveRequestItem) => {
     if (request.status === "CANCELLED") return false
-    if (request.status === "APPROVED") {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (new Date(request.startDate) <= today) return false
-    }
     return true
   }
 
   const canCancel = (request: LeaveRequestItem) => {
     if (request.status === "CANCELLED" || request.status === "REJECTED") return false
-    if (request.status === "APPROVED") {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (new Date(request.startDate) <= today) return false
-    }
     return true
   }
 

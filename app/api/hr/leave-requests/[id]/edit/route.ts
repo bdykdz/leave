@@ -73,14 +73,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Cannot edit a cancelled request' }, { status: 400 })
     }
 
-    // If approved, check that leave hasn't started
-    if (existingRequest.status === 'APPROVED') {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (existingRequest.startDate <= today) {
-        return NextResponse.json({ error: 'Cannot edit an approved request that has already started' }, { status: 400 })
-      }
-    }
 
     // Determine new values (use existing if not provided)
     const newLeaveTypeId = leaveTypeId || existingRequest.leaveTypeId

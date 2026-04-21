@@ -40,14 +40,6 @@ export async function POST(
       return NextResponse.json({ error: 'Request is already cancelled' }, { status: 400 });
     }
 
-    if (leaveRequest.status === 'APPROVED') {
-      // If approved and has started, cannot cancel
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (leaveRequest.startDate <= today) {
-        return NextResponse.json({ error: 'Cannot cancel an approved request that has already started' }, { status: 400 });
-      }
-    }
 
     // Perform all database operations in a transaction for data consistency
     const updatedRequest = await prisma.$transaction(async (tx) => {

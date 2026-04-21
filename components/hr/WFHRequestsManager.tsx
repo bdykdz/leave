@@ -233,21 +233,11 @@ export function WFHRequestsManager() {
 
   const canEdit = (request: WFHRequestItem) => {
     if (request.status === "CANCELLED") return false
-    if (request.status === "APPROVED") {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (new Date(request.startDate) <= today) return false
-    }
     return true
   }
 
   const canCancel = (request: WFHRequestItem) => {
     if (request.status === "CANCELLED" || request.status === "REJECTED") return false
-    if (request.status === "APPROVED") {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (new Date(request.startDate) <= today) return false
-    }
     return true
   }
 

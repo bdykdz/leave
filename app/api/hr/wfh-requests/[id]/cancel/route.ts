@@ -48,13 +48,6 @@ export async function POST(
       return NextResponse.json({ error: 'Request is already cancelled' }, { status: 400 })
     }
 
-    if (wfhRequest.status === 'APPROVED') {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (wfhRequest.startDate <= today) {
-        return NextResponse.json({ error: 'Cannot cancel an approved request that has already started' }, { status: 400 })
-      }
-    }
 
     const updatedRequest = await prisma.$transaction(async (tx) => {
       const cancelled = await tx.workFromHomeRequest.update({
