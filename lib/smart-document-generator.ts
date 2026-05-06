@@ -882,12 +882,6 @@ export class SmartDocumentGenerator {
   }
 
   private getSubstitutesString(leaveRequest: AnyObj): string {
-    // Check if this is an executive request
-    if (leaveRequest.supportingDocuments?.isExecutiveRequest) {
-      console.log('Executive request - no substitute needed')
-      return 'N/A (Executive Request)'
-    }
-
     // Check for "Fără Înlocuitor" virtual substitute
     if (leaveRequest.substitute && isNoSubstituteUser(leaveRequest.substitute.employeeId)) {
       return 'Fără Înlocuitor'
@@ -922,11 +916,6 @@ export class SmartDocumentGenerator {
   }
 
   private getSubstitutesEmails(leaveRequest: AnyObj): string {
-    // Check if this is an executive request
-    if (leaveRequest.supportingDocuments?.isExecutiveRequest) {
-      return 'N/A (Executive Request)'
-    }
-
     // Check for "Fără Înlocuitor" virtual substitute
     if (leaveRequest.substitute && isNoSubstituteUser(leaveRequest.substitute.employeeId)) {
       return 'N/A (Fără Înlocuitor)'

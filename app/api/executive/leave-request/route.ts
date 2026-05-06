@@ -9,6 +9,8 @@ import { asyncHandler, safeAsync } from '@/lib/async-handler';
 import { emailService } from '@/lib/email-service';
 import { WorkingDaysService } from '@/lib/services/working-days-service';
 import { hasActualDateOverlap } from '@/lib/utils/date-validation';
+import { getSubstituteNames } from '@/lib/services/approval-workflow-service';
+import { ValidationService } from '@/lib/validation-service';
 
 // Helper class to abort transactions with a client-facing response
 class TransactionAbort extends Error {
@@ -30,6 +32,7 @@ const createExecutiveLeaveRequestSchema = z.object({
   selectedDates: z.array(z.string()).optional(),
   signature: z.string(),
   executiveApproverId: z.string(),
+  substituteIds: z.array(z.string()).min(1, 'At least one substitute is required'),
   isExecutiveRequest: z.boolean().optional(),
 });
 
@@ -223,10 +226,38 @@ export const POST = asyncHandler(async (request: NextRequest) => {
     }
   }
 
+  // Comprehensive validation (substitute eligibility, conflicts, etc.)
+  const validationErrors = await ValidationService.validateLeaveRequest(
+    session.user.id,
+    {
+      leaveTypeId: validatedData.leaveTypeId,
+      startDate,
+      endDate,
+      totalDays,
+      substituteIds: validatedData.substituteIds,
+      selectedDates: validatedData.selectedDates?.map((d: string) => new Date(d)),
+    }
+  );
+
+  if (validationErrors.length > 0) {
+    log.warn('Executive leave request validation failed', {
+      userId: session.user.id,
+      errors: validationErrors,
+    });
+    return NextResponse.json(
+      {
+        error: 'Validation failed',
+        errors: validationErrors,
+      },
+      { status: 400 }
+    );
+  }
+
   // Wrap overlap check, balance check, request creation, and balance update in a transaction
   // to prevent race conditions (#7, #17)
   const balanceYear = startDate.getFullYear();
   const requestNumberYear = new Date().getFullYear();
+  const substituteNames = await getSubstituteNames(validatedData.substituteIds);
 
   let leaveRequest;
   try {
@@ -312,6 +343,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         endDate,
         totalDays,
         reason: validatedData.reason,
+        substituteId: validatedData.substituteIds[0],
         status: 'PENDING',
         // Store selected dates as direct field for calendar filtering
         selectedDates: validatedData.selectedDates ?
@@ -319,6 +351,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         // Store metadata about executive request
         supportingDocuments: {
           selectedDates: validatedData.selectedDates || null,
+          substituteNames,
           isExecutiveRequest: true,
           executiveApproverId: validatedData.executiveApproverId,
         },
@@ -333,6 +366,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       },
       include: {
         leaveType: true,
+        substitute: true,
         approvals: {
           include: {
             // Fix #2: Only select safe fields to prevent password hash leak

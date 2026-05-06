@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { SignaturePad } from "@/components/signature-pad"
 import { LeaveCalendar } from "@/components/leave-calendar"
 import { ExecutiveApproverPicker } from "@/components/executive-approver-picker"
+import { BasicSubstitutePicker } from "@/components/basic-substitute-picker"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
 import { useTranslations } from "@/components/language-provider"
@@ -38,6 +39,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
   const [signature, setSignature] = useState<string>("")
   const [isValidSignature, setIsValidSignature] = useState(false)
   const [selectedApprover, setSelectedApprover] = useState<string>("")
+  const [selectedSubstitutes, setSelectedSubstitutes] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
@@ -50,6 +52,14 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
     return date1.getFullYear() === date2.getFullYear() &&
            date1.getMonth() === date2.getMonth() &&
            date1.getDate() === date2.getDate()
+  }
+
+  // Helper to format date as YYYY-MM-DD in local time
+  const toLocalDateString = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
   
   // Handle date selection toggling
@@ -116,6 +126,14 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
       return
     }
 
+    if (selectedSubstitutes.length === 0) {
+      showError(
+        t.errors.coverageRequired,
+        t.errors.selectTeamMemberForCoverage,
+      )
+      return
+    }
+
     if (!signature || !isValidSignature) {
       showError(
         t.errors.invalidSignature,
@@ -132,14 +150,6 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
       const startDate = sortedDates[0]
       const endDate = sortedDates[sortedDates.length - 1]
 
-      // Helper to format date as YYYY-MM-DD in local time
-      const toLocalDateString = (date: Date) => {
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, '0')
-        const day = String(date.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
-      }
-
       // Prepare request body for executive leave
       const requestBody = {
         leaveTypeId: leaveType,
@@ -149,6 +159,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
         selectedDates: selectedDates.map(date => toLocalDateString(date)),
         signature: signature,
         executiveApproverId: selectedApprover, // Single executive approver
+        substituteIds: selectedSubstitutes,
         isExecutiveRequest: true, // Flag to identify executive requests
       }
 
@@ -192,6 +203,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
         setReason("")
         setSignature("")
         setSelectedApprover("")
+        setSelectedSubstitutes([])
         onBack()
       }, 3000)
     } catch (error) {
@@ -213,6 +225,7 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
     setReason("")
     setSignature("")
     setSelectedApprover("")
+    setSelectedSubstitutes([])
     // Go back to dashboard
     onBack()
   }
@@ -315,6 +328,22 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
                   />
                 </div>
 
+                {/* Substitute Picker - Required */}
+                <div className="border-t pt-4">
+                  <BasicSubstitutePicker
+                    startDate={(() => {
+                      const sorted = [...selectedDates].sort((a, b) => a.getTime() - b.getTime())
+                      return sorted.length > 0 ? toLocalDateString(sorted[0]) : undefined
+                    })()}
+                    endDate={(() => {
+                      const sorted = [...selectedDates].sort((a, b) => a.getTime() - b.getTime())
+                      return sorted.length > 0 ? toLocalDateString(sorted[sorted.length - 1]) : undefined
+                    })()}
+                    selectedSubstitutes={selectedSubstitutes}
+                    onSubstitutesChange={setSelectedSubstitutes}
+                  />
+                </div>
+
                 {/* Signature */}
                 <div className="border-t pt-4">
                   <SignaturePad 
@@ -336,7 +365,8 @@ export function ExecutiveLeaveRequestForm({ onBack }: ExecutiveLeaveRequestFormP
                       !signature ||
                       !isValidSignature ||
                       !leaveType ||
-                      !selectedApprover
+                      !selectedApprover ||
+                      selectedSubstitutes.length === 0
                     }
                     className="w-full"
                   >
