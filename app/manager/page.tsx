@@ -34,6 +34,8 @@ import { WorkTripRequestForm } from "@/components/work-trip-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
 import { DashboardSummary } from "@/components/dashboard-summary"
 import { DelegationManager } from "@/components/manager/DelegationManager"
+import { TeamWeekGrid } from "@/components/team-week-grid"
+import { ApprovalsByMember } from "@/components/approvals-by-member"
 import { format, addMonths, subMonths } from "date-fns"
 import {
   DropdownMenu,
@@ -1489,6 +1491,9 @@ export default function ManagerDashboard() {
                 </Card>
               </div>
 
+              {/* Weekly team schedule */}
+              <TeamWeekGrid />
+
               {/* Team Roster */}
               {(teamStats.inOfficeMembers.length > 0 || teamStats.wfhMembers.length > 0 || teamStats.onLeaveMembers.length > 0 || (teamStats.workTripMembers && teamStats.workTripMembers.length > 0)) && (
                 <Card>
@@ -1584,6 +1589,9 @@ export default function ManagerDashboard() {
                   <p className="text-sm font-medium text-blue-600 mt-2">{t.labels.avgTeamWfhPercentage}</p>
                 </CardContent>
               </Card>
+
+              {/* Approvals grouped per team member */}
+              <ApprovalsByMember />
 
               {/* Team Requests with Tabs */}
               <Card>
