@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { DelegationService } from '@/lib/services/delegation-service';
 import { z } from 'zod';
 import { SmartDocumentGenerator } from '@/lib/smart-document-generator';
 import { emailService } from '@/lib/email-service';
@@ -628,8 +629,24 @@ export const POST = asyncHandler(async (request: NextRequest) => {
           },
         });
       }, undefined, `Failed to create notification for approver ${firstApprover.approverId}`);
+
+      // Additive delegation: also notify anyone currently covering this approver's duties
+      const approverDelegateIds = await DelegationService.getActiveDelegateIdsFor(firstApprover.approverId);
+      for (const delegateId of approverDelegateIds) {
+        await safeAsync(async () => {
+          await prisma.notification.create({
+            data: {
+              userId: delegateId,
+              type: 'APPROVAL_REQUIRED',
+              title: 'Leave Request Approval Required (delegated)',
+              message: `${user.firstName} ${user.lastName} has requested ${actualDays} days of leave — you are covering approvals.`,
+              link: notificationLink,
+            },
+          });
+        }, undefined, `Failed to notify delegate ${delegateId}`);
+      }
     }
-    
+
     // Check if this is sick leave using the already fetched leave type
     const isSickLeave = leaveRequest.leaveType.code === 'SL';
     

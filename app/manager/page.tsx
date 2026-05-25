@@ -1824,6 +1824,12 @@ export default function ManagerDashboard() {
                                     WT
                                   </Badge>
                                 )}
+                                {request?.onBehalfOf && (
+                                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200" title={t.delegation?.coveringFor || 'Delegated to you'}>
+                                    <UserCheck className="h-3 w-3 mr-1" />
+                                    {(t.delegation?.forLabel || 'for')} {request.onBehalfOf}
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm text-gray-600 mb-1">
                                 <span className="font-medium">{request?.type || 'Unknown'}</span> • {request?.dates || 'N/A'} ({request?.days || 0}{" "}
@@ -2087,6 +2093,12 @@ export default function ManagerDashboard() {
                                         <Home className="h-3 w-3 mr-1" />
                                         WFH
                                       </Badge>
+                                      {request?.onBehalfOf && (
+                                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200" title={t.delegation?.coveringFor || 'Delegated to you'}>
+                                          <UserCheck className="h-3 w-3 mr-1" />
+                                          {(t.delegation?.forLabel || 'for')} {request.onBehalfOf}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <p className="text-sm text-gray-600 mb-1">
                                       <span className="font-medium">Work From Home</span> • {request?.dates || 'N/A'} ({request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''})
@@ -2303,6 +2315,12 @@ export default function ManagerDashboard() {
                                         <Briefcase className="h-3 w-3 mr-1" />
                                         WT
                                       </Badge>
+                                      {request?.onBehalfOf && (
+                                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200" title={t.delegation?.coveringFor || 'Delegated to you'}>
+                                          <UserCheck className="h-3 w-3 mr-1" />
+                                          {(t.delegation?.forLabel || 'for')} {request.onBehalfOf}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <p className="text-sm text-gray-600 mb-1">
                                       <span className="font-medium">{t.common?.workTripFull || 'Work Trip'}</span> • {request?.dates || 'N/A'} ({request?.days || 0} day{(request?.days || 0) > 1 ? 's' : ''})

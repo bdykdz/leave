@@ -306,10 +306,13 @@ export class ValidationService {
   static async validateApprovalPermission(
     approverId: string,
     requesterId: string,
-    requestId: string
+    requestId: string,
+    // Delegators this approver is an active delegate for. A delegate may act on
+    // any pending approval belonging to one of these users.
+    delegatorIds: string[] = []
   ): Promise<ValidationError[]> {
     const errors: ValidationError[] = [];
-    
+
     // Check if approver is the requester (self-approval)
     if (approverId === requesterId) {
       errors.push({
@@ -317,23 +320,23 @@ export class ValidationService {
         message: 'You cannot approve your own leave request',
         code: 'SELF_APPROVAL_NOT_ALLOWED',
       });
-      
+
       log.warn('Self-approval attempt blocked', {
         approverId,
         requesterId,
         requestId,
       });
     }
-    
-    // Check if approver is in the approval chain
+
+    // Check if approver is in the approval chain — directly OR as an active delegate
     const approval = await prisma.approval.findFirst({
       where: {
         leaveRequestId: requestId,
-        approverId: approverId,
+        approverId: { in: [approverId, ...delegatorIds] },
         status: 'PENDING',
       },
     });
-    
+
     if (!approval) {
       errors.push({
         field: 'approverId',
@@ -341,7 +344,7 @@ export class ValidationService {
         code: 'NOT_IN_APPROVAL_CHAIN',
       });
     }
-    
+
     return errors;
   }
   

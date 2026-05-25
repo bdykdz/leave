@@ -328,10 +328,12 @@ export class WFHValidationService {
   static async validateWFHApprovalPermission(
     approverId: string,
     requesterId: string,
-    requestId: string
+    requestId: string,
+    // Delegators this approver is an active delegate for.
+    delegatorIds: string[] = []
   ): Promise<WFHValidationError[]> {
     const errors: WFHValidationError[] = [];
-    
+
     // Check if approver is the requester (self-approval)
     if (approverId === requesterId) {
       errors.push({
@@ -339,31 +341,34 @@ export class WFHValidationService {
         message: 'You cannot approve your own WFH request',
         code: 'SELF_APPROVAL_NOT_ALLOWED',
       });
-      
+
       log.warn('WFH self-approval attempt blocked', {
         approverId,
         requesterId,
         requestId,
       });
     }
-    
-    // Check if approver is authorized
+
+    // Check if approver is authorized — directly OR as an active delegate
     const approval = await prisma.wFHApproval.findFirst({
       where: {
         wfhRequestId: requestId,
-        approverId: approverId,
+        approverId: { in: [approverId, ...delegatorIds] },
         status: 'PENDING',
       },
     });
-    
+
     if (!approval) {
       const wfhRequest = await prisma.workFromHomeRequest.findUnique({
         where: { id: requestId },
         include: { user: true },
       });
-      
-      // Check if approver is the manager
-      if (wfhRequest && wfhRequest.user.managerId !== approverId) {
+
+      // Authorized if approver is the manager, or an active delegate of the manager
+      const managerId = wfhRequest?.user.managerId
+      const isManagerOrDelegate =
+        !!managerId && (managerId === approverId || delegatorIds.includes(managerId))
+      if (wfhRequest && !isManagerOrDelegate) {
         errors.push({
           field: 'approverId',
           message: 'You are not authorized to approve this WFH request',
@@ -371,7 +376,7 @@ export class WFHValidationService {
         });
       }
     }
-    
+
     return errors;
   }
 }

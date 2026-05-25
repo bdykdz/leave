@@ -290,6 +290,12 @@ export interface Translations {
     pendingRequests: string
   }
 
+  // Approval delegation
+  delegation: {
+    coveringFor: string
+    forLabel: string
+  }
+
   // Leave Types
   leaveTypes: {
     annual: string
@@ -1113,6 +1119,10 @@ export const translations: Record<Language, Translations> = {
       onLeave: "On Leave",
       pendingRequests: "Pending Requests",
     },
+    delegation: {
+      coveringFor: "Delegated to you",
+      forLabel: "for",
+    },
     leaveTypes: {
       annual: "Annual Leave",
       sick: "Sick Leave",
@@ -1884,6 +1894,10 @@ export const translations: Record<Language, Translations> = {
       onWorkTrip: "În deplasare",
       onLeave: "În concediu",
       pendingRequests: "Cereri în așteptare",
+    },
+    delegation: {
+      coveringFor: "Delegat ție",
+      forLabel: "pentru",
     },
     leaveTypes: {
       annual: "Concediu de odihnă",

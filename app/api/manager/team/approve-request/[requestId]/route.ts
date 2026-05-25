@@ -11,6 +11,7 @@ import { ValidationService } from "@/lib/validation-service"
 import { WFHValidationService } from "@/lib/wfh-validation-service"
 import { log } from "@/lib/logger"
 import { sanitizeComment } from "@/lib/utils/sanitize"
+import { DelegationService } from "@/lib/services/delegation-service"
 
 export async function POST(
   request: Request,
@@ -88,11 +89,15 @@ export async function POST(
       )
     }
 
-    // Check for self-approval
+    // Delegation: managers who delegated their approvals to me (active right now)
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+
+    // Check for self-approval (delegation-aware authorization)
     const validationErrors = await ValidationService.validateApprovalPermission(
       session.user.id,
       leaveRequest.userId,
-      requestId
+      requestId,
+      delegatorIds
     )
 
     if (validationErrors.length > 0) {
@@ -118,7 +123,12 @@ export async function POST(
     const isAssignedApprover = leaveRequest.approvals.some(
       a => a.approverId === session.user.id && a.status === 'PENDING'
     )
-    if (!isManager && !isDepartmentDirector && !isAssignedApprover) {
+    // Delegate: I cover for the manager/director, or for whoever holds the pending approval
+    const isDelegate =
+      delegatorIds.includes(leaveRequest.user.managerId ?? '') ||
+      delegatorIds.includes(leaveRequest.user.departmentDirectorId ?? '') ||
+      leaveRequest.approvals.some(a => a.status === 'PENDING' && delegatorIds.includes(a.approverId))
+    if (!isManager && !isDepartmentDirector && !isAssignedApprover && !isDelegate) {
       return NextResponse.json({ error: "Not authorized to approve this request" }, { status: 403 })
     }
 
@@ -126,6 +136,18 @@ export async function POST(
     let pendingApproval = leaveRequest.approvals.find(
       a => a.approverId === session.user.id && a.status === 'PENDING'
     )
+
+    // Acting as a delegate: take over the delegator's pending approval slot
+    let actingOnBehalfOfId: string | null = null
+    if (!pendingApproval) {
+      const delegated = leaveRequest.approvals.find(
+        a => a.status === 'PENDING' && delegatorIds.includes(a.approverId)
+      )
+      if (delegated) {
+        pendingApproval = delegated
+        actingOnBehalfOfId = delegated.approverId
+      }
+    }
 
     // Check if this user already approved — if so, don't create a duplicate.
     // This can happen when HR document verification updates the approval record.
@@ -220,12 +242,14 @@ export async function POST(
     const isBDLRequest = leaveRequest.leaveType?.code === 'BDL'
     const isBDLHRValidation = isBDLRequest && pendingApproval!.level === 2
     const { allApproved } = await prisma.$transaction(async (tx) => {
-      // Update the approval
+      // Update the approval. When acting as a delegate we reassign the slot to the
+      // real actor (me) and flag it, so credit/audit reflect who actually approved.
       await tx.approval.update({
         where: { id: pendingApproval!.id },
         data: {
           status: 'APPROVED',
-          comments: cleanComment,
+          approverId: session.user.id,
+          comments: actingOnBehalfOfId ? `[Aprobat ca delegat] ${cleanComment}`.trim() : cleanComment,
           signature: signature,
           approvedAt: new Date(),
           signedAt: signature ? new Date() : null
@@ -330,7 +354,7 @@ export async function POST(
           entity: 'LEAVE_REQUEST',
           entityId: requestId,
           oldValues: { status: 'PENDING' },
-          newValues: { status: isAllApproved ? 'APPROVED' : 'PENDING', comment: cleanComment || null }
+          newValues: { status: isAllApproved ? 'APPROVED' : 'PENDING', comment: cleanComment || null, ...(actingOnBehalfOfId ? { delegatedFrom: actingOnBehalfOfId } : {}) }
         }
       })
 
@@ -645,6 +669,10 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
   // Signature is already extracted before sanitization by the caller
   const cleanComment = comment
   try {
+    // Delegation: managers who delegated their approvals to me (active right now)
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+    const actAsIds = [session.user.id, ...delegatorIds]
+
     // Get the WFH request
     const wfhRequest = await prisma.workFromHomeRequest.findUnique({
       where: { id: requestId },
@@ -652,7 +680,7 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
         user: true,
         approvals: {
           where: {
-            approverId: session.user.id
+            approverId: { in: actAsIds }
           }
         }
       }
@@ -662,11 +690,12 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       return NextResponse.json({ error: "WFH request not found" }, { status: 404 })
     }
 
-    // Validate approval permission
+    // Validate approval permission (delegation-aware)
     const validationErrors = await WFHValidationService.validateWFHApprovalPermission(
       session.user.id,
       wfhRequest.userId,
-      requestId
+      requestId,
+      delegatorIds
     )
 
     if (validationErrors.length > 0) {
@@ -686,8 +715,17 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       )
     }
 
-    // Get or create approval record for this specific approver
+    // Get or create approval record. Prefer my own slot; otherwise take over a
+    // delegator's pending slot (acting as their delegate).
     let approval = wfhRequest.approvals.find(a => a.approverId === session.user.id)
+    let actingOnBehalfOf = false
+    if (!approval) {
+      const delegated = wfhRequest.approvals.find(a => delegatorIds.includes(a.approverId))
+      if (delegated) {
+        approval = delegated
+        actingOnBehalfOf = true
+      }
+    }
     if (!approval) {
       approval = await prisma.wFHApproval.create({
         data: {
@@ -698,12 +736,13 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
       })
     }
 
-    // Update approval
+    // Update approval (reassign to the real actor when acting as a delegate)
     await prisma.wFHApproval.update({
       where: { id: approval.id },
       data: {
         status: 'APPROVED',
-        comments: cleanComment,
+        approverId: session.user.id,
+        comments: actingOnBehalfOf ? `[Aprobat ca delegat] ${cleanComment}`.trim() : cleanComment,
         approvedAt: new Date()
       }
     })
@@ -761,13 +800,17 @@ async function handleWFHApproval(session: any, requestId: string, comment: strin
 async function handleWorkTripApproval(session: any, requestId: string, comment: string, signature: string | null = null) {
   const cleanComment = comment
   try {
+    // Delegation: managers who delegated their approvals to me (active right now)
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+    const actAsIds = [session.user.id, ...delegatorIds]
+
     const workTripRequest = await prisma.workTripRequest.findUnique({
       where: { id: requestId },
       include: {
         user: true,
         approvals: {
           where: {
-            approverId: session.user.id
+            approverId: { in: actAsIds }
           }
         }
       }
@@ -777,12 +820,16 @@ async function handleWorkTripApproval(session: any, requestId: string, comment: 
       return NextResponse.json({ error: "Work trip request not found" }, { status: 404 })
     }
 
-    // Validate permission - must be manager of requester or assigned as a pending approver
+    // Validate permission - must be manager of requester, an assigned pending approver,
+    // or an active delegate of the manager / pending approver
     const isManager = workTripRequest.user.managerId === session.user.id
     const isAssignedApprover = workTripRequest.approvals.some(
       (a: any) => a.approverId === session.user.id && a.status === 'PENDING'
     )
-    if (!isManager && !isAssignedApprover) {
+    const isDelegate =
+      delegatorIds.includes(workTripRequest.user.managerId ?? '') ||
+      workTripRequest.approvals.some((a: any) => a.status === 'PENDING' && delegatorIds.includes(a.approverId))
+    if (!isManager && !isAssignedApprover && !isDelegate) {
       return NextResponse.json({ error: "Not authorized to approve this request" }, { status: 403 })
     }
 
@@ -791,6 +838,14 @@ async function handleWorkTripApproval(session: any, requestId: string, comment: 
     }
 
     let approval = workTripRequest.approvals.find((a: any) => a.approverId === session.user.id)
+    let actingOnBehalfOf = false
+    if (!approval) {
+      const delegated = workTripRequest.approvals.find((a: any) => delegatorIds.includes(a.approverId))
+      if (delegated) {
+        approval = delegated
+        actingOnBehalfOf = true
+      }
+    }
     if (!approval) {
       approval = await prisma.workTripApproval.create({
         data: {
@@ -805,7 +860,8 @@ async function handleWorkTripApproval(session: any, requestId: string, comment: 
       where: { id: approval.id },
       data: {
         status: 'APPROVED',
-        comments: cleanComment,
+        approverId: session.user.id,
+        comments: actingOnBehalfOf ? `[Aprobat ca delegat] ${cleanComment}`.trim() : cleanComment,
         approvedAt: new Date()
       }
     })

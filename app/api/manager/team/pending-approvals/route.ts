@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
+import { DelegationService } from "@/lib/services/delegation-service"
 
 export async function GET(request: Request) {
   try {
@@ -22,6 +23,30 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') // 'leave' to filter leave-only
     const skip = (page - 1) * limit
 
+    // Delegation: also surface requests for managers who delegated to me (additive).
+    // actAsIds = me + anyone whose approval duties I currently cover.
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+    const actAsIds = [session.user.id, ...delegatorIds]
+    const delegatorNameMap = new Map<string, string>()
+    if (delegatorIds.length > 0) {
+      const delegators = await prisma.user.findMany({
+        where: { id: { in: delegatorIds } },
+        select: { id: true, firstName: true, lastName: true }
+      })
+      for (const d of delegators) {
+        delegatorNameMap.set(d.id, `${d.firstName || ''} ${d.lastName || ''}`.trim())
+      }
+    }
+    // If a request is surfaced only because I'm someone's delegate, return who it's "on behalf of".
+    const onBehalfOf = (managerId: string | null | undefined, approvalApproverIds: string[]) => {
+      const me = session.user.id
+      const isMineDirectly = managerId === me || approvalApproverIds.includes(me)
+      if (isMineDirectly) return null
+      const viaApproval = approvalApproverIds.find(id => delegatorIds.includes(id))
+      const viaId = viaApproval || (managerId && delegatorIds.includes(managerId) ? managerId : null)
+      return viaId ? (delegatorNameMap.get(viaId) || null) : null
+    }
+
     // Get pending leave requests where this user is an approver OR from direct reports
     const pendingLeaveRequests = await prisma.leaveRequest.findMany({
       where: {
@@ -31,7 +56,7 @@ export async function GET(request: Request) {
             // Has pending approval for this user
             approvals: {
               some: {
-                approverId: session.user.id,
+                approverId: { in: actAsIds },
                 status: 'PENDING'
               }
             }
@@ -40,11 +65,11 @@ export async function GET(request: Request) {
             // Direct report request that might not have approval record yet
             // Exclude if the manager has already approved/rejected their approval
             user: {
-              managerId: session.user.id
+              managerId: { in: actAsIds }
             },
             approvals: {
               none: {
-                approverId: session.user.id,
+                approverId: { in: actAsIds },
                 status: { in: ['APPROVED', 'REJECTED'] }
               }
             }
@@ -72,7 +97,7 @@ export async function GET(request: Request) {
         },
         approvals: {
           where: {
-            approverId: session.user.id
+            approverId: { in: actAsIds }
           }
         }
       },
@@ -98,18 +123,18 @@ export async function GET(request: Request) {
             {
               approvals: {
                 some: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: 'PENDING'
                 }
               }
             },
             {
               user: {
-                managerId: session.user.id
+                managerId: { in: actAsIds }
               },
               approvals: {
                 none: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: { in: ['APPROVED', 'REJECTED'] }
                 }
               }
@@ -130,7 +155,7 @@ export async function GET(request: Request) {
           },
           approvals: {
             where: {
-              approverId: session.user.id
+              approverId: { in: actAsIds }
             }
           }
         },
@@ -148,18 +173,18 @@ export async function GET(request: Request) {
             {
               approvals: {
                 some: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: 'PENDING'
                 }
               }
             },
             {
               user: {
-                managerId: session.user.id
+                managerId: { in: actAsIds }
               },
               approvals: {
                 none: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: { in: ['APPROVED', 'REJECTED'] }
                 }
               }
@@ -176,18 +201,18 @@ export async function GET(request: Request) {
             {
               approvals: {
                 some: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: 'PENDING'
                 }
               }
             },
             {
               user: {
-                managerId: session.user.id
+                managerId: { in: actAsIds }
               },
               approvals: {
                 none: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: { in: ['APPROVED', 'REJECTED'] }
                 }
               }
@@ -208,7 +233,7 @@ export async function GET(request: Request) {
           },
           approvals: {
             where: {
-              approverId: session.user.id
+              approverId: { in: actAsIds }
             }
           }
         },
@@ -226,18 +251,18 @@ export async function GET(request: Request) {
             {
               approvals: {
                 some: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: 'PENDING'
                 }
               }
             },
             {
               user: {
-                managerId: session.user.id
+                managerId: { in: actAsIds }
               },
               approvals: {
                 none: {
-                  approverId: session.user.id,
+                  approverId: { in: actAsIds },
                   status: { in: ['APPROVED', 'REJECTED'] }
                 }
               }
@@ -255,18 +280,18 @@ export async function GET(request: Request) {
           {
             approvals: {
               some: {
-                approverId: session.user.id,
+                approverId: { in: actAsIds },
                 status: 'PENDING'
               }
             }
           },
           {
             user: {
-              managerId: session.user.id
+              managerId: { in: actAsIds }
             },
             approvals: {
               none: {
-                approverId: session.user.id,
+                approverId: { in: actAsIds },
                 status: { in: ['APPROVED', 'REJECTED'] }
               }
             }
@@ -294,6 +319,7 @@ export async function GET(request: Request) {
       reason: request.reason,
       submittedDate: request.createdAt.toISOString(),
       substitute: request.substitute ? `${request.substitute?.firstName || ''} ${request.substitute?.lastName || ''}` : null,
+      onBehalfOf: onBehalfOf(request.user?.managerId, (request.approvals || []).map((a: any) => a.approverId)),
       status: 'pending'
     }))
 
@@ -315,6 +341,7 @@ export async function GET(request: Request) {
       location: request.location,
       submittedDate: request.createdAt.toISOString(),
       substitute: null,
+      onBehalfOf: onBehalfOf(request.user?.managerId, (request.approvals || []).map((a: any) => a.approverId)),
       status: 'pending'
     }))
 
@@ -337,6 +364,7 @@ export async function GET(request: Request) {
       purpose: request.purpose,
       submittedDate: request.createdAt.toISOString(),
       substitute: null,
+      onBehalfOf: onBehalfOf(request.user?.managerId, (request.approvals || []).map((a: any) => a.approverId)),
       status: 'pending'
     }))
 

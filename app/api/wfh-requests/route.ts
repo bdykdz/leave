@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { DelegationService } from '@/lib/services/delegation-service';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { log } from '@/lib/logger';
@@ -442,6 +443,22 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         link: notificationLink,
       },
     });
+
+    // Additive delegation: also notify anyone currently covering the manager's duties
+    const managerDelegateIds = await DelegationService.getActiveDelegateIdsFor(user.managerId);
+    for (const delegateId of managerDelegateIds) {
+      await safeAsync(async () => {
+        await prisma.notification.create({
+          data: {
+            userId: delegateId,
+            type: 'APPROVAL_REQUIRED',
+            title: 'WFH Request Approval Required (delegated)',
+            message: `${user.firstName} ${user.lastName} has requested ${totalDays} days of work from home — you are covering approvals.`,
+            link: notificationLink,
+          },
+        });
+      }, undefined, `Failed to notify delegate ${delegateId}`);
+    }
   }
 
   // Send email notification to manager

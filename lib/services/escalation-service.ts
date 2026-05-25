@@ -396,7 +396,8 @@ export class EscalationService {
       where: {
         delegatorId: approverId,
         startDate: { lte: new Date() },
-        endDate: { gte: new Date() },
+        // Open-ended delegations (endDate == null) must count as active.
+        OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
         isActive: true
       },
       include: {

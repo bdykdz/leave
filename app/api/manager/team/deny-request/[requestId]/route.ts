@@ -7,6 +7,7 @@ import { format } from "date-fns"
 import { WFHValidationService } from "@/lib/wfh-validation-service"
 import { log } from "@/lib/logger"
 import { sanitizeComment } from "@/lib/utils/sanitize"
+import { DelegationService } from "@/lib/services/delegation-service"
 
 export async function POST(
   request: Request,
@@ -62,13 +63,21 @@ export async function POST(
       )
     }
 
-    // Verify the current user is the manager, department director, or assigned approver of the requester
+    // Delegation: managers who delegated their approvals to me (active right now)
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+
+    // Verify the current user is the manager, department director, assigned approver,
+    // or an active delegate of any of those
     const isManager = leaveRequest.user.managerId === session.user.id
     const isDepartmentDirector = leaveRequest.user.departmentDirectorId === session.user.id
     const isAssignedApprover = leaveRequest.approvals.some(
       a => a.approverId === session.user.id && a.status === 'PENDING'
     )
-    if (!isManager && !isDepartmentDirector && !isAssignedApprover) {
+    const isDelegate =
+      delegatorIds.includes(leaveRequest.user.managerId ?? '') ||
+      delegatorIds.includes(leaveRequest.user.departmentDirectorId ?? '') ||
+      leaveRequest.approvals.some(a => a.status === 'PENDING' && delegatorIds.includes(a.approverId))
+    if (!isManager && !isDepartmentDirector && !isAssignedApprover && !isDelegate) {
       return NextResponse.json({ error: "Not authorized to deny this request" }, { status: 403 })
     }
 
@@ -80,6 +89,18 @@ export async function POST(
       ) || leaveRequest.approvals.find(
         a => a.approverId === session.user.id
       )
+
+      // Acting as a delegate: take over a delegator's pending approval slot
+      let actingOnBehalfOfId: string | null = null
+      if (!pendingApproval) {
+        const delegated = leaveRequest.approvals.find(
+          a => a.status === 'PENDING' && delegatorIds.includes(a.approverId)
+        )
+        if (delegated) {
+          pendingApproval = delegated
+          actingOnBehalfOfId = delegated.approverId
+        }
+      }
 
       if (!pendingApproval) {
         // Fallback: find any pending approval this manager can act on
@@ -104,12 +125,13 @@ export async function POST(
         }
       }
 
-      // Update the approval
+      // Update the approval (reassign to the real actor when denying as a delegate)
       await tx.approval.update({
         where: { id: pendingApproval.id },
         data: {
           status: 'REJECTED',
-          comments: comment,
+          approverId: session.user.id,
+          comments: actingOnBehalfOfId ? `[Respins ca delegat] ${comment}`.trim() : comment,
           approvedAt: new Date()
         }
       })
@@ -228,6 +250,10 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
   // Signature data already stripped by caller before sanitization
   const cleanComment = comment
   try {
+    // Delegation: managers who delegated their approvals to me (active right now)
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+    const actAsIds = [session.user.id, ...delegatorIds]
+
     // Get the WFH request
     const wfhRequest = await prisma.workFromHomeRequest.findUnique({
       where: { id: requestId },
@@ -235,7 +261,7 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
         user: true,
         approvals: {
           where: {
-            approverId: session.user.id
+            approverId: { in: actAsIds }
           }
         }
       }
@@ -250,10 +276,14 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
       return NextResponse.json({ error: "Cannot deny your own request" }, { status: 403 })
     }
 
-    // Verify manager permission
-    if (wfhRequest.user.managerId !== session.user.id) {
+    // Verify manager permission (or active delegate of the manager)
+    const isManagerOrDelegate =
+      wfhRequest.user.managerId === session.user.id ||
+      delegatorIds.includes(wfhRequest.user.managerId ?? '')
+    if (!isManagerOrDelegate) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 })
     }
+    const actingOnBehalfOf = wfhRequest.user.managerId !== session.user.id
 
     // Update approval if exists
     const approval = wfhRequest.approvals[0]
@@ -262,7 +292,8 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
         where: { id: approval.id },
         data: {
           status: 'REJECTED',
-          comments: cleanComment,
+          approverId: session.user.id,
+          comments: actingOnBehalfOf ? `[Respins ca delegat] ${cleanComment}`.trim() : cleanComment,
           approvedAt: new Date()
         }
       })
@@ -328,13 +359,17 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
 async function handleWorkTripDenial(session: any, requestId: string, comment: string) {
   const cleanComment = comment
   try {
+    // Delegation: managers who delegated their approvals to me (active right now)
+    const delegatorIds = await DelegationService.getActiveDelegatorIdsFor(session.user.id)
+    const actAsIds = [session.user.id, ...delegatorIds]
+
     const workTripRequest = await prisma.workTripRequest.findUnique({
       where: { id: requestId },
       include: {
         user: true,
         approvals: {
           where: {
-            approverId: session.user.id
+            approverId: { in: actAsIds }
           }
         }
       }
@@ -348,9 +383,13 @@ async function handleWorkTripDenial(session: any, requestId: string, comment: st
       return NextResponse.json({ error: "Cannot deny your own request" }, { status: 403 })
     }
 
-    if (workTripRequest.user.managerId !== session.user.id) {
+    const isManagerOrDelegate =
+      workTripRequest.user.managerId === session.user.id ||
+      delegatorIds.includes(workTripRequest.user.managerId ?? '')
+    if (!isManagerOrDelegate) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 })
     }
+    const actingOnBehalfOf = workTripRequest.user.managerId !== session.user.id
 
     const approval = workTripRequest.approvals[0]
     if (approval) {
@@ -358,7 +397,8 @@ async function handleWorkTripDenial(session: any, requestId: string, comment: st
         where: { id: approval.id },
         data: {
           status: 'REJECTED',
-          comments: cleanComment,
+          approverId: session.user.id,
+          comments: actingOnBehalfOf ? `[Respins ca delegat] ${cleanComment}`.trim() : cleanComment,
           approvedAt: new Date()
         }
       })
