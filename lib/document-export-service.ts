@@ -1,4 +1,5 @@
 import { minioClient, MINIO_BUCKET, getFromMinio } from './minio'
+import { prisma } from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
 import archiver from 'archiver'
@@ -295,6 +296,7 @@ export async function syncDocumentsToLocal(): Promise<SyncResult> {
 export async function getExportStats(): Promise<ExportStats> {
   const manifest = await getExportManifest()
   const entries = Object.values(manifest.entries)
+  const leaveIndex = await getLeaveDateIndex()
 
   const byStatus: Record<string, number> = {}
   const byMonth: Record<string, number> = {}
@@ -307,7 +309,11 @@ export async function getExportStats(): Promise<ExportStats> {
 
     if (parsed) {
       byStatus[parsed.status] = (byStatus[parsed.status] || 0) + 1
-      byMonth[parsed.month] = (byMonth[parsed.month] || 0) + 1
+      // Group by the LEAVE month (what the request is about), falling back to the
+      // filename month only when the request can't be matched.
+      const leave = leaveIndex[parsed.requestNumber]
+      const month = leave ? leave.start.slice(0, 7) : parsed.month
+      byMonth[month] = (byMonth[month] || 0) + 1
     } else {
       // Templates or unparseable
       byStatus['template'] = (byStatus['template'] || 0) + 1
@@ -325,7 +331,31 @@ export async function getExportStats(): Promise<ExportStats> {
 
 // --- Filtered ZIP ---
 
-function matchesFilter(entry: ExportManifestEntry, filters: ExportFilterOptions): boolean {
+// Maps requestNumber (e.g. "LR-2026-0042") -> the leave PERIOD it is about.
+// Dates are kept as 'YYYY-MM-DD' strings so they compare lexicographically and
+// line up with the filter's dateFrom/dateTo (which are also 'YYYY-MM-DD').
+type LeaveDateIndex = Record<string, { start: string; end: string }>
+
+async function getLeaveDateIndex(): Promise<LeaveDateIndex> {
+  const requests = await prisma.leaveRequest.findMany({
+    select: { requestNumber: true, startDate: true, endDate: true },
+  })
+  const index: LeaveDateIndex = {}
+  for (const r of requests) {
+    if (!r.requestNumber) continue
+    index[r.requestNumber] = {
+      start: r.startDate.toISOString().slice(0, 10),
+      end: r.endDate.toISOString().slice(0, 10),
+    }
+  }
+  return index
+}
+
+function matchesFilter(
+  entry: ExportManifestEntry,
+  filters: ExportFilterOptions,
+  leaveIndex: LeaveDateIndex
+): boolean {
   const filename = entry.minioKey.split('/').pop() || ''
   const parsed = parseFilename(filename)
 
@@ -340,11 +370,20 @@ function matchesFilter(entry: ExportManifestEntry, filters: ExportFilterOptions)
   if (filters.status && filters.status !== 'all' && parsed.status !== filters.status) {
     return false
   }
-  if (filters.dateFrom && parsed.date < filters.dateFrom) {
-    return false
-  }
-  if (filters.dateTo && parsed.date > filters.dateTo) {
-    return false
+  // Date filter: match by the LEAVE PERIOD (what the request is about), not the
+  // document's generation date embedded in the filename. A document is included
+  // when its leave period overlaps the requested [dateFrom, dateTo] range.
+  // Fall back to the filename date only when the request can't be found (orphan/draft).
+  if (filters.dateFrom || filters.dateTo) {
+    const leave = leaveIndex[parsed.requestNumber]
+    const start = leave?.start ?? parsed.date
+    const end = leave?.end ?? parsed.date
+    if (filters.dateFrom && end < filters.dateFrom) {
+      return false
+    }
+    if (filters.dateTo && start > filters.dateTo) {
+      return false
+    }
   }
   if (filters.employee && !parsed.employee.includes(filters.employee.toLowerCase())) {
     return false
@@ -358,7 +397,8 @@ function matchesFilter(entry: ExportManifestEntry, filters: ExportFilterOptions)
 
 export async function buildFilteredZip(filters: ExportFilterOptions): Promise<Buffer> {
   const manifest = await getExportManifest()
-  const matchingEntries = Object.values(manifest.entries).filter((e) => matchesFilter(e, filters))
+  const leaveIndex = await getLeaveDateIndex()
+  const matchingEntries = Object.values(manifest.entries).filter((e) => matchesFilter(e, filters, leaveIndex))
 
   return new Promise((resolve, reject) => {
     const archive = archiver('zip', { zlib: { level: 6 } })
