@@ -43,12 +43,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { name, date, description, isRecurring, country, isActive } = await request.json()
+    const { nameEn, nameRo, date, description, isRecurring, country, isActive } = await request.json()
 
     const holiday = await prisma.holiday.update({
       where: { id: params.holidayId },
       data: {
-        name,
+        nameEn,
+        nameRo,
         date: date ? new Date(date) : undefined,
         description,
         isRecurring,

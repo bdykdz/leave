@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Get all active users
     const users = await prisma.user.findMany({
       where: { isActive: true },
-      select: { id: true, email: true, startDate: true }
+      select: { id: true, email: true }
     });
 
     // Get all leave types

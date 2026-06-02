@@ -110,6 +110,7 @@ export async function PUT(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: 'UPDATE_ESCALATION_SETTINGS',
+        entity: 'ESCALATION_SETTINGS',
         entityType: 'ESCALATION_SETTINGS',
         entityId: 'default',
         details: {

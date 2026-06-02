@@ -341,7 +341,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
     setLeaveType("")
     setReason("")
     setSignature("")
-    setSelectedSubstitute("")
+    setSelectedSubstitutes([])
     // Go back to dashboard
     onBack()
   }

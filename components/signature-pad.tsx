@@ -78,9 +78,12 @@ export function SignaturePad({ onSignatureChange, signature }: SignaturePadProps
 
 
   // Validation function
+  // A single continuous stroke is accepted: distance (>=25px) and time (>=0.5s)
+  // already reject accidental taps/clicks, so a 2-stroke minimum is unnecessary
+  // and was forcing users to sign twice.
   const validateSignature = (currentMetrics: DrawingMetrics): boolean => {
-    return currentMetrics.totalDistance >= 25 && 
-           currentMetrics.strokeCount >= 2 &&
+    return currentMetrics.totalDistance >= 25 &&
+           currentMetrics.strokeCount >= 1 &&
            currentMetrics.drawingTime >= 0.5
   }
 
@@ -301,7 +304,7 @@ export function SignaturePad({ onSignatureChange, signature }: SignaturePadProps
               <div className="flex items-center gap-1 text-amber-600 text-xs">
                 <AlertCircle className="h-3 w-3" />
                 {metrics.totalDistance < 25 && "Draw at least 25 pixels • "}
-                {metrics.strokeCount < 2 && "Need at least 2 strokes • "}
+                {metrics.strokeCount < 1 && "Draw your signature • "}
                 {metrics.drawingTime < 0.5 && "Draw for at least 0.5 seconds"}
               </div>
             )}

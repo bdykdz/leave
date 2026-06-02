@@ -150,6 +150,7 @@ export async function PUT(
         data: {
           userId: session.user.id,
           action: 'UPDATE_LEAVE_BALANCE',
+          entity: 'LEAVE_BALANCE',
           entityType: 'LEAVE_BALANCE',
           entityId: params.id,
           details: {

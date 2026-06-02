@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
-import { EscalationService } from '@/lib/services/escalation-service';
 
 // POST: Test escalation with sample data
 export async function POST(request: NextRequest) {
@@ -56,9 +55,8 @@ export async function POST(request: NextRequest) {
       ]
     };
 
-    // Simulate escalation logic
-    const escalationService = EscalationService.getInstance();
-    
+    // Simulate escalation logic (scenarios below are illustrative; no live service call needed)
+
     // Test different scenarios
     const scenarios = [
       {
@@ -88,6 +86,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: 'TEST_ESCALATION',
+        entity: 'ESCALATION_SETTINGS',
         entityType: 'ESCALATION_SETTINGS',
         entityId: 'test',
         details: {

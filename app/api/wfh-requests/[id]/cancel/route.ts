@@ -72,8 +72,9 @@ export async function POST(
     const updatedRequest = await prisma.leaveRequest.update({
       where: { id: params.id },
       data: {
-        status: 'CANCELLED',
-        approverComments: reason || 'Cancelled by administrator'
+        status: 'CANCELLED'
+        // Note: cancellation reason is preserved in the audit log below.
+        // LeaveRequest has no approverComments column.
       }
     });
 
@@ -82,6 +83,7 @@ export async function POST(
       data: {
         userId: session.user.id,
         action: 'REQUEST_CANCELLED',
+        entity: 'WFH_REQUEST',
         entityType: 'WFH_REQUEST',
         entityId: params.id,
         details: {

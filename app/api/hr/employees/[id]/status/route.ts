@@ -76,8 +76,8 @@ export async function PATCH(
           status: 'PENDING'
         },
         data: {
-          status: 'CANCELLED',
-          hrNotes: `Employee deactivated by ${session.user.email}. Reason: ${reason || 'Not specified'}`
+          status: 'CANCELLED'
+          // WorkFromHomeRequest has no notes column; deactivation reason is recorded in the audit log.
         }
       });
 
