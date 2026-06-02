@@ -209,7 +209,11 @@ export class EscalationService {
         status: 'PENDING',
         endDate: {
           lt: today
-        }
+        },
+        // Never auto-cancel HR-created manual entries. HR deliberately records
+        // leave for past dates (back-dated entries); those are legitimate records
+        // awaiting manager approval, not stale forgotten requests.
+        createdByHrId: null
       },
       include: {
         user: true,
