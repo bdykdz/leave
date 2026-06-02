@@ -351,6 +351,23 @@ async function getLeaveDateIndex(): Promise<LeaveDateIndex> {
   return index
 }
 
+// The folder a document should appear under in the export ZIP. Files are stored
+// on disk under their generation-date month (set at sync time), but users expect
+// them grouped by the LEAVE month the request is about. Remap the month segment
+// here at ZIP-build time without moving anything on disk. Templates/other and
+// unmatched requests keep their stored path.
+function zipPathForEntry(entry: ExportManifestEntry, leaveIndex: LeaveDateIndex): string {
+  const filename = entry.minioKey.split('/').pop() || ''
+  const parsed = parseFilename(filename)
+  if (!parsed) return entry.localPath
+  const leave = leaveIndex[parsed.requestNumber]
+  if (!leave) return entry.localPath
+  const month = leave.start.slice(0, 7) // YYYY-MM of the leave start
+  if (entry.minioKey.startsWith('documents/generated/')) return `generated/${month}/${filename}`
+  if (entry.minioKey.startsWith('documents/draft/')) return `draft/${month}/${filename}`
+  return entry.localPath
+}
+
 function matchesFilter(
   entry: ExportManifestEntry,
   filters: ExportFilterOptions,
@@ -412,19 +429,23 @@ export async function buildFilteredZip(filters: ExportFilterOptions): Promise<Bu
 
     archive.pipe(passthrough)
 
-    // Add matching files from local filesystem
+    // Add matching files from local filesystem, foldered by LEAVE month.
     for (const entry of matchingEntries) {
       const localFilePath = path.join(EXPORT_PATH, entry.localPath)
-      archive.file(localFilePath, { name: entry.localPath })
+      archive.file(localFilePath, { name: zipPathForEntry(entry, leaveIndex) })
     }
 
-    // Add a filtered manifest CSV
+    // Add a filtered manifest CSV (localPath reflects the leave-month folder used
+    // in this ZIP, so the manifest matches what the user sees).
     const filteredManifest: ExportManifest = {
       lastSyncAt: manifest.lastSyncAt,
       entries: {},
     }
     for (const entry of matchingEntries) {
-      filteredManifest.entries[entry.minioKey] = entry
+      filteredManifest.entries[entry.minioKey] = {
+        ...entry,
+        localPath: zipPathForEntry(entry, leaveIndex),
+      }
     }
     const csv = generateManifestCsv(filteredManifest)
     archive.append(csv, { name: 'manifest.csv' })
