@@ -125,7 +125,8 @@ export async function PATCH(
     }
 
     const updateData: any = {};
-    const userUpdates: Array<Promise<any>> = [];
+    // Use any[] so Prisma's $transaction accepts the heterogeneous PrismaPromise array
+    const userUpdates: any[] = [];
 
     // Update manager
     if (managerId !== undefined) {

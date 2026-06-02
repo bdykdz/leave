@@ -9,14 +9,28 @@ datasource db {
 }
 
 model Department {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  code        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  code               String   @unique
+  description        String?
+  isActive           Boolean  @default(true)
+  order              Int      @default(0)
+  managerId          String?
+  directorId         String?
+  parentDepartmentId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  manager          User?        @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+  director         User?        @relation("DepartmentDirector", fields: [directorId], references: [id], onDelete: SetNull)
+  parentDepartment Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
+  childDepartments Department[] @relation("DepartmentHierarchy")
+  users            User[]       @relation("UserDepartment")
+
+  @@index([managerId])
+  @@index([directorId])
+  @@index([parentDepartmentId])
 }
 
 model Position {
@@ -47,6 +61,7 @@ model User {
   isActive              Boolean                  @default(true)
   managerId             String?
   departmentDirectorId  String?
+  departmentId          String?
   workingPattern        WorkingPattern           @default(FULL_TIME)
   workingDaysPerWeek    Float                    @default(5.0)
   workingHoursPerWeek   Float                    @default(40.0)
@@ -80,6 +95,11 @@ model User {
   wikiRevisions         WikiRevision[]   @relation("WikiRevisionAuthor")
   wikiComments          WikiComment[]    @relation("WikiCommentAuthor")
   wikiAttachments       WikiAttachment[] @relation("WikiAttachmentUploader")
+  departmentRef         Department?      @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+  managedDepartments    Department[]     @relation("DepartmentManager")
+  directedDepartments   Department[]     @relation("DepartmentDirector")
+
+  @@index([departmentId])
 }
 
 model LeaveType {

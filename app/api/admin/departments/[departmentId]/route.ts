@@ -24,7 +24,7 @@ export async function GET(
             firstName: true,
             lastName: true,
             email: true,
-            jobTitle: true
+            position: true
           }
         },
         director: {
@@ -33,7 +33,7 @@ export async function GET(
             firstName: true,
             lastName: true,
             email: true,
-            jobTitle: true
+            position: true
           }
         },
         users: {
@@ -42,7 +42,7 @@ export async function GET(
             firstName: true,
             lastName: true,
             email: true,
-            jobTitle: true,
+            position: true,
             role: true,
             isActive: true
           },
