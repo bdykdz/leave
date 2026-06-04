@@ -397,7 +397,7 @@ export default function ExecutiveDashboard() {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment: comment || '', signature })
+        body: JSON.stringify({ comment: comment || '', signature, requestType })
       })
       
       if (response.ok) {
@@ -441,9 +441,9 @@ export default function ExecutiveDashboard() {
       const response = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment })
+        body: JSON.stringify({ comment, requestType })
       })
-      
+
       if (response.ok) {
         toast.success(t.messages.requestDeniedSuccess)
         // Force calendar refresh
