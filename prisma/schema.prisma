@@ -175,6 +175,10 @@ model LeaveRequest {
   substitute          User?                    @relation("SubstituteRequests", fields: [substituteId], references: [id])
   user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   substitutes         LeaveRequestSubstitute[] // Many-to-many relation for multiple substitutes
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@index([startDate, endDate])
 }
 
 model Approval {
@@ -195,6 +199,9 @@ model Approval {
   approver         User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
   escalatedTo      User?          @relation("EscalatedApprovals", fields: [escalatedToId], references: [id])
   leaveRequest     LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+
+  @@index([approverId, status])
+  @@index([leaveRequestId])
 }
 
 model Comment {
@@ -220,6 +227,9 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
 
 model DocumentTemplate {
@@ -342,6 +352,9 @@ model AuditLog {
   userAgent  String?
   createdAt  DateTime @default(now())
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
 }
 
 model ApprovalDelegate {

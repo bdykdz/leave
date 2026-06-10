@@ -8,7 +8,9 @@ echo "✅ Cron daemon started"
 
 echo "📊 Running database setup..."
 npx prisma generate
-npx prisma db push --accept-data-loss
+# Dev-only schema sync. No --accept-data-loss: if a change would destroy data,
+# fail and make the developer decide instead of silently dropping it.
+npx prisma db push
 
 echo "✅ Database setup completed"
 
