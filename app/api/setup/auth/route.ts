@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSetupPassword, createSetupToken, COOKIE_NAME, MAX_AGE_SECONDS } from '@/lib/setup-auth'
+import { timingSafeEqualStrings } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const { password: inputPassword } = await request.json()
 
-    if (inputPassword !== password) {
+    if (typeof inputPassword !== 'string' || !timingSafeEqualStrings(inputPassword, password)) {
       return NextResponse.json(
         { error: 'Invalid password' },
         { status: 401 }

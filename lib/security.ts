@@ -5,7 +5,34 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import type { Session } from 'next-auth'
+import { authOptions } from '@/lib/auth-config'
+import crypto from 'crypto'
+
+/**
+ * Constant-time string comparison to prevent timing attacks on secrets.
+ */
+export function timingSafeEqualStrings(a: string, b: string): boolean {
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) {
+    // Burn comparable time on mismatched lengths, then fail
+    crypto.timingSafeEqual(bufA, bufA)
+    return false
+  }
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
+/**
+ * Verify the Authorization header of a cron request against CRON_SECRET.
+ * Denies when CRON_SECRET is unset (never matches "Bearer undefined").
+ */
+export function verifyCronAuth(request: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) return false
+  const authHeader = request.headers.get('authorization') ?? ''
+  return timingSafeEqualStrings(authHeader, `Bearer ${cronSecret}`)
+}
 
 // CSRF Protection
 // ---------------
@@ -226,7 +253,7 @@ export function badRequestResponse(message: string = 'Invalid request'): NextRes
 /**
  * Get authenticated session or return unauthorized response
  */
-export async function requireAuth(): Promise<{ session: Awaited<ReturnType<typeof getServerSession>>; error?: NextResponse }> {
+export async function requireAuth(): Promise<{ session: Session | null; error?: NextResponse }> {
   const session = await getServerSession(authOptions)
 
   if (!session) {
@@ -239,7 +266,7 @@ export async function requireAuth(): Promise<{ session: Awaited<ReturnType<typeo
 /**
  * Require specific role(s)
  */
-export async function requireRole(allowedRoles: string[]): Promise<{ session: Awaited<ReturnType<typeof getServerSession>>; error?: NextResponse }> {
+export async function requireRole(allowedRoles: string[]): Promise<{ session: Session | null; error?: NextResponse }> {
   const { session, error } = await requireAuth()
 
   if (error) return { session: null, error }

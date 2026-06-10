@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncDocumentsToLocal } from '@/lib/document-export-service'
+import { verifyCronAuth } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!verifyCronAuth(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

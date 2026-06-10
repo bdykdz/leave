@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
+    // Clamp to a sane range — an unbounded limit lets a client pull the whole table
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 200);
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
     // Build where clause

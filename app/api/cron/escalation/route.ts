@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EscalationService } from '@/lib/services/escalation-service';
+import { verifyCronAuth } from '@/lib/security';
 
 // This endpoint is designed to be called by external cron services
 // Example: Setup a cron job to call this endpoint daily at midnight
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret to prevent unauthorized calls
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    // Verify cron secret to prevent unauthorized calls (constant-time)
+    if (!verifyCronAuth(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

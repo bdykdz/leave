@@ -9,6 +9,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Debug endpoint — never available in production
+    if (process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'staging' && process.env.APP_ENV !== 'uat') {
+      return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session || !['HR', 'ADMIN'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -84,11 +89,11 @@ export async function GET(
           }
           
           if (approval.status === 'APPROVED') {
-            (decisions as any)[decisionRole].approved = '✓'
-            (decisions as any)[decisionRole].rejected = ''
+            (decisions as any)[decisionRole].approved = '✓';
+            (decisions as any)[decisionRole].rejected = '';
           } else if (approval.status === 'REJECTED') {
-            (decisions as any)[decisionRole].approved = ''
-            (decisions as any)[decisionRole].rejected = '✓'
+            (decisions as any)[decisionRole].approved = '';
+            (decisions as any)[decisionRole].rejected = '✓';
           }
           
           if (approval.comments) {
@@ -103,7 +108,11 @@ export async function GET(
     }
 
     // Get substitutes data
-    const substitutesData = {
+    const substitutesData: {
+      single: { id: string; name: string; email: string } | null
+      multiple: { id: string; userId: string; name: string; email: string }[]
+      formatted: string
+    } = {
       single: null,
       multiple: [],
       formatted: ''
@@ -128,7 +137,12 @@ export async function GET(
     }
 
     // Get signature data
-    const signatures = {}
+    const signatures: Record<string, {
+      signerId: string
+      signerName: string
+      signedAt: Date | null
+      hasImageData: boolean
+    }> = {}
     if (leaveRequest.generatedDocument?.signatures) {
       for (const sig of leaveRequest.generatedDocument.signatures) {
         signatures[sig.signerRole.toLowerCase()] = {

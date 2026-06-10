@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, startOfDay, endOfWeek } from 'date-fns';
+import { verifyCronAuth } from '@/lib/security';
 
 // Called by cron every Friday at 23:59 UTC (Saturday 01:59 Bucharest time)
 // Cancels any PENDING WFH requests for the upcoming week (next Mon-Sun)
 // Also catches any stale PENDING requests from past dates
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!verifyCronAuth(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

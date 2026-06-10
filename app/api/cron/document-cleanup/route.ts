@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { subDays } from 'date-fns'
 import { Prisma } from '@prisma/client'
+import { verifyCronAuth } from '@/lib/security'
 
 // This endpoint should be called by a cron job
 export async function POST(request: NextRequest) {
   try {
-    // Verify the request is from the cron service (you'd implement proper auth)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!verifyCronAuth(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
