@@ -23,11 +23,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Development
-pnpm dev              # Start development server on http://localhost:3000
-pnpm build            # Build production application
-pnpm start            # Start production server
-pnpm lint             # Run Next.js linter
+# Development (npm — there is a package-lock.json, not pnpm)
+npm run dev           # Start development server on http://localhost:3000
+npm run build         # Build production application
+npm run start         # Start production server
+npm run lint          # Run ESLint
+npm run typecheck     # tsc --noEmit (must stay at 0 errors)
+npm test              # Vitest unit tests (tests/unit/)
 
 # Database (requires Docker)
 pnpm db:up            # Start PostgreSQL, Redis, MinIO containers
@@ -125,19 +127,16 @@ CRON_SECRET                  # Secure cron endpoints
 
 ## Production Deployment
 
-```bash
-# Build and run
-docker build -t leave-management .
-docker run -p 3000:3000 --env-file .env leave-management
+Deployment is manual, directly on the production host:
 
-# Or with docker-compose (includes Postgres, Redis, MinIO)
-docker-compose -f docker-compose.uat.yml up -d
+```bash
+# App-only redeploy (does not touch DB/MinIO/Redis containers)
+docker compose -f docker-compose.production.yml up -d --build --no-deps app-production
 ```
 
-Migrations are applied automatically on container start or run:
-```bash
-npx prisma migrate deploy
-```
+On container start, `start.sh` runs `npx prisma migrate deploy` — pending migrations
+are applied; schema drift fails loudly instead of being reconciled destructively.
+Every schema change needs a hand-written migration under `prisma/migrations/`.
 
 ## Authentication Flow
 
@@ -151,4 +150,11 @@ Azure AD redirect URI must match exactly: `{NEXTAUTH_URL}/api/auth/callback/azur
 
 ## Build Configuration
 
-Build errors and TypeScript errors are ignored in `next.config.mjs` to allow partial deployments. The `output: 'standalone'` setting optimizes for Docker.
+TypeScript errors fail the build (`next.config.mjs` has `ignoreBuildErrors: false`); keep `npx tsc --noEmit` at 0 errors. ESLint is still skipped during builds but runs in CI. The `output: 'standalone'` setting optimizes for Docker.
+
+## Quality Gates
+
+- `npm run typecheck` — must stay at 0 errors (CI-blocking)
+- `npm run lint` — CI-blocking
+- `npm test` — vitest unit tests in `tests/unit/` covering lib/services business logic (CI-blocking)
+- CI is `.github/workflows/ci.yml`; there is no CD — deploys are manual (see above)
