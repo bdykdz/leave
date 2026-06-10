@@ -156,3 +156,6 @@ ehthumbs.db
 
 # Linux
 .directory
+# build artifacts
+tsconfig.tsbuildinfo
+*.bak
