@@ -12,6 +12,11 @@ COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 RUN npm ci --legacy-peer-deps
 
+# Self-contained prisma CLI install (full transitive deps) for runtime migrations
+FROM base AS prisma-cli
+WORKDIR /prisma-cli
+RUN npm install prisma@6.9.0 --no-package-lock --omit=dev
+
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
@@ -52,11 +57,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy lib directory for email service and other utilities
 COPY --from=builder /app/lib ./lib
 
-# Copy Prisma files (schema + migrations + CLI so `migrate deploy` works offline at startup)
+# Copy Prisma files (schema + migrations + self-contained CLI so
+# `migrate deploy` works offline at startup)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=prisma-cli /prisma-cli/node_modules ./prisma-cli/node_modules
 
 # Copy startup script
 COPY --from=builder /app/start.sh ./start.sh

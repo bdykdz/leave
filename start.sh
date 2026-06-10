@@ -3,16 +3,13 @@
 # Production startup script for Leave Management System
 echo "🚀 Starting Leave Management System..."
 
-# Generate Prisma client if not available
-echo "🔧 Ensuring Prisma client is available..."
-export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-npx prisma generate 2>/dev/null || echo "⚠️  Warning: Could not generate Prisma client, using existing"
-
 # Apply pending migrations only — never db push against production data.
 # If the schema has drifted from the migration history, this fails loudly
 # instead of reconciling destructively; write a migration and redeploy.
+# The CLI lives in its own self-contained tree (prisma-cli/) because the
+# standalone runner image prunes node_modules and has no .bin shims.
 echo "📊 Applying database migrations..."
-npx prisma migrate deploy || { echo "❌ Migration failed — refusing to start"; exit 1; }
+node prisma-cli/node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma || { echo "❌ Migration failed — refusing to start"; exit 1; }
 
 echo "✅ Database migrations applied"
 
