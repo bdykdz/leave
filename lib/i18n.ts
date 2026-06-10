@@ -159,6 +159,7 @@ export interface Translations {
     workingFromHome: string
     onLeave: string
     teamRemoteWorkUsage: string
+    teamRoster: string
   }
 
   // Buttons
@@ -214,6 +215,10 @@ export interface Translations {
     level: string
     manager: string
     departmentHead: string
+    requestDetails: string
+    submitting: string
+    requestSubmittedDescription: string
+    backToDashboard: string
   }
 
   // Remote Work Form
@@ -242,6 +247,7 @@ export interface Translations {
     availableDaysSuggestion: string
     noAvailableDays: string
     submissionFailed: string
+    onlyNextWeek: string
   }
 
   // Work Trip Form
@@ -581,6 +587,7 @@ export interface Translations {
     holidayPlanDialog: string
     noDatesPlanned: string
     loadingDepartmentPlans: string
+    finalized: string
   }
 
   // Analytics
@@ -998,6 +1005,7 @@ export const translations: Record<Language, Translations> = {
       workingFromHome: "Working from Home",
       onLeave: "On Leave",
       teamRemoteWorkUsage: "Team Remote Work Usage",
+      teamRoster: "Team Roster",
     },
     buttons: {
       review: "Review",
@@ -1049,6 +1057,10 @@ export const translations: Record<Language, Translations> = {
       level: "Level",
       manager: "Manager",
       departmentHead: "Department Head",
+      requestDetails: "Request Details",
+      submitting: "Submitting...",
+      requestSubmittedDescription: "Your leave request has been submitted for approval.",
+      backToDashboard: "Back to Dashboard",
     },
     remoteForm: {
       title: "New Remote Work Request",
@@ -1080,6 +1092,7 @@ export const translations: Record<Language, Translations> = {
       availableDaysSuggestion: "You can still request remote work for: {days}",
       noAvailableDays: "All selected days overlap with your existing request.",
       submissionFailed: "Failed to submit work from home request",
+      onlyNextWeek: "Only next week available",
     },
     workTripForm: {
       title: "Work Trip Request",
@@ -1387,6 +1400,7 @@ export const translations: Record<Language, Translations> = {
       holidayPlanDialog: "Holiday planning for",
       noDatesPlanned: "No specific dates planned",
       loadingDepartmentPlans: "Loading department holiday plans...",
+      finalized: "Finalized",
     },
     analytics: {
       executiveDashboard: "Executive Dashboard",
@@ -1774,6 +1788,7 @@ export const translations: Record<Language, Translations> = {
       workingFromHome: "Lucru de acasă",
       onLeave: "În concediu",
       teamRemoteWorkUsage: "Utilizare lucru la distanță echipă",
+      teamRoster: "Componența echipei",
     },
     buttons: {
       review: "Revizuire",
@@ -1825,6 +1840,10 @@ export const translations: Record<Language, Translations> = {
       level: "Nivel",
       manager: "Manager",
       departmentHead: "Șef departament",
+      requestDetails: "Detalii cerere",
+      submitting: "Se trimite...",
+      requestSubmittedDescription: "Cererea dvs. de concediu a fost trimisă spre aprobare.",
+      backToDashboard: "Înapoi la tabloul de bord",
     },
     remoteForm: {
       title: "Cerere nouă de lucru la distanță",
@@ -1856,6 +1875,7 @@ export const translations: Record<Language, Translations> = {
       availableDaysSuggestion: "Puteți solicita lucru la distanță pentru: {days}",
       noAvailableDays: "Toate zilele selectate se suprapun cu cererea existentă.",
       submissionFailed: "Cererea de lucru de acasă nu a putut fi trimisă",
+      onlyNextWeek: "Doar săptămâna viitoare este disponibilă",
     },
     workTripForm: {
       title: "Cerere de Deplasare",
@@ -2163,6 +2183,7 @@ export const translations: Record<Language, Translations> = {
       holidayPlanDialog: "Planificarea vacanței pentru",
       noDatesPlanned: "Nicio dată specifică planificată",
       loadingDepartmentPlans: "Se încarcă planurile de vacanță ale departamentului...",
+      finalized: "Finalizat",
     },
     analytics: {
       executiveDashboard: "Panou executiv",

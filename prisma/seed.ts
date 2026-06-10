@@ -16,7 +16,7 @@
  * - Workflow rules
  */
 
-import { PrismaClient, Role, RequestStatus, ApprovalStatus } from '@prisma/client'
+import { PrismaClient, Prisma, Role, RequestStatus, ApprovalStatus } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -109,7 +109,7 @@ async function main() {
   // =====================
   console.log('🏖️ Creating leave types...')
 
-  const leaveTypes = [
+  const leaveTypes: Prisma.LeaveTypeUncheckedCreateInput[] = [
     // STANDARD category
     {
       name: 'Normal Leave',

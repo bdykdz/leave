@@ -177,7 +177,7 @@ export async function generateApprovalWorkflow(user: any, leaveTypeId: string, d
   }
 
   // Convert workflow roles to actual approvers.
-  const approvals = [];
+  const approvals: { approverId: string; level: number; status: 'PENDING' }[] = [];
   let level = 1;
 
   for (const approvalLevel of approvalLevels) {

@@ -160,7 +160,7 @@ export function EmployeeArchiveManager() {
         const total = data.employees.length
         const active = data.employees.filter((emp: Employee) => emp.isActive).length
         const archived = total - active
-        const departments = [...new Set(data.employees.map((emp: Employee) => emp.department).filter(Boolean))]
+        const departments = [...new Set<string>(data.employees.map((emp: Employee) => emp.department).filter(Boolean))]
         
         setStats({ total, active, archived, departments })
       } else {

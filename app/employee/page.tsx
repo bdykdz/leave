@@ -278,7 +278,7 @@ export default function EmployeeDashboard() {
   // Fetch WFH stats for current selected month
   const fetchWfhStats = async (date: Date) => {
     // Guard against calling before component is ready
-    if (!session || status === "loading") return
+    if (!session) return // next-auth discriminated union: session non-null implies status === "authenticated"
     
     setWfhStatsLoading(true)
     try {

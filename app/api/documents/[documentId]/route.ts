@@ -89,7 +89,7 @@ export async function GET(
 /**
  * Check if user has permission to view document
  */
-async function checkDocumentPermission(user: any, document: any): boolean {
+async function checkDocumentPermission(user: any, document: any): Promise<boolean> {
   // Document owner can always view
   if (document.leaveRequest.user.id === user.id) {
     return true;
@@ -205,9 +205,8 @@ async function getSignatureRequirements(document: any) {
           requiredSigner = user.departmentDirector;
         } else if (user?.role === 'EXECUTIVE' || user?.role === 'DEPARTMENT_DIRECTOR') {
           requiredSigner = user; // Signs as own director
-          if (user.role === 'DEPARTMENT_DIRECTOR' && templateSig.signerRole === 'manager') {
-            isRequired = false; // Don't need double signature
-          }
+          // Note: a previous double-signature check compared templateSig.signerRole === 'manager'
+          // inside the 'department_director' case; it could never match (dead code) and was removed.
         }
         break;
     }

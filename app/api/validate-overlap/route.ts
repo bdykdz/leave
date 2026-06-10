@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         startDate: wfh.startDate,
         endDate: wfh.endDate,
         status: wfh.status,
-        reason: wfh.reason,
+        reason: undefined, // WorkFromHomeRequest has no reason field; was always undefined
         location: wfh.location,
         message: `You have a ${wfh.status.toLowerCase()} work from home request from ${wfh.startDate.toLocaleDateString()} to ${wfh.endDate.toLocaleDateString()}`
       });

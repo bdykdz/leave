@@ -620,7 +620,8 @@ export class SmartDocumentGenerator {
 
         if (role) {
           // For HR manual entries, preserve the employee and HR markers set earlier
-          if (isHrManualEntry && (role === 'employee' || role === 'hr')) {
+          // role can only be manager|director|hr|executive here; the old 'employee' check was dead code
+          if (isHrManualEntry && role === 'hr') {
             console.log(`Skipping approval overwrite for ${role} — HR manual entry`)
             continue
           }

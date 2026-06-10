@@ -72,7 +72,7 @@ export async function GET(request: Request) {
         id: request.id,
         employee: {
           name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
-          avatar: request.user?.image || '',
+          avatar: request.user?.profileImage || '',
           department: request.user?.department || ''
         },
         type: request.leaveType?.name || 'Unknown',

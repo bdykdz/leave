@@ -241,7 +241,7 @@ export function SmartSubstituteSelector({
             <Checkbox
               id="showUnavailable"
               checked={showUnavailable}
-              onCheckedChange={setShowUnavailable}
+              onCheckedChange={(checked) => setShowUnavailable(checked === true)}
             />
             <label htmlFor="showUnavailable" className="text-sm">
               Show unavailable

@@ -113,7 +113,9 @@ export const authOptions: NextAuthOptions = {
             id: "dev-user",
             email: credentials.email,
             name: credentials.email.split('@')[0],
-            role: credentials.role || "EMPLOYEE",
+            role: (Object.values(Role) as string[]).includes(credentials.role)
+              ? (credentials.role as Role)
+              : Role.EMPLOYEE,
             department: "Development",
             firstName: credentials.email.split('@')[0],
             lastName: "User"

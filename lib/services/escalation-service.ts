@@ -173,7 +173,7 @@ export class EscalationService {
           config.maxEscalationLevels = Number(setting.value);
           break;
         case 'companyTimezone':
-          config.companyTimezone = setting.value;
+          if (typeof setting.value === 'string') config.companyTimezone = setting.value;
           break;
       }
     }

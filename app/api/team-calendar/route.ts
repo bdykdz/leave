@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         { managerId: currentUser.id },
         { department: currentUser.department }
       ]
-    } else if (currentUser.role === 'DIRECTOR') {
+    } else if (currentUser.role === 'DEPARTMENT_DIRECTOR') {
       // Directors see all users where they are the department director
       teamMembersQuery.departmentDirectorId = currentUser.id
     } else if (['HR', 'EXECUTIVE', 'ADMIN'].includes(currentUser.role)) {

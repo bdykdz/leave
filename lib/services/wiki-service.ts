@@ -111,7 +111,7 @@ export class WikiService {
     isPinned?: boolean
     sortOrder?: number
     visibleToRoles?: Role[]
-    translations: { language: string; title: string; content: any; excerpt?: string }[]
+    translations: { language: string; title: string; content?: any; excerpt?: string }[]
     tagIds?: string[]
   }) {
     return prisma.wikiPage.create({
@@ -164,7 +164,7 @@ export class WikiService {
       isPinned?: boolean
       sortOrder?: number
       visibleToRoles?: Role[]
-      translations?: { language: string; title: string; content: any; excerpt?: string }[]
+      translations?: { language: string; title: string; content?: any; excerpt?: string }[]
       tagIds?: string[]
       changeNote?: string
     }
@@ -312,7 +312,7 @@ export class WikiService {
           language: revision.language,
           version: nextVersion,
           title: revision.title,
-          content: revision.content,
+          content: revision.content ?? Prisma.JsonNull,
           authorId,
           changeNote: `Restored from version ${revision.version}`,
         },
@@ -323,8 +323,8 @@ export class WikiService {
       const excerpt = contentText.slice(0, 200)
       await tx.wikiPageTranslation.upsert({
         where: { pageId_language: { pageId: revision.pageId, language: revision.language } },
-        update: { title: revision.title, content: revision.content, contentText, excerpt },
-        create: { pageId: revision.pageId, language: revision.language, title: revision.title, content: revision.content, contentText, excerpt },
+        update: { title: revision.title, content: revision.content ?? Prisma.JsonNull, contentText, excerpt },
+        create: { pageId: revision.pageId, language: revision.language, title: revision.title, content: revision.content ?? Prisma.JsonNull, contentText, excerpt },
       })
 
       return tx.wikiPage.update({

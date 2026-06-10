@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       documents: 0,
       documentSignatures: 0,
       filesDeleted: 0,
-      filesFailedToDelete: []
+      filesFailedToDelete: [] as string[]
     }
 
     console.log(`🗑️ Starting ${resetType || 'FULL'} requests reset by admin ID: ${session.user.id}`)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { DelegationService } from '@/lib/services/delegation-service';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -329,7 +330,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
       userId: session.user.id,
       startDate,
       endDate,
-      selectedDates: validatedData.selectedDates || null,
+      selectedDates: validatedData.selectedDates || Prisma.DbNull,
       totalDays,
       destination: validatedData.destination,
       purpose: validatedData.purpose,

@@ -94,7 +94,7 @@ export function FieldMapperDialog({
         
         // Initialize mappings
         const existingMappings = data.existingMappings || []
-        const mappingMap = new Map(existingMappings.map((m: any) => [m.pdfField, m]))
+        const mappingMap = new Map<string, any>(existingMappings.map((m: any) => [m.pdfField, m]))
         
         const initialMappings = (data.formFields || []).map((field: FormField) => {
           const existing = mappingMap.get(field.name)

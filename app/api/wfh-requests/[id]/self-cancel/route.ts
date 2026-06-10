@@ -117,9 +117,9 @@ export async function POST(
       const managers = await prisma.user.findMany({
         where: {
           OR: [
-            { id: wfhRequest.user.managerId },
-            { id: wfhRequest.user.departmentDirectorId },
-            { role: 'HR' }
+            ...(wfhRequest.user.managerId ? [{ id: wfhRequest.user.managerId }] : []),
+            ...(wfhRequest.user.departmentDirectorId ? [{ id: wfhRequest.user.departmentDirectorId }] : []),
+            { role: 'HR' as const }
           ]
         },
         select: { id: true }

@@ -834,7 +834,7 @@ export const POST = asyncHandler(async (request: NextRequest) => {
         }
       });
       
-      if (leaveType?.documentTemplates.length > 0) {
+      if (leaveType && leaveType.documentTemplates.length > 0) {
         const template = leaveType.documentTemplates[0];
         const documentId = await documentGenerator.generateDocument(leaveRequest.id, template.id);
         log.info('Document generated', { documentId });

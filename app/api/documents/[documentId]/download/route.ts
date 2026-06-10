@@ -80,7 +80,7 @@ export async function GET(
   }
 }
 
-async function checkDownloadPermission(user: any, document: any): boolean {
+async function checkDownloadPermission(user: any, document: any): Promise<boolean> {
   // Document owner can download
   if (document.leaveRequest.user.id === user.id) {
     return true;

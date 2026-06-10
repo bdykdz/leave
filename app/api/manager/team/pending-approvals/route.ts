@@ -308,7 +308,7 @@ export async function GET(request: Request) {
       requestType: 'leave',
       employee: {
         name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
-        avatar: request.user?.image || '',
+        avatar: request.user?.profileImage || '',
         department: request.user?.department || ''
       },
       type: request.leaveType?.name || 'Unknown',
@@ -329,7 +329,7 @@ export async function GET(request: Request) {
       requestType: 'wfh',
       employee: {
         name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
-        avatar: request.user?.image || '',
+        avatar: request.user?.profileImage || '',
         department: request.user?.department || ''
       },
       type: 'Work From Home',
@@ -351,7 +351,7 @@ export async function GET(request: Request) {
       requestType: 'workTrip',
       employee: {
         name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
-        avatar: request.user?.image || '',
+        avatar: request.user?.profileImage || '',
         department: request.user?.department || ''
       },
       type: 'Work Trip',

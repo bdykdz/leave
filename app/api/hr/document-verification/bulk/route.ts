@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const approved = action === 'approve'
-    const results = []
+    const results: { id: string; requestNumber: string; employeeName: string; status: string; action: string }[] = []
 
     // Use transaction to ensure all operations succeed or fail together
     try {

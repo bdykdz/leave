@@ -121,7 +121,7 @@ export class NotificationService {
   /**
    * Create notification using template
    */
-  static async createFromTemplate<T extends NotificationType>(
+  static async createFromTemplate<T extends keyof NotificationTemplates>(
     userId: string,
     type: T,
     templateParams: Parameters<NotificationTemplates[T]>[0],

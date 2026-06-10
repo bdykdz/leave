@@ -18,7 +18,7 @@ export function getRedisClient(): Redis | null {
           port: parseInt(process.env.REDIS_PORT || '6379'),
           password: process.env.REDIS_PASSWORD || undefined,
           db: parseInt(process.env.REDIS_DB || '0'),
-          retryDelayOnFailover: 100,
+          // retryDelayOnFailover is not an ioredis option (it was silently ignored)
           enableReadyCheck: false,
           maxRetriesPerRequest: 3,
           lazyConnect: true,

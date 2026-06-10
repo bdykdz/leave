@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
         OR: [
           {
             role: { in: ['MANAGER', 'HR', 'EXECUTIVE'] },
-            departmentId: session.user.departmentId,
+            // session.user has no departmentId; match on the department name instead
+            department: session.user.department,
             id: { not: session.user.id }
           },
           {
@@ -64,11 +65,8 @@ export async function GET(request: NextRequest) {
         lastName: true,
         email: true,
         role: true,
-        department: {
-          select: {
-            name: true
-          }
-        }
+        // department is a scalar (string) column on User
+        department: true
       }
     });
 

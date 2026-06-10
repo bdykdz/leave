@@ -236,7 +236,7 @@ export async function GET() {
       leaveType: `WFH - ${event.location}`,
       startDate: event.startDate,
       endDate: event.endDate,
-      selectedDates: event.selectedDates as Date[] | undefined,
+      selectedDates: event.selectedDates as unknown as Date[] | undefined,
       status: event.status,
       totalDays: event.totalDays,
       email: event.user.email
@@ -249,7 +249,7 @@ export async function GET() {
       leaveType: `WFH - ${event.location}`,
       startDate: event.startDate,
       endDate: event.endDate,
-      selectedDates: event.selectedDates as Date[] | undefined,
+      selectedDates: event.selectedDates as unknown as Date[] | undefined,
       status: event.status,
       totalDays: event.totalDays,
       email: event.user.email

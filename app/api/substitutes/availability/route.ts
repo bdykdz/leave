@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const requestEndDate = endOfDay(new Date(endDate))
     
     // Parse selected dates if provided (for sporadic leave)
-    const specificDates = selectedDates ? selectedDates.map((date: string) => new Date(date)) : null
+    const specificDates: Date[] | null = selectedDates ? selectedDates.map((date: string) => new Date(date)) : null
 
     // Get current user's department and direct superior
     const currentUser = await prisma.user.findUnique({
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Sort by availability: available first, then partial, then unavailable
-    const sortedSubstitutes = substitutesWithAvailability.sort((a, b) => {
+    const sortedSubstitutes: ((typeof substitutesWithAvailability)[number] & { isVirtualUser?: boolean })[] = substitutesWithAvailability.sort((a, b) => {
       const order = { available: 0, partial: 1, unavailable: 2 }
       return order[a.availabilityStatus] - order[b.availabilityStatus]
     })

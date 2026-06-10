@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { log } from './logger';
 
-type AsyncHandler<T = any> = (
+type AsyncHandler = (
   req: NextRequest,
   params?: any
-) => Promise<NextResponse<T>>;
+) => Promise<NextResponse<any>>;
 
 /**
  * Wraps async route handlers to catch and handle errors properly
  */
-export function asyncHandler<T = any>(handler: AsyncHandler<T>) {
+export function asyncHandler(handler: AsyncHandler) {
   return async (req: NextRequest, params?: any) => {
     try {
       const startTime = Date.now();

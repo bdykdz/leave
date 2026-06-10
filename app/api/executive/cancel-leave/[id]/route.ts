@@ -156,7 +156,7 @@ export async function POST(
     // Send notifications (fire-and-forget)
     try {
       const employeeName = `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`;
-      const executiveName = session.user.name || session.user.email;
+      const executiveName = session.user.name || session.user.email || '';
       const leaveTypeName = leaveRequest.leaveType?.name || 'Normal Leave';
       const dateRange = `${leaveRequest.startDate.toDateString()} - ${leaveRequest.endDate.toDateString()}`;
       const companyName = process.env.COMPANY_NAME || 'TPF';
@@ -208,7 +208,7 @@ export async function POST(
           cancelledBy: executiveName,
           reason,
           recipientType: 'employee',
-          recipientName: leaveRequest.user.firstName,
+          recipientName: leaveRequest.user.firstName ?? '',
           companyName
         });
       }
@@ -229,7 +229,7 @@ export async function POST(
             cancelledBy: executiveName,
             reason,
             recipientType: 'manager',
-            recipientName: manager.firstName,
+            recipientName: manager.firstName ?? '',
             companyName
           });
         }
@@ -247,7 +247,7 @@ export async function POST(
             cancelledBy: executiveName,
             reason,
             recipientType: 'hr',
-            recipientName: hrUser.firstName,
+            recipientName: hrUser.firstName ?? '',
             companyName
           });
         }

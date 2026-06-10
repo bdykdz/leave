@@ -169,8 +169,9 @@ export async function POST(request: NextRequest) {
             data: {
               status: 'CANCELLED',
               selectedDates: [],
-              totalDays: 0,
-              approverComments: `Auto-cancelled: all selected dates are public holidays (${item.holidayNames.join(', ')})`
+              totalDays: 0
+              // Note: cancellation reason is recorded in the AuditLog entry below;
+              // LeaveRequest has no approverComments field (writing it crashed the transaction)
             }
           })
         } else {

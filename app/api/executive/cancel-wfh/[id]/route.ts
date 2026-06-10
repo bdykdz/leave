@@ -120,7 +120,7 @@ export async function POST(
     // Send notifications (fire-and-forget)
     try {
       const employeeName = `${wfhRequest.user.firstName} ${wfhRequest.user.lastName}`;
-      const executiveName = session.user.name || session.user.email;
+      const executiveName = session.user.name || session.user.email || '';
       const dateRange = `${wfhRequest.startDate.toDateString()} - ${wfhRequest.endDate.toDateString()}`;
       const companyName = process.env.COMPANY_NAME || 'TPF';
 
@@ -171,7 +171,7 @@ export async function POST(
           cancelledBy: executiveName,
           reason,
           recipientType: 'employee',
-          recipientName: wfhRequest.user.firstName,
+          recipientName: wfhRequest.user.firstName ?? '',
           companyName
         });
       }
@@ -192,7 +192,7 @@ export async function POST(
             cancelledBy: executiveName,
             reason,
             recipientType: 'manager',
-            recipientName: manager.firstName,
+            recipientName: manager.firstName ?? '',
             companyName
           });
         }
@@ -210,7 +210,7 @@ export async function POST(
             cancelledBy: executiveName,
             reason,
             recipientType: 'hr',
-            recipientName: hrUser.firstName,
+            recipientName: hrUser.firstName ?? '',
             companyName
           });
         }

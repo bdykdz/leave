@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     // Fix #14: Only show requests this executive can actually act on:
     // 1. Requests where this executive has a PENDING approval record (assigned approver)
     // 2. Requests from direct reports (managerId = this user)
-    const whereClause = {
+    const whereClause: Prisma.LeaveRequestWhereInput = {
       status: 'PENDING' as const,
       userId: { not: session.user.id },
       OR: [

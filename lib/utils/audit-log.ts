@@ -48,12 +48,15 @@ export enum AuditAction {
   PUBLISH_WIKI_PAGE = 'PUBLISH_WIKI_PAGE',
   ARCHIVE_WIKI_PAGE = 'ARCHIVE_WIKI_PAGE',
   RESTORE_WIKI_REVISION = 'RESTORE_WIKI_REVISION',
+
+  // Generic Actions
+  UPDATE = 'UPDATE',
 }
 
 interface AuditLogParams {
   userId: string
   action: AuditAction | string
-  entity: 'LEAVE_REQUEST' | 'WFH_REQUEST' | 'USER' | 'DOCUMENT' | 'HOLIDAY' | 'LEAVE_BALANCE' | 'HOLIDAY_PLAN' | 'WIKI_PAGE'
+  entity: 'LEAVE_REQUEST' | 'WFH_REQUEST' | 'WORK_TRIP_REQUEST' | 'USER' | 'DOCUMENT' | 'HOLIDAY' | 'LEAVE_BALANCE' | 'HOLIDAY_PLAN' | 'WIKI_PAGE'
   entityId: string
   oldValues?: any
   newValues?: any

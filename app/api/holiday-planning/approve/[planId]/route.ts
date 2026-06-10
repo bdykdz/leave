@@ -35,13 +35,14 @@ export async function POST(
     return rateLimitResponse
   }
 
+  let body: unknown
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
+    body = await request.json()
     const { action, comments } = approvalSchema.parse(body)
     const planId = params.planId
 
@@ -89,7 +90,7 @@ export async function POST(
     // Permission check
     const hasPermission = 
       (currentUser.role === 'MANAGER' && plan.user.managerId === currentUser.id) ||
-      (currentUser.role === 'DIRECTOR' && plan.user.departmentDirectorId === currentUser.id) ||
+      (currentUser.role === 'DEPARTMENT_DIRECTOR' && plan.user.departmentDirectorId === currentUser.id) ||
       (currentUser.role === 'EXECUTIVE')
 
     if (!hasPermission) {

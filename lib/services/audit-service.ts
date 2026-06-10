@@ -27,7 +27,7 @@ export class AuditService {
     details,
     context
   }: {
-    action: AuditAction
+    action: AuditAction | `${AuditAction}`
     entityType: string
     entityId?: string
     userId?: string
@@ -44,8 +44,8 @@ export class AuditService {
           entityType,
           entityId,
           userId: userId || context?.userId,
-          oldValues: oldValues ? JSON.stringify(oldValues) : null,
-          newValues: newValues ? JSON.stringify(newValues) : null,
+          oldValues: oldValues ? JSON.stringify(oldValues) : undefined,
+          newValues: newValues ? JSON.stringify(newValues) : undefined,
           details: {
             ...details,
             sessionId: context?.sessionId,

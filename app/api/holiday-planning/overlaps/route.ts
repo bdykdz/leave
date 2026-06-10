@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       select: { role: true, id: true, department: true }
     })
 
-    if (!user || !['MANAGER', 'DIRECTOR', 'EXECUTIVE'].includes(user.role)) {
+    if (!user || !['MANAGER', 'DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(user.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const year = parseInt(url.searchParams.get('year') || String(new Date().getFullYear() + 1))
 
     // Determine if user is department director
-    const isDepartmentDirector = user.role === 'DIRECTOR' || user.role === 'EXECUTIVE'
+    const isDepartmentDirector = user.role === 'DEPARTMENT_DIRECTOR' || user.role === 'EXECUTIVE'
 
     // Get overlaps and gaps analysis
     const analysis = await HolidayPlanningService.detectOverlapsAndGaps(

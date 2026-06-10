@@ -26,47 +26,11 @@ export class CleanupService {
     };
 
     try {
-      // 1. Clean orphaned approvals (approvals without leave requests)
-      const orphanedApprovals = await prisma.approval.deleteMany({
-        where: {
-          leaveRequest: {
-            is: null,
-          },
-        },
-      });
-      results.orphanedApprovals = orphanedApprovals.count;
-      log.info(`Cleaned ${orphanedApprovals.count} orphaned approvals`);
-
-      // 2. Clean orphaned documents (documents without leave requests)
-      const orphanedDocs = await prisma.generatedDocument.findMany({
-        where: {
-          leaveRequest: {
-            is: null,
-          },
-        },
-        select: {
-          id: true,
-          fileUrl: true,
-        },
-      });
-
-      // Delete associated signatures first
-      for (const doc of orphanedDocs) {
-        await prisma.documentSignature.deleteMany({
-          where: { documentId: doc.id },
-        });
-      }
-
-      // Then delete the documents
-      const deletedDocs = await prisma.generatedDocument.deleteMany({
-        where: {
-          id: {
-            in: orphanedDocs.map(d => d.id),
-          },
-        },
-      });
-      results.orphanedDocuments = deletedDocs.count;
-      log.info(`Cleaned ${deletedDocs.count} orphaned documents`);
+      // 1. & 2. Orphaned approvals/documents cannot exist: Approval.leaveRequest and
+      // GeneratedDocument.leaveRequest are required relations enforced by FK constraints
+      // (with onDelete: Cascade for approvals). The previous `leaveRequest: { is: null }`
+      // filters were invalid for required relations and crashed the whole cleanup run.
+      log.info('Skipped orphaned approvals/documents cleanup - enforced by FK constraints');
 
       // 3. Clean old notifications (older than 30 days and read)
       const oldNotificationsDate = subDays(new Date(), 30);
@@ -95,13 +59,10 @@ export class CleanupService {
       results.oldLogs = oldLogs.count;
       log.info(`Cleaned ${oldLogs.count} old audit logs`);
 
-      // 6. Clean orphaned leave balances (for deleted users)
-      const orphanedBalances = await prisma.leaveBalance.deleteMany({
-        where: {
-          user: null,
-        },
-      });
-      log.info(`Cleaned ${orphanedBalances.count} orphaned leave balances`);
+      // 6. Orphaned leave balances cannot exist: LeaveBalance.user is a required
+      // relation with onDelete: Cascade. The previous `user: null` filter was invalid
+      // for a required relation and crashed at runtime.
+      log.info('Skipped orphaned leave balances cleanup - enforced by FK cascade');
 
       // 7. Clean cancelled leave requests older than 1 year
       const oldCancelledDate = subMonths(new Date(), 12);
@@ -183,44 +144,10 @@ export class CleanupService {
         }
       }
 
-      // 2. Fix approval chains with missing approvers
-      const approvalsWithoutApprover = await prisma.approval.findMany({
-        where: {
-          approver: null,
-        },
-        include: {
-          leaveRequest: {
-            include: {
-              user: {
-                include: {
-                  manager: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      for (const approval of approvalsWithoutApprover) {
-        if (approval.leaveRequest?.user?.managerId) {
-          await prisma.approval.update({
-            where: { id: approval.id },
-            data: {
-              approverId: approval.leaveRequest.user.managerId,
-            },
-          });
-          results.fixedApprovals++;
-        } else {
-          // If no manager, cancel the approval
-          await prisma.approval.update({
-            where: { id: approval.id },
-            data: {
-              status: 'REJECTED',
-              comments: 'Rejected due to missing approver',
-            },
-          });
-        }
-      }
+      // 2. Approvals without an approver cannot exist: Approval.approver is a required
+      // relation enforced by an FK constraint (onDelete: Cascade). The previous
+      // `approver: null` filter was invalid for a required relation and crashed at runtime.
+      log.info('Skipped approvals-without-approver fix - enforced by FK constraint');
 
     } catch (error) {
       log.error('Fix inconsistencies error', error);

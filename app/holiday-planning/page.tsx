@@ -92,7 +92,7 @@ export default function HolidayPlanningPage() {
               // Only include valid dates
               return isNaN(parsed.getTime()) ? null : parsed
             })
-            .filter(d => d !== null) // Remove any null dates
+            .filter((d: Date | null) => d !== null) // Remove any null dates
           setSelectedDates(dates as Date[])
         }
       }

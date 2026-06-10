@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       select: { role: true, id: true, department: true }
     })
 
-    if (!user || !['MANAGER', 'DIRECTOR', 'EXECUTIVE'].includes(user.role)) {
+    if (!user || !['MANAGER', 'DEPARTMENT_DIRECTOR', 'EXECUTIVE'].includes(user.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
           { submittedAt: 'desc' }
         ]
       })
-    } else if (user.role === 'DIRECTOR') {
+    } else if (user.role === 'DEPARTMENT_DIRECTOR') {
       // Get all users where this director is the departmentDirectorId (handles multi-department directors)
       holidayPlans = await prisma.holidayPlan.findMany({
         where: {

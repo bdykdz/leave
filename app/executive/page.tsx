@@ -129,9 +129,7 @@ export default function ExecutiveDashboard() {
         case "MANAGER":
           router.push("/manager")
           break
-        case "HR":
-          router.push("/hr")
-          break
+        // "HR" was already redirected above; the old case here was unreachable
         default:
           router.push("/login")
       }

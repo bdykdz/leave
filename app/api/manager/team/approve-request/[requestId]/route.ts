@@ -495,7 +495,7 @@ export async function POST(
           }
         })
 
-        if (leaveType?.documentTemplates.length > 0) {
+        if (leaveType && leaveType.documentTemplates.length > 0) {
           const generator = new SmartDocumentGenerator()
           const template = leaveType.documentTemplates[0]
           const documentId = await generator.generateDocument(requestId, template.id)
@@ -577,7 +577,7 @@ export async function POST(
                 startDate: format(updatedLeaveRequest.startDate, 'dd MMMM yyyy'),
                 endDate: format(updatedLeaveRequest.endDate, 'dd MMMM yyyy'),
                 days: updatedLeaveRequest.totalDays,
-                responsibilities: updatedLeaveRequest.substituteNotes || undefined,
+                responsibilities: undefined, // LeaveRequest has no substituteNotes field; was always undefined at runtime
                 contactInfo: updatedLeaveRequest.user.email || undefined,
                 companyName: process.env.COMPANY_NAME || 'TPF'
               });

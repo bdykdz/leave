@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 
 export async function GET(request: Request) {
   try {
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     const page = Math.max(parseInt(searchParams.get('page') || '1') || 1, 1)
     const skip = (page - 1) * limit
 
-    const where = {
+    const where: Prisma.WorkFromHomeRequestWhereInput = {
       approvals: {
         some: {
           approverId: session.user.id,
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
         requestType: 'wfh',
         employee: {
           name: `${request.user?.firstName || ''} ${request.user?.lastName || ''}`.trim() || 'Unknown',
-          avatar: request.user?.image || '',
+          avatar: request.user?.profileImage || '',
           department: request.user?.department || ''
         },
         type: 'Work From Home',

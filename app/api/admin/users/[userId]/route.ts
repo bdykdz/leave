@@ -28,7 +28,8 @@ export async function GET(
     const user = await prisma.user.findUnique({
       where: { id: params.userId },
       include: {
-        department: true,
+        // department is a scalar column (returned by default with include);
+        // listing it inside include crashed Prisma at runtime
         manager: {
           select: {
             id: true,
