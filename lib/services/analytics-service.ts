@@ -128,26 +128,36 @@ export class AnalyticsService {
 
     const trends: LeaveUsageTrend[] = []
 
+    // Fetch all approved requests across the whole window in one query,
+    // then bucket per month in memory (same per-month predicate as before:
+    // startDate within [monthStart, monthEnd]).
+    const windowStart = startOfMonth(monthIntervals[0])
+    const windowEnd = endOfMonth(monthIntervals[monthIntervals.length - 1])
+
+    const allRequests = await prisma.leaveRequest.findMany({
+      where: {
+        user: whereClause,
+        startDate: { gte: windowStart, lte: windowEnd },
+        status: 'APPROVED'
+      },
+      select: { startDate: true, totalDays: true }
+    })
+
+    // Active employee count does not vary by month - query once
+    const activeEmployees = await prisma.user.count({
+      where: { ...whereClause, isActive: true }
+    })
+
     for (const month of monthIntervals) {
       const monthStart = startOfMonth(month)
       const monthEnd = endOfMonth(month)
 
-      const requests = await prisma.leaveRequest.findMany({
-        where: {
-          user: whereClause,
-          startDate: { gte: monthStart, lte: monthEnd },
-          status: 'APPROVED'
-        },
-        select: { totalDays: true }
-      })
+      const requests = allRequests.filter(
+        req => req.startDate >= monthStart && req.startDate <= monthEnd
+      )
 
       const totalDays = requests.reduce((sum, req) => sum + req.totalDays, 0)
       const requestCount = requests.length
-
-      // Get active employee count for this month
-      const activeEmployees = await prisma.user.count({
-        where: { ...whereClause, isActive: true }
-      })
 
       trends.push({
         month: format(month, 'MMM yyyy'),
@@ -189,33 +199,73 @@ export class AnalyticsService {
     const currentYear = new Date().getFullYear()
     const analytics: DepartmentAnalytics[] = []
 
+    // Batched queries (instead of 4 queries per department):
+    // 1) All active employees in scope with their current-year balances
+    //    (provides both per-department headcount and utilization data)
+    const employees = await prisma.user.findMany({
+      where: { department: { in: departments }, isActive: true },
+      select: {
+        department: true,
+        leaveBalances: {
+          where: { year: currentYear },
+          select: { entitled: true, used: true }
+        }
+      }
+    })
+
+    // 2) Approved requests starting this year, grouped per department in memory
+    const approvedRequests = await prisma.leaveRequest.findMany({
+      where: {
+        user: { department: { in: departments }, isActive: true },
+        startDate: { gte: startOfYear(new Date()) },
+        status: 'APPROVED'
+      },
+      select: { totalDays: true, user: { select: { department: true } } }
+    })
+
+    // 3) Pending requests, grouped per department in memory
+    const pendingRequestRows = await prisma.leaveRequest.findMany({
+      where: {
+        user: { department: { in: departments }, isActive: true },
+        status: { in: ['PENDING'] }
+      },
+      select: { user: { select: { department: true } } }
+    })
+
+    // Aggregate in memory
+    const employeeStats = new Map<string, { count: number; totalEntitled: number; totalUsed: number }>()
+    for (const emp of employees) {
+      const stats = employeeStats.get(emp.department) || { count: 0, totalEntitled: 0, totalUsed: 0 }
+      stats.count++
+      for (const balance of emp.leaveBalances) {
+        stats.totalEntitled += balance.entitled
+        stats.totalUsed += balance.used
+      }
+      employeeStats.set(emp.department, stats)
+    }
+
+    const leaveStats = new Map<string, number>()
+    for (const req of approvedRequests) {
+      leaveStats.set(req.user.department, (leaveStats.get(req.user.department) || 0) + req.totalDays)
+    }
+
+    const pendingStats = new Map<string, number>()
+    for (const req of pendingRequestRows) {
+      pendingStats.set(req.user.department, (pendingStats.get(req.user.department) || 0) + 1)
+    }
+
     for (const dept of departments) {
-      const totalEmployees = await prisma.user.count({
-        where: { department: dept, isActive: true }
-      })
-
-      const leaveData = await prisma.leaveRequest.aggregate({
-        _sum: { totalDays: true },
-        _count: { id: true },
-        where: {
-          user: { department: dept, isActive: true },
-          startDate: { gte: startOfYear(new Date()) },
-          status: 'APPROVED'
-        }
-      })
-
-      const pendingRequests = await prisma.leaveRequest.count({
-        where: {
-          user: { department: dept, isActive: true },
-          status: { in: ['PENDING'] }
-        }
-      })
-
-      const totalLeave = leaveData._sum.totalDays || 0
+      const empStats = employeeStats.get(dept)
+      const totalEmployees = empStats?.count || 0
+      const totalLeave = leaveStats.get(dept) || 0
+      const pendingRequests = pendingStats.get(dept) || 0
       const averagePerEmployee = totalEmployees > 0 ? totalLeave / totalEmployees : 0
 
-      // Calculate utilization rate (compared to annual entitlement)
-      const utilizationRate = await this.calculateUtilizationRate(dept, currentYear)
+      // Utilization rate (compared to annual entitlement) - same semantics as before:
+      // 0 when no employees or no entitlement
+      const utilizationRate = empStats && empStats.totalEntitled > 0
+        ? (empStats.totalUsed / empStats.totalEntitled) * 100
+        : 0
 
       analytics.push({
         department: dept,
@@ -252,7 +302,7 @@ export class AnalyticsService {
         }
       },
       include: {
-        user: {
+        approver: {
           select: { firstName: true, lastName: true }
         },
         leaveRequest: {
@@ -285,8 +335,8 @@ export class AnalyticsService {
     const approverStats = new Map<string, { count: number; totalTime: number }>()
     
     approvals.forEach(approval => {
-      if (approval.status === 'APPROVED' && approval.user) {
-        const approverName = `${approval.user.firstName} ${approval.user.lastName}`
+      if (approval.status === 'APPROVED' && approval.approver) {
+        const approverName = `${approval.approver.firstName} ${approval.approver.lastName}`
         const approvalTime = approvalTimes.find(() => true) || 0
         
         const existing = approverStats.get(approverName) || { count: 0, totalTime: 0 }
@@ -333,80 +383,71 @@ export class AnalyticsService {
 
     const analytics: SeasonalAnalytics[] = []
 
+    // Fetch every request created this year in one query, then bucket per
+    // month in memory (same per-month predicate as before: createdAt within
+    // [monthStart, monthEnd]).
+    const yearRequests = await prisma.leaveRequest.findMany({
+      where: {
+        user: whereClause,
+        createdAt: {
+          gte: startOfMonth(monthIntervals[0]),
+          lte: endOfMonth(monthIntervals[monthIntervals.length - 1])
+        }
+      },
+      select: { createdAt: true, status: true, totalDays: true, leaveTypeId: true }
+    })
+
+    // Resolve leave type names with a single batched query
+    const leaveTypeIds = Array.from(new Set(yearRequests.map(req => req.leaveTypeId)))
+    const leaveTypes = leaveTypeIds.length > 0
+      ? await prisma.leaveType.findMany({
+          where: { id: { in: leaveTypeIds } },
+          select: { id: true, name: true }
+        })
+      : []
+    const leaveTypeNames = new Map(leaveTypes.map(lt => [lt.id, lt.name]))
+
     for (const month of monthIntervals) {
       const monthStart = startOfMonth(month)
       const monthEnd = endOfMonth(month)
 
+      const monthRequests = yearRequests.filter(
+        req => req.createdAt >= monthStart && req.createdAt <= monthEnd
+      )
+
       // Request volume
-      const requestVolume = await prisma.leaveRequest.count({
-        where: {
-          user: whereClause,
-          createdAt: { gte: monthStart, lte: monthEnd }
-        }
-      })
+      const requestVolume = monthRequests.length
 
-      // Approval rate
-      const totalRequests = await prisma.leaveRequest.count({
-        where: {
-          user: whereClause,
-          createdAt: { gte: monthStart, lte: monthEnd },
-          status: { in: ['APPROVED', 'REJECTED'] }
-        }
-      })
-
-      const approvedRequests = await prisma.leaveRequest.count({
-        where: {
-          user: whereClause,
-          createdAt: { gte: monthStart, lte: monthEnd },
-          status: 'APPROVED'
-        }
-      })
-
+      // Approval rate (decided requests only)
+      const totalRequests = monthRequests.filter(
+        req => req.status === 'APPROVED' || req.status === 'REJECTED'
+      ).length
+      const approvedRequests = monthRequests.filter(req => req.status === 'APPROVED').length
       const approvalRate = totalRequests > 0 ? (approvedRequests / totalRequests) * 100 : 0
 
       // Average days requested
-      const daysData = await prisma.leaveRequest.aggregate({
-        _avg: { totalDays: true },
-        where: {
-          user: whereClause,
-          createdAt: { gte: monthStart, lte: monthEnd }
-        }
-      })
+      const averageDays = monthRequests.length > 0
+        ? monthRequests.reduce((sum, req) => sum + req.totalDays, 0) / monthRequests.length
+        : 0
 
-      // Popular leave types
-      const leaveTypeStats = await prisma.leaveRequest.groupBy({
-        by: ['leaveTypeId'],
-        _count: { leaveTypeId: true },
-        where: {
-          user: whereClause,
-          createdAt: { gte: monthStart, lte: monthEnd }
-        },
-        orderBy: {
-          _count: {
-            leaveTypeId: 'desc'
-          }
-        },
-        take: 3
-      })
-
-      const popularLeaveTypes = await Promise.all(
-        leaveTypeStats.map(async (stat) => {
-          const leaveType = await prisma.leaveType.findUnique({
-            where: { id: stat.leaveTypeId },
-            select: { name: true }
-          })
-          return {
-            name: leaveType?.name || 'Unknown',
-            count: stat._count.leaveTypeId
-          }
-        })
-      )
+      // Popular leave types (top 3 by request count this month)
+      const typeCounts = new Map<string, number>()
+      for (const req of monthRequests) {
+        typeCounts.set(req.leaveTypeId, (typeCounts.get(req.leaveTypeId) || 0) + 1)
+      }
+      const popularLeaveTypes = Array.from(typeCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([leaveTypeId, count]) => ({
+          name: leaveTypeNames.get(leaveTypeId) || 'Unknown',
+          count
+        }))
 
       analytics.push({
         month: format(month, 'MMM'),
         requestVolume,
         approvalRate: Math.round(approvalRate * 100) / 100,
-        averageDaysRequested: Math.round((daysData._avg.totalDays || 0) * 100) / 100,
+        averageDaysRequested: Math.round(averageDays * 100) / 100,
         popularLeaveTypes
       })
     }
@@ -431,31 +472,42 @@ export class AnalyticsService {
     endDate.setDate(endDate.getDate() + days)
 
     const coverage: TeamCoverageAnalytics[] = []
-    
+
+    // Total employees does not vary by day - query once
+    const totalEmployees = await prisma.user.count({
+      where: { ...whereClause, isActive: true }
+    })
+
+    // Fetch all approved requests overlapping the window in one query, then
+    // count per day in memory using the exact same per-day predicate as
+    // before: startDate <= date AND endDate >= date
+    const approvedRequests = await prisma.leaveRequest.findMany({
+      where: {
+        user: whereClause,
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+        status: 'APPROVED'
+      },
+      select: { startDate: true, endDate: true }
+    })
+
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const date = new Date(d)
       const dateString = format(date, 'yyyy-MM-dd')
 
-      // Total employees
-      const totalEmployees = await prisma.user.count({
-        where: { ...whereClause, isActive: true }
-      })
-
       // Employees on leave
-      const onLeave = await prisma.leaveRequest.count({
-        where: {
-          user: whereClause,
-          startDate: { lte: date },
-          endDate: { gte: date },
-          status: 'APPROVED'
-        }
-      })
+      const onLeave = approvedRequests.filter(
+        req => req.startDate <= date && req.endDate >= date
+      ).length
 
       const coveragePercentage = totalEmployees > 0 ? ((totalEmployees - onLeave) / totalEmployees) * 100 : 100
       const criticalCoverage = coveragePercentage < 70 // Less than 70% coverage is critical
 
-      // Count conflicts (multiple people in same team/role on leave)
-      const conflicts = await this.detectDailyCoverageConflicts(whereClause, date)
+      // Count conflicts (multiple people in same team/role on leave).
+      // Same simplified rule as the previous detectDailyCoverageConflicts
+      // helper, which counted the identical overlapping-leave set:
+      // it's a conflict if more than 2 people are away
+      const conflicts = onLeave > 2 ? 1 : 0
 
       coverage.push({
         date: dateString,
@@ -501,7 +553,7 @@ export class AnalyticsService {
   private static async getPendingApprovalsCount(userId: string): Promise<number> {
     return await prisma.approval.count({
       where: {
-        userId,
+        approverId: userId,
         status: 'PENDING'
       }
     })
@@ -529,45 +581,4 @@ export class AnalyticsService {
     return Math.round((totalTime / approvals.length) * 100) / 100
   }
 
-  private static async calculateUtilizationRate(department: string, year: number): Promise<number> {
-    const employees = await prisma.user.findMany({
-      where: { department, isActive: true },
-      include: {
-        leaveBalances: {
-          where: { year },
-          include: { leaveType: true }
-        }
-      }
-    })
-
-    if (employees.length === 0) return 0
-
-    let totalEntitled = 0
-    let totalUsed = 0
-
-    employees.forEach(emp => {
-      emp.leaveBalances.forEach(balance => {
-        totalEntitled += balance.entitled
-        totalUsed += balance.used
-      })
-    })
-
-    return totalEntitled > 0 ? (totalUsed / totalEntitled) * 100 : 0
-  }
-
-  private static async detectDailyCoverageConflicts(whereClause: any, date: Date): Promise<number> {
-    // This is a simplified conflict detection
-    // In practice, you'd check for role-based conflicts, team coverage, etc.
-    const overlappingLeave = await prisma.leaveRequest.count({
-      where: {
-        user: whereClause,
-        startDate: { lte: date },
-        endDate: { gte: date },
-        status: 'APPROVED'
-      }
-    })
-
-    // Consider it a conflict if more than 2 people are away
-    return overlappingLeave > 2 ? 1 : 0
-  }
 }
