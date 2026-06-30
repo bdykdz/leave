@@ -537,7 +537,7 @@ export default function EmployeeDashboard() {
                   )}
                 </>
               )}
-              {session.user.role === "MANAGER" && (
+              {(session.user.role === "MANAGER" || session.user.role === "DEPARTMENT_DIRECTOR") && (
                 <Button onClick={() => router.push("/manager")} variant="outline" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   {t.nav.managerDashboard}
