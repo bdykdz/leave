@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is a manager
-    if (!['MANAGER', 'HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
+    if (!['MANAGER', 'DEPARTMENT_DIRECTOR', 'HR', 'ADMIN', 'EXECUTIVE'].includes(session.user.role)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 

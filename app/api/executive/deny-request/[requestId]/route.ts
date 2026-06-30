@@ -37,7 +37,7 @@ export async function POST(
       where: { id: params.requestId },
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
-        approvals: { select: { id: true, approverId: true, status: true, level: true } }
+        approvals: { select: { id: true, approverId: true, status: true, level: true, escalatedToId: true } }
       }
     });
 
@@ -82,7 +82,10 @@ export async function POST(
         const lowerLevelApprovals = requestDetails.approvals.filter(
           a => a.level < executiveApproval.level && a.id !== executiveApproval.id
         );
-        const hasUnapprovedPrior = lowerLevelApprovals.some(a => a.status !== 'APPROVED');
+        // A lower level escalated away (escalatedToId set) is deliberately bypassed and must not block.
+        const hasUnapprovedPrior = lowerLevelApprovals.some(
+          a => a.status !== 'APPROVED' && !a.escalatedToId
+        );
         if (hasUnapprovedPrior) {
           return NextResponse.json(
             { error: 'Previous approval levels must be completed first' },

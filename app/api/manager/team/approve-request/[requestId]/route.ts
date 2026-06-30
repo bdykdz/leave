@@ -160,7 +160,7 @@ export async function POST(
         const allApprovals = await prisma.approval.findMany({
           where: { leaveRequestId: requestId }
         })
-        const isAllApproved = allApprovals.every(a => a.status === 'APPROVED')
+        const isAllApproved = allApprovals.every(a => a.status === 'APPROVED' || a.escalatedToId != null)
         if (isAllApproved && leaveRequest.status === 'PENDING') {
           // Fix stuck request: all approvals done but request still PENDING
           const balanceYear = new Date(leaveRequest.startDate).getFullYear()
@@ -223,11 +223,16 @@ export async function POST(
       })
     }
 
-    // Sequential approval order check: all lower-level approvals must be APPROVED first
+    // Sequential approval order check: all lower-level approvals must be APPROVED first.
+    // A lower level that was escalated away (escalatedToId set) is deliberately bypassed —
+    // escalation routes the request up while leaving the original row PENDING, so it must
+    // not block the escalated higher-level approver.
     const lowerLevelApprovals = leaveRequest.approvals.filter(
       a => a.level < pendingApproval!.level && a.id !== pendingApproval!.id
     )
-    const hasUnapprovedPrior = lowerLevelApprovals.some(a => a.status !== 'APPROVED')
+    const hasUnapprovedPrior = lowerLevelApprovals.some(
+      a => a.status !== 'APPROVED' && !a.escalatedToId
+    )
     if (hasUnapprovedPrior) {
       return NextResponse.json(
         { error: "Previous approval levels must be completed first" },
@@ -274,7 +279,9 @@ export async function POST(
         where: { leaveRequestId: requestId }
       })
 
-      let isAllApproved = allApprovals.every(a => a.status === 'APPROVED')
+      // A row escalated away (escalatedToId set) is bypassed — escalation created a
+      // higher-level row to act in its place, so it must not keep the request PENDING.
+      let isAllApproved = allApprovals.every(a => a.status === 'APPROVED' || a.escalatedToId != null)
 
       // Clean up escalation fallback approvals from old workflow (pre-9ec7382).
       // Old workflow created all levels upfront; new workflow creates only level 1.
