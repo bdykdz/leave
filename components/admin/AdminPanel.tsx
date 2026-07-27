@@ -15,6 +15,7 @@ import { OrgChart } from "./OrgChart"
 import { WorkflowRulesManager } from "./WorkflowRulesManager"
 import { PositionsManager } from "./PositionsManager"
 import { UserManagementEnhanced } from "./UserManagementEnhanced"
+import { TeamTransfer } from "./TeamTransfer"
 import { DepartmentManager } from "./DepartmentManager"
 import { ManualRequestEntry } from "./ManualRequestEntry"
 import { OverlapManager } from "./OverlapManager"
@@ -53,6 +54,7 @@ import {
   FolderOpen,
   CheckCircle,
   Download,
+  UserCog,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -118,6 +120,7 @@ export function AdminPanel() {
       icon: Users,
       items: [
         { id: 'users', title: 'Users', icon: Users },
+        { id: 'team-transfer', title: 'Team Transfer', icon: UserCog },
         { id: 'departments', title: 'Departments', icon: Building },
         { id: 'positions', title: 'Positions', icon: Briefcase },
         { id: 'orgchart', title: 'Org Chart', icon: Network }
@@ -170,6 +173,8 @@ export function AdminPanel() {
         return <ManualRequestEntry />
       case 'users':
         return <UserManagementEnhanced />
+      case 'team-transfer':
+        return <TeamTransfer />
       case 'departments':
         return <DepartmentManager />
       case 'templates':
