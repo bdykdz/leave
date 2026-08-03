@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
+import { savePdfForPrint } from '@/lib/pdf-compat'
 import { prisma } from '@/lib/prisma'
 import { isNoSubstituteUser } from '@/lib/no-substitute-user'
 import { format } from 'date-fns'
@@ -406,7 +407,10 @@ export class SmartDocumentGenerator {
       // 9) Replace existing generated doc metadata, upload new PDF
       await prisma.generatedDocument.deleteMany({ where: { leaveRequestId } })
 
-      const pdfBytes = await pdfDoc.save()
+      // Sweep annotation refs left dangling by removeField/flatten above, then
+      // save with a classic flat xref table — both are needed for the output to
+      // pass strict xref validation in print drivers (see lib/pdf-compat.ts).
+      const pdfBytes = await savePdfForPrint(pdfDoc)
       
       // Determine if document should go to generated or draft folder based on approval status
       const hasApprovedStatus = leaveRequest.status === 'APPROVED'

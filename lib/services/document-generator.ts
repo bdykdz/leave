@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { savePdfForPrint } from '@/lib/pdf-compat';
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from './workflow-engine';
 import { getFromMinio, uploadToMinio, generateLeaveDocumentName } from '@/lib/minio';
@@ -377,7 +378,9 @@ export class DocumentGenerator {
     }
 
     // Save the PDF to Minio with descriptive filename
-    const pdfBytes = await pdfDoc.save();
+    // Sweep dangling annotation refs and save with a classic flat xref table
+    // so print drivers accept the output (see lib/pdf-compat.ts).
+    const pdfBytes = await savePdfForPrint(pdfDoc);
     const fileName = generateLeaveDocumentName(
       leaveRequest.requestNumber,
       leaveRequest.user.email,

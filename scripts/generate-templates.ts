@@ -299,7 +299,7 @@ async function createGeneralLeaveTemplate() {
     x: 55, y: y - 24, size: 7, font: fontRegular, color: rgb(0.5, 0.5, 0.5),
   })
 
-  const pdfBytes = await pdfDoc.save()
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: false })
   const outputPath = join(OUTPUT_DIR, 'general-leave-request.pdf')
   writeFileSync(outputPath, pdfBytes)
   console.log(`  Template 1 saved: ${outputPath}`)
@@ -477,7 +477,7 @@ async function createSpecialLeaveTemplate() {
     x: 55, y: y2 - 24, size: 7, font: fontRegular, color: rgb(0.5, 0.5, 0.5),
   })
 
-  const pdfBytes = await pdfDoc.save()
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: false })
   const outputPath = join(OUTPUT_DIR, 'special-leave-request.pdf')
   writeFileSync(outputPath, pdfBytes)
   console.log(`  Template 2 saved (2 pages): ${outputPath}`)
@@ -652,7 +652,7 @@ async function createMedicalLeaveTemplate() {
     x: 55, y: y2 - 24, size: 7, font: fontRegular, color: rgb(0.5, 0.5, 0.5),
   })
 
-  const pdfBytes = await pdfDoc.save()
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: false })
   const outputPath = join(OUTPUT_DIR, 'medical-leave-record.pdf')
   writeFileSync(outputPath, pdfBytes)
   console.log(`  Template 3 saved (2 pages): ${outputPath}`)

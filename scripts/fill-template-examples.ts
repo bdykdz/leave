@@ -100,7 +100,7 @@ async function fillGeneralLeave() {
   }
 
   form.flatten()
-  const pdfBytes = await pdfDoc.save()
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: false })
   const outPath = join(OUTPUT_DIR, 'exemplu-cerere-concediu.pdf')
   writeFileSync(outPath, pdfBytes)
   console.log(`  Exemplu 1: ${outPath}`)
@@ -174,7 +174,7 @@ async function fillSpecialLeave() {
   }
 
   form.flatten()
-  const pdfBytes = await pdfDoc.save()
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: false })
   const outPath = join(OUTPUT_DIR, 'exemplu-concediu-special.pdf')
   writeFileSync(outPath, pdfBytes)
   console.log(`  Exemplu 2: ${outPath}`)
@@ -244,7 +244,7 @@ async function fillMedicalLeave() {
   }
 
   form.flatten()
-  const pdfBytes = await pdfDoc.save()
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: false })
   const outPath = join(OUTPUT_DIR, 'exemplu-concediu-medical.pdf')
   writeFileSync(outPath, pdfBytes)
   console.log(`  Exemplu 3: ${outPath}`)
