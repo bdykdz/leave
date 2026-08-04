@@ -147,6 +147,7 @@ export interface Translations {
     medicalLeave: string
     collectiveDays: string
     remoteWorkUsage: string
+    leaveUsage: string
     myRequestsDescription: string
     pendingTeamApprovals: string
     pendingTeamApprovalsDescription: string
@@ -364,6 +365,10 @@ export interface Translations {
     daysUsedThisYear: string
     managedByHR: string
     wfhThisMonth: string
+    leaveThisMonth: string
+    noLeaveThisMonth: string
+    noWfhThisMonth: string
+    daysTaken: string
     workTripThisMonth: string
     onWorkTripToday: string
     avgTeamWfhPercentage: string
@@ -993,6 +998,7 @@ export const translations: Record<Language, Translations> = {
       medicalLeave: "My Medical Leave",
       collectiveDays: "Collective & Provisional",
       remoteWorkUsage: "My Remote Work Usage",
+      leaveUsage: "My Leave Usage",
       myRequestsDescription: "Requests submitted to your manager",
       pendingTeamApprovals: "Pending Team Approvals",
       pendingTeamApprovalsDescription: "Recent requests from your team members",
@@ -1189,6 +1195,10 @@ export const translations: Record<Language, Translations> = {
       daysUsedThisYear: "Days used this year",
       managedByHR: "Managed by HR",
       wfhThisMonth: "WFH this month",
+      leaveThisMonth: "leave this month",
+      noLeaveThisMonth: "No leave taken this month",
+      noWfhThisMonth: "No remote days this month",
+      daysTaken: "Days taken",
       workTripThisMonth: "Work trips this month",
       onWorkTripToday: "On Work Trip Today",
       avgTeamWfhPercentage: "Average team WFH percentage",
@@ -1776,6 +1786,7 @@ export const translations: Record<Language, Translations> = {
       medicalLeave: "Concediul meu medical",
       collectiveDays: "Colectiv & Provizoriu",
       remoteWorkUsage: "Utilizarea mea de lucru la distanță",
+      leaveUsage: "Utilizarea mea de concediu",
       myRequestsDescription: "Cereri trimise managerului tău",
       pendingTeamApprovals: "Aprobări echipă în așteptare",
       pendingTeamApprovalsDescription: "Cereri recente de la membrii echipei",
@@ -1972,6 +1983,10 @@ export const translations: Record<Language, Translations> = {
       daysUsedThisYear: "Zile folosite anul acesta",
       managedByHR: "Gestionat de HR",
       wfhThisMonth: "Lucru de acasă luna aceasta",
+      leaveThisMonth: "concediu luna aceasta",
+      noLeaveThisMonth: "Niciun concediu luat luna aceasta",
+      noWfhThisMonth: "Nicio zi de lucru de acasă luna aceasta",
+      daysTaken: "Zile luate",
       workTripThisMonth: "Deplasări luna aceasta",
       onWorkTripToday: "În deplasare astăzi",
       avgTeamWfhPercentage: "Procentajul mediu WFH al echipei",

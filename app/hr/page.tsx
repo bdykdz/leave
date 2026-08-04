@@ -9,6 +9,7 @@ import { LeaveAnalytics } from "@/components/hr/leave-analytics"
 import { DocumentVerification } from "@/components/hr/DocumentVerification"
 import { DocumentFileManager } from "@/components/hr/DocumentFileManager"
 import { DashboardSummary } from "@/components/dashboard-summary"
+import { MonthlyUsageCards } from "@/components/monthly-usage-cards"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeaveTypesManager } from "@/components/admin/LeaveTypesManager"
@@ -202,6 +203,9 @@ export default function HRDashboard() {
 
         {/* Dashboard Summary - shown on all tabs */}
         <DashboardSummary userRole="HR" />
+
+        {/* Personal leave + WFH monthly usage */}
+        <MonthlyUsageCards className="my-4" />
 
         <TabsContent value="employees" className="space-y-4">
           <EmployeeList />

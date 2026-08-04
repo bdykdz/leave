@@ -28,11 +28,10 @@ import { LeaveRequestForm } from "@/components/leave-request-form"
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { WorkTripRequestForm } from "@/components/work-trip-request-form"
 import { TeamCalendar } from "@/components/team-calendar"
+import { MonthlyUsageCards } from "@/components/monthly-usage-cards"
 import { HolidaysList } from "@/components/HolidaysList"
 import { DashboardSummary } from "@/components/dashboard-summary"
 import { format } from "date-fns/format"
-import { addMonths } from "date-fns/addMonths"
-import { subMonths } from "date-fns/subMonths"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +56,6 @@ export default function EmployeeDashboard() {
   const [showWorkTripForm, setShowWorkTripForm] = useState(false)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("dashboard")
-  const [wfhCurrentMonth, setWfhCurrentMonth] = useState(new Date()) // For WFH pagination
   const [requestsCurrentPage, setRequestsCurrentPage] = useState(1) // For requests pagination
   const [leaveBalances, setLeaveBalances] = useState<any[]>([])
   const [loadingBalances, setLoadingBalances] = useState(true)
@@ -67,13 +65,6 @@ export default function EmployeeDashboard() {
   const [loadingRequests, setLoadingRequests] = useState(true)
   const [hasDirectReports, setHasDirectReports] = useState(false)
   const [pendingSignatures, setPendingSignatures] = useState<any[]>([])
-  const [wfhStats, setWfhStats] = useState({
-    daysUsed: 0, 
-    workingDaysInMonth: 22, 
-    percentage: 0,
-    monthName: format(new Date(), 'MMMM yyyy')
-  })
-  const [wfhStatsLoading, setWfhStatsLoading] = useState(false)
 
   useEffect(() => {
     if (status === "loading") return
@@ -275,54 +266,6 @@ export default function EmployeeDashboard() {
     }
   }
 
-  // Fetch WFH stats for current selected month
-  const fetchWfhStats = async (date: Date) => {
-    // Guard against calling before component is ready
-    if (!session) return // next-auth discriminated union: session non-null implies status === "authenticated"
-    
-    setWfhStatsLoading(true)
-    try {
-      const monthKey = format(date, "yyyy-MM")
-      const response = await fetch(`/api/employee/wfh-stats?month=${monthKey}`)
-      if (response.ok) {
-        const stats = await response.json()
-        setWfhStats(stats)
-      } else {
-        // Fallback to default values if API fails
-        setWfhStats({ 
-          daysUsed: 0, 
-          workingDaysInMonth: 22, 
-          percentage: 0,
-          monthName: format(date, 'MMMM yyyy')
-        })
-      }
-    } catch (error) {
-      console.error('Error fetching WFH stats:', error)
-      // Fallback to default values
-      setWfhStats({ 
-        daysUsed: 0, 
-        workingDaysInMonth: 22, 
-        percentage: 0,
-        monthName: format(date, 'MMMM yyyy')
-      })
-    } finally {
-      setWfhStatsLoading(false)
-    }
-  }
-
-  // Update WFH stats when month changes (only after session is loaded)
-  // This useEffect MUST be called after all other hooks and before any returns
-  useEffect(() => {
-    if (status === "loading" || !session) return
-    
-    // Small delay to ensure component is fully mounted
-    const timer = setTimeout(() => {
-      fetchWfhStats(wfhCurrentMonth)
-    }, 100)
-    
-    return () => clearTimeout(timer)
-  }, [wfhCurrentMonth, session, status])
-
   // All hooks must be called before this point
   // Now we can have conditional returns
 
@@ -438,15 +381,6 @@ export default function EmployeeDashboard() {
       'ACTIVE': t.status.active,
     }
     return statusMap[status.toUpperCase()] || status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
-  }
-
-  // WFH month navigation
-  const previousWfhMonth = () => {
-    setWfhCurrentMonth(subMonths(wfhCurrentMonth, 1))
-  }
-
-  const nextWfhMonth = () => {
-    setWfhCurrentMonth(addMonths(wfhCurrentMonth, 1))
   }
 
   // Requests pagination
@@ -729,46 +663,8 @@ export default function EmployeeDashboard() {
                 </Card>
               </div>
 
-              {/* WFH Usage Card with Pagination */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-sm font-medium">
-                      {t.remoteForm.title} - {format(wfhCurrentMonth, "MMMM yyyy")}
-                    </CardTitle>
-                    <Home className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" onClick={previousWfhMonth}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={nextWfhMonth}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {wfhStatsLoading ? (
-                    <div className="animate-pulse">
-                      <div className="h-8 bg-gray-200 rounded w-20 mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                      <div className="h-2 bg-gray-200 rounded w-full mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-24"></div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-2xl font-bold text-blue-600">{wfhStats.daysUsed} {t.leaveForm.days}</div>
-                      <p className="text-xs text-muted-foreground">
-                        {wfhStats.daysUsed} {t.common.of} {wfhStats.workingDaysInMonth} {t.labels.workingDaysThisMonth}
-                      </p>
-                      <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                        <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${wfhStats.percentage}%` }}></div>
-                      </div>
-                      <p className="text-sm font-medium text-blue-600 mt-2">{wfhStats.percentage}% {t.labels.wfhThisMonth}</p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Leave + WFH monthly usage meters */}
+              <MonthlyUsageCards />
 
               {/* Recent Requests with Pagination */}
               <Card>

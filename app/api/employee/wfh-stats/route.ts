@@ -77,20 +77,21 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Calculate total WFH days used in this month
-    let totalWfhDays = 0
-    
+    // Collect the actual WFH dates used in this month
+    const wfhDates = new Set<string>()
+
     for (const request of wfhRequests) {
       const selectedDates = request.selectedDates as string[] | null
 
       if (selectedDates && selectedDates.length > 0) {
         // Use selectedDates: count only the specific dates that fall within the target month
-        const daysInMonth = selectedDates.filter(dateStr => {
+        for (const dateStr of selectedDates) {
           const date = new Date(dateStr)
           const dayOfWeek = getDay(date)
-          return date >= monthStart && date <= monthEnd && dayOfWeek !== 0 && dayOfWeek !== 6
-        })
-        totalWfhDays += daysInMonth.length
+          if (date >= monthStart && date <= monthEnd && dayOfWeek !== 0 && dayOfWeek !== 6) {
+            wfhDates.add(format(date, 'yyyy-MM-dd'))
+          }
+        }
       } else {
         // Fallback: count all business days in the startDate-endDate range
         const requestStart = request.startDate > monthStart ? request.startDate : monthStart
@@ -98,14 +99,17 @@ export async function GET(request: NextRequest) {
 
         if (requestStart <= requestEnd) {
           const days = eachDayOfInterval({ start: requestStart, end: requestEnd })
-          const businessDays = days.filter(day => {
+          for (const day of days) {
             const dayOfWeek = getDay(day)
-            return dayOfWeek !== 0 && dayOfWeek !== 6
-          })
-          totalWfhDays += businessDays.length
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              wfhDates.add(format(day, 'yyyy-MM-dd'))
+            }
+          }
         }
       }
     }
+
+    const totalWfhDays = wfhDates.size
 
     // Calculate total working days in the month (excluding weekends)
     const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd })
@@ -122,7 +126,8 @@ export async function GET(request: NextRequest) {
       daysUsed: totalWfhDays,
       workingDaysInMonth,
       percentage,
-      monthName: format(targetDate, 'MMMM yyyy')
+      monthName: format(targetDate, 'MMMM yyyy'),
+      dates: Array.from(wfhDates).sort()
     }
 
     return NextResponse.json(wfhStats)

@@ -33,6 +33,7 @@ import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { WorkTripRequestForm } from "@/components/work-trip-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
 import { DashboardSummary } from "@/components/dashboard-summary"
+import { MonthlyUsageCards } from "@/components/monthly-usage-cards"
 import { DelegationManager } from "@/components/manager/DelegationManager"
 import { TeamWeekGrid } from "@/components/team-week-grid"
 import { ApprovalsByMember } from "@/components/approvals-by-member"
@@ -63,7 +64,6 @@ export default function ManagerDashboard() {
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [showRemoteForm, setShowWFHForm] = useState(false)
   const [showWorkTripForm, setShowWorkTripForm] = useState(false)
-  const [managerWfhMonth, setManagerWfhMonth] = useState(new Date())
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
   const [approvalDetails, setApprovalDetails] = useState<{
     action: "approve" | "deny"
@@ -127,13 +127,6 @@ export default function ManagerDashboard() {
   const [loadingSuperior, setLoadingSuperior] = useState(true)
   const [pendingDocSignatures, setPendingDocSignatures] = useState<any[]>([])
   const [processingRequestIds, setProcessingRequestIds] = useState<Set<string>>(new Set())
-
-  // Manager's WFH stats
-  const [managerWfhStats, setManagerWfhStats] = useState({ 
-    daysUsed: 0, 
-    workingDaysInMonth: 22, 
-    percentage: 0 
-  })
 
   // Manager's own requests
   const [managerRequests, setManagerRequests] = useState<any[]>([])
@@ -237,12 +230,6 @@ export default function ManagerDashboard() {
     }
   }, [workTripDeniedPage, requestCategoryTab, workTripSubTab, session, status])
 
-  // Fetch manager's WFH stats
-  useEffect(() => {
-    if (status === "loading" || !session) return
-    fetchManagerWfhStats()
-  }, [session, status])
-
   // Fetch manager's own requests
   useEffect(() => {
     if (status === "loading" || !session) return
@@ -341,18 +328,6 @@ export default function ManagerDashboard() {
       toast.error(t.messages.failedToLoadApprovedRequests)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchManagerWfhStats = async () => {
-    try {
-      const response = await fetch('/api/manager/wfh-stats')
-      if (response.ok) {
-        const data = await response.json()
-        setManagerWfhStats(data)
-      }
-    } catch (error) {
-      console.error('Error fetching manager WFH stats:', error)
     }
   }
 
@@ -757,14 +732,6 @@ export default function ManagerDashboard() {
     setTeamStatsMonth(addMonths(teamStatsMonth, 1))
   }
 
-  const previousManagerWfhMonth = () => {
-    setManagerWfhMonth(subMonths(managerWfhMonth, 1))
-  }
-
-  const nextManagerWfhMonth = () => {
-    setManagerWfhMonth(addMonths(managerWfhMonth, 1))
-  }
-
   const previousRequestsPage = () => {
     setPendingRequestsPage(Math.max(1, pendingRequestsPage - 1))
   }
@@ -1162,38 +1129,8 @@ export default function ManagerDashboard() {
                 )
               })()}
 
-              {/* Manager's WFH Usage */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-sm font-medium">
-                      {t.dashboard.remoteWorkUsage} - {format(managerWfhMonth, "MMMM yyyy")}
-                    </CardTitle>
-                    <Home className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" onClick={previousManagerWfhMonth}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={nextManagerWfhMonth}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{managerWfhStats.daysUsed} {t.common.days}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {managerWfhStats.daysUsed} of {managerWfhStats.workingDaysInMonth} {t.labels.workingDaysThisMonth}
-                  </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${managerWfhStats.percentage}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm font-medium text-blue-600 mt-2">{managerWfhStats.percentage}% {t.labels.wfhThisMonth}</p>
-                </CardContent>
-              </Card>
+              {/* Manager's own leave + WFH monthly usage */}
+              <MonthlyUsageCards />
 
               {/* Manager's Own Requests */}
               <Card>

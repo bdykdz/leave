@@ -19,6 +19,7 @@ import { TeamTransfer } from "./TeamTransfer"
 import { DepartmentManager } from "./DepartmentManager"
 import { ManualRequestEntry } from "./ManualRequestEntry"
 import { OverlapManager } from "./OverlapManager"
+import { MonthlyUsageCards } from "@/components/monthly-usage-cards"
 import { SystemSettings } from "./SystemSettings"
 import { HolidaysManager } from "./HolidaysManager"
 import { EscalationSettings } from "./EscalationSettings"
@@ -68,7 +69,7 @@ import { Badge } from "@/components/ui/badge"
 import { signOut } from "next-auth/react"
 
 export function AdminPanel() {
-  const [activePage, setActivePage] = useState("overlaps")
+  const [activePage, setActivePage] = useState("my-overview")
   const [expandedSections, setExpandedSections] = useState({
     operations: true,
     organization: false,
@@ -110,6 +111,7 @@ export function AdminPanel() {
       title: 'Operations Management',
       icon: ClipboardList,
       items: [
+        { id: 'my-overview', title: 'My Overview', icon: User },
         { id: 'overlaps', title: 'Overlaps', icon: AlertTriangle },
         { id: 'manual-requests', title: 'Manual Entry', icon: ClipboardList }
       ]
@@ -167,6 +169,16 @@ export function AdminPanel() {
   // Render content based on active page
   const renderContent = () => {
     switch (activePage) {
+      case 'my-overview':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">My Overview</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Your personal leave and remote work usage</p>
+            </div>
+            <MonthlyUsageCards />
+          </div>
+        )
       case 'overlaps':
         return <OverlapManager />
       case 'manual-requests':

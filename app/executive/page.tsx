@@ -40,6 +40,7 @@ import { ExecutiveLeaveRequestForm } from "@/components/executive-leave-request-
 import { WorkRemoteRequestForm } from "@/components/wfh-request-form"
 import { ApprovalDialogV2 } from "@/components/approval-dialog-v2"
 import { DashboardSummary } from "@/components/dashboard-summary"
+import { MonthlyUsageCards } from "@/components/monthly-usage-cards"
 import { format, addMonths, subMonths } from "date-fns"
 import {
   DropdownMenu,
@@ -713,6 +714,9 @@ export default function ExecutiveDashboard() {
 
             {/* Dashboard Summary */}
             <DashboardSummary userRole="EXECUTIVE" />
+
+            {/* Personal leave + WFH monthly usage */}
+            <MonthlyUsageCards />
 
             {/* Quick Actions */}
             <Card>
