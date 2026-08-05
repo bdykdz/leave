@@ -533,19 +533,32 @@ export function TeamCalendar() {
               const workTripCount = dayEvents.filter(e => e.type === 'workTrip' && e.status === 'approved').length
               const isCurrentMonth = isSameMonth(day, currentMonth)
 
+              // Data is only fetched for the current month, so adjacent-month
+              // cells would show incomplete counts — grey them out instead.
+              if (!isCurrentMonth) {
+                return (
+                  <div
+                    key={index}
+                    className="min-h-[80px] p-2 border rounded-lg bg-gray-50 opacity-50"
+                  >
+                    <div className="text-sm font-medium mb-1 text-gray-400">{format(day, "d")}</div>
+                  </div>
+                )
+              }
+
               return (
                 <div
                   key={index}
                   className={cn(
                     "min-h-[80px] p-2 border rounded-lg cursor-pointer transition-colors",
-                    isCurrentMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50",
+                    "bg-white hover:bg-gray-50",
                     isWeekend(day) && "bg-gray-100",
                     holiday && "bg-amber-50 border-amber-200"
                   )}
                   onClick={() => handleDayClick(day)}
                 >
                   <div className="text-sm font-medium mb-1">{format(day, "d")}</div>
-                  
+
                   {holiday && (
                     <div className="text-xs text-amber-600 mb-1 truncate" title={holiday.nameEn}>
                       {holiday.nameEn}
