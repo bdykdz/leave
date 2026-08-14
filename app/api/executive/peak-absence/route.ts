@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         return {
           period: start.getTime() === end.getTime()
             ? format(start, 'MMM d')
-            : `${format(start, 'MMM d')}-${format(end, 'd')}`,
+            : `${format(start, 'MMM d')}-${format(end, start.getMonth() === end.getMonth() ? 'd' : 'MMM d')}`,
           percentageOfWorkforce: percentage,
           expectedAbsent: p.maxAbsent,
           departments: deptArray,

@@ -61,7 +61,9 @@ function formatDayList(dateStrings: string[]): string {
   return groups
     .map(group => {
       if (group.length === 1) return format(group[0], "MMM d")
-      return `${format(group[0], "MMM d")}-${format(group[group.length - 1], "d")}`
+      const last = group[group.length - 1]
+      const endFormat = group[0].getMonth() === last.getMonth() ? "d" : "MMM d"
+      return `${format(group[0], "MMM d")}-${format(last, endFormat)}`
     })
     .join(", ")
 }

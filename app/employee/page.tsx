@@ -318,7 +318,10 @@ export default function EmployeeDashboard() {
         if (group.length === 1) {
           return format(group[0], "MMM d")
         } else {
-          return `${format(group[0], "MMM d")}-${format(group[group.length - 1], "d")}`
+          const first = group[0]
+          const last = group[group.length - 1]
+          const endFormat = first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear() ? "d" : "MMM d"
+          return `${format(first, "MMM d")}-${format(last, endFormat)}`
         }
       }).join(", ") + `, ${format(sortedDates[0], "yyyy")}`
     }
