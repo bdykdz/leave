@@ -32,7 +32,14 @@ export async function GET(request: NextRequest) {
 
     const whereClause: any = {}
 
-    if (status && status !== 'ALL') {
+    if (status === 'OVERDUE') {
+      // Pseudo-status: still pending but the leave period has already passed.
+      // These stay approvable during the auto-cancel grace period.
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      whereClause.status = 'PENDING'
+      whereClause.endDate = { lt: todayStart }
+    } else if (status && status !== 'ALL') {
       whereClause.status = status
     }
 
@@ -111,12 +118,21 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // Grace period during which past-dated PENDING requests can still be approved
+    // before the escalation cron auto-cancels them (same key the cron reads).
+    const graceSetting = await prisma.companySetting.findUnique({
+      where: { key: 'autoCancelGraceDays' },
+    })
+    const parsedGrace = Number(graceSetting?.value)
+    const autoCancelGraceDays = Number.isFinite(parsedGrace) && parsedGrace >= 0 ? parsedGrace : 60
+
     return NextResponse.json({
       requests,
       totalCount,
       page,
       pageSize,
       totalPages,
+      autoCancelGraceDays,
     })
   } catch (error) {
     console.error('Error fetching leave requests for HR:', error)

@@ -41,7 +41,7 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import { format } from "date-fns"
+import { addDays, format } from "date-fns"
 
 interface LeaveRequestItem {
   id: string
@@ -52,6 +52,7 @@ interface LeaveRequestItem {
   totalDays: number
   reason: string
   leaveTypeId: string
+  createdByHrId: string | null
   selectedDates: string[]
   supportingDocuments: any
   user: {
@@ -94,6 +95,14 @@ interface LeaveTypeOption {
   code: string
 }
 
+// PENDING but the leave period has already passed — still approvable until the
+// escalation cron auto-cancels it after the configured grace period.
+function isOverdue(request: { status: string; endDate: string }): boolean {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  return request.status === "PENDING" && new Date(request.endDate) < todayStart
+}
+
 const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-green-100 text-green-800",
@@ -104,6 +113,7 @@ const statusColors: Record<string, string> = {
 
 export function LeaveRequestsManager() {
   const [requests, setRequests] = useState<LeaveRequestItem[]>([])
+  const [graceDays, setGraceDays] = useState(60)
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -162,6 +172,9 @@ export function LeaveRequestsManager() {
       setRequests(data.requests)
       setTotalCount(data.totalCount)
       setTotalPages(data.totalPages)
+      if (typeof data.autoCancelGraceDays === "number") {
+        setGraceDays(data.autoCancelGraceDays)
+      }
     } catch {
       toast.error("Failed to load leave requests")
     } finally {
@@ -364,6 +377,7 @@ export function LeaveRequestsManager() {
             <SelectContent>
               <SelectItem value="ALL">All Status</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="OVERDUE">Pending (overdue)</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
               <SelectItem value="CANCELLED">Cancelled</SelectItem>
@@ -428,6 +442,19 @@ export function LeaveRequestsManager() {
                       <Badge className={statusColors[request.status] || "bg-gray-100 text-gray-800"} variant="outline">
                         {request.status}
                       </Badge>
+                      {isOverdue(request) && (
+                        <div className="mt-1">
+                          <Badge className="bg-orange-100 text-orange-800" variant="outline">
+                            OVERDUE
+                          </Badge>
+                          {/* HR manual entries are exempt from auto-cancel */}
+                          {!request.createdByHrId && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              auto-cancels {format(addDays(new Date(request.endDate), graceDays), "dd MMM yyyy")}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">

@@ -12,6 +12,7 @@ export interface EscalationConfig {
   autoApproveAfterMaxEscalations: boolean;
   maxEscalationLevels: number;
   companyTimezone: string;
+  autoCancelGraceDays: number;
 }
 
 export class EscalationService {
@@ -134,7 +135,8 @@ export class EscalationService {
             'autoSkipAbsentApprovers',
             'autoApproveAfterMaxEscalations',
             'maxEscalationLevels',
-            'companyTimezone'
+            'companyTimezone',
+            'autoCancelGraceDays'
           ]
         }
       }
@@ -148,7 +150,8 @@ export class EscalationService {
       autoSkipAbsentApprovers: true,
       autoApproveAfterMaxEscalations: false,
       maxEscalationLevels: 3,
-      companyTimezone: 'Europe/Bucharest'
+      companyTimezone: 'Europe/Bucharest',
+      autoCancelGraceDays: 60
     };
 
     // Override with database values
@@ -175,6 +178,11 @@ export class EscalationService {
         case 'companyTimezone':
           if (typeof setting.value === 'string') config.companyTimezone = setting.value;
           break;
+        case 'autoCancelGraceDays': {
+          const days = Number(setting.value);
+          if (Number.isFinite(days) && days >= 0) config.autoCancelGraceDays = days;
+          break;
+        }
       }
     }
 
@@ -199,16 +207,19 @@ export class EscalationService {
       config.escalationDaysBeforeAutoApproval
     );
 
-    // Auto-cancel leave requests where the leave period has already passed
-    // No point escalating or keeping pending a request for dates that are gone
+    // Auto-cancel leave requests only after a grace period past the leave end date.
+    // Administration requires a window (default 60 days) in which an approver can
+    // still approve retroactively (e.g. approval given verbally but forgotten in
+    // the app) so payroll can be corrected before the request is cancelled.
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const graceCutoff = addDays(today, -config.autoCancelGraceDays);
 
     const staleRequests = await prisma.leaveRequest.findMany({
       where: {
         status: 'PENDING',
         endDate: {
-          lt: today
+          lt: graceCutoff
         },
         // Never auto-cancel HR-created manual entries. HR deliberately records
         // leave for past dates (back-dated entries); those are legitimate records
@@ -222,7 +233,7 @@ export class EscalationService {
     });
 
     if (staleRequests.length > 0) {
-      console.log(`Found ${staleRequests.length} stale leave requests (leave dates already passed) - auto-cancelling`);
+      console.log(`Found ${staleRequests.length} stale leave requests (leave ended over ${config.autoCancelGraceDays} days ago) - auto-cancelling`);
       for (const request of staleRequests) {
         try {
           await prisma.$transaction(async (tx) => {
@@ -248,7 +259,7 @@ export class EscalationService {
               },
               data: {
                 status: 'REJECTED',
-                comments: 'Auto-cancelled: leave period has passed without approval'
+                comments: `Auto-cancelled: leave period ended over ${config.autoCancelGraceDays} days ago without approval`
               }
             });
 
@@ -291,7 +302,7 @@ export class EscalationService {
                 userId: request.userId,
                 type: 'LEAVE_REJECTED',
                 title: 'Cerere de concediu anulată automat',
-                message: `Cererea dvs. de concediu (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')}) a fost anulată automat deoarece perioada de concediu a trecut fără aprobare.`,
+                message: `Cererea dvs. de concediu (${format(new Date(request.startDate), 'dd.MM.yyyy')} - ${format(new Date(request.endDate), 'dd.MM.yyyy')}) a fost anulată automat deoarece au trecut peste ${config.autoCancelGraceDays} de zile de la sfârșitul perioadei fără aprobare.`,
                 link: `/leave/${request.id}`
               }
             });
@@ -304,7 +315,8 @@ export class EscalationService {
     }
 
     // Find all pending approvals that are older than the threshold
-    // Only for leave requests where the leave period has NOT yet passed
+    // Includes past-dated requests still inside the auto-cancel grace period, so a
+    // forgotten request keeps moving up the chain and can still be approved retroactively.
     // Exclude BDL (Blood Donation Leave): it has an explicit 2-level manager→HR flow handled in-app.
     // Escalating a 1-day donation to the director creates approval conflicts that block the manager.
     const pendingApprovals = await prisma.approval.findMany({
@@ -318,7 +330,7 @@ export class EscalationService {
         leaveRequest: {
           status: 'PENDING',
           endDate: {
-            gte: today // Only escalate if leave dates are still in the future
+            gte: graceCutoff // Skip only requests already past the grace period (the auto-cancel above handles those)
           },
           leaveType: {
             code: { not: 'BDL' }
@@ -341,7 +353,7 @@ export class EscalationService {
       }
     });
 
-    console.log(`Found ${pendingApprovals.length} approvals to escalate (excluding past-dated requests)`);
+    console.log(`Found ${pendingApprovals.length} approvals to escalate (including overdue requests still in the ${config.autoCancelGraceDays}-day grace period)`);
 
     for (const approval of pendingApprovals) {
       await this.escalateApproval(approval);
@@ -764,6 +776,12 @@ export class EscalationService {
         value: 'Europe/Bucharest',
         category: 'escalation',
         description: 'Company timezone for escalation calculations'
+      },
+      {
+        key: 'autoCancelGraceDays',
+        value: '60',
+        category: 'escalation',
+        description: 'Days after the leave end date during which a pending request can still be approved before it is auto-cancelled'
       }
     ];
 
