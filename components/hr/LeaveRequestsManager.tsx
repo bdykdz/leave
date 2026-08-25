@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -135,6 +136,7 @@ export function LeaveRequestsManager() {
     totalDays: "",
     reason: "",
     editReason: "",
+    notifyManager: false,
   })
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [calculatingDays, setCalculatingDays] = useState(false)
@@ -259,6 +261,7 @@ export function LeaveRequestsManager() {
       totalDays: String(request.totalDays),
       reason: request.reason,
       editReason: "",
+      notifyManager: false,
     })
     setBalancePreview(null)
     setEditDialogOpen(true)
@@ -289,6 +292,7 @@ export function LeaveRequestsManager() {
           totalDays: parseFloat(editForm.totalDays),
           reason: editForm.reason,
           editReason: editForm.editReason,
+          notifyManager: editForm.notifyManager,
           substituteIds: editingRequest.substitutes.map(s => s.userId),
         }),
       })
@@ -654,6 +658,17 @@ export function LeaveRequestsManager() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, editReason: e.target.value }))}
                       rows={2}
                     />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="edit-notify-manager"
+                      checked={editForm.notifyManager}
+                      onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, notifyManager: checked === true }))}
+                    />
+                    <Label htmlFor="edit-notify-manager" className="font-normal cursor-pointer">
+                      Notify manager by email
+                    </Label>
                   </div>
                 </div>
               </div>

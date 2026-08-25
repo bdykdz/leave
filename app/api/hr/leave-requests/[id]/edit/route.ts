@@ -39,6 +39,7 @@ export async function PUT(
       substituteIds,
       selectedDates,
       editReason,
+      notifyManager,
     } = body
 
     if (!editReason || !String(editReason).trim()) {
@@ -433,8 +434,9 @@ export async function PUT(
       },
     })
 
-    // Post-transaction: Email notification to manager (non-blocking)
-    if (existingRequest.user.manager?.email) {
+    // Manager email only when HR explicitly opts in — the template reads as a new
+    // request needing action, but edits preserve status and require no re-approval.
+    if (notifyManager === true && existingRequest.user.manager?.email) {
       try {
         await emailService.sendLeaveRequestNotification(existingRequest.user.manager.email, {
           employeeName: `${existingRequest.user.firstName} ${existingRequest.user.lastName}`,

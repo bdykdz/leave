@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -101,6 +102,7 @@ export function WFHRequestsManager() {
     totalDays: "",
     location: "",
     editReason: "",
+    notifyManager: false,
   })
   const [editSubmitting, setEditSubmitting] = useState(false)
 
@@ -155,6 +157,7 @@ export function WFHRequestsManager() {
       totalDays: String(request.totalDays),
       location: request.location,
       editReason: "",
+      notifyManager: false,
     })
     setEditDialogOpen(true)
   }
@@ -183,6 +186,7 @@ export function WFHRequestsManager() {
           totalDays: parseInt(editForm.totalDays),
           location: editForm.location,
           editReason: editForm.editReason,
+          notifyManager: editForm.notifyManager,
         }),
       })
 
@@ -488,6 +492,17 @@ export function WFHRequestsManager() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, editReason: e.target.value }))}
                       rows={2}
                     />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="wfh-edit-notify-manager"
+                      checked={editForm.notifyManager}
+                      onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, notifyManager: checked === true }))}
+                    />
+                    <Label htmlFor="wfh-edit-notify-manager" className="font-normal cursor-pointer">
+                      Notify manager by email
+                    </Label>
                   </div>
                 </div>
               </div>
