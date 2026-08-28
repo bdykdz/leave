@@ -46,6 +46,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings, User, BookOpen } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -106,6 +115,9 @@ export default function ManagerDashboard() {
   const [totalWfhPendingPages, setTotalWfhPendingPages] = useState(0)
   const [wfhPendingPage, setWfhPendingPage] = useState(1)
   const [wfhApprovedRequests, setWfhApprovedRequests] = useState<any[]>([])
+  const [revokeTarget, setRevokeTarget] = useState<any | null>(null)
+  const [revokeReason, setRevokeReason] = useState("")
+  const [revoking, setRevoking] = useState(false)
   const [totalWfhApprovedPages, setTotalWfhApprovedPages] = useState(0)
   const [wfhApprovedPage, setWfhApprovedPage] = useState(1)
   const [wfhDeniedRequests, setWfhDeniedRequests] = useState<any[]>([])
@@ -640,6 +652,33 @@ export default function ManagerDashboard() {
         return next
       })
       return false
+    }
+  }
+
+  const handleRevokeWfh = async () => {
+    if (!revokeTarget || revoking) return
+    setRevoking(true)
+    try {
+      const response = await fetch(`/api/manager/team/revoke-wfh/${revokeTarget.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: revokeReason })
+      })
+
+      if (response.ok) {
+        toast.success(t.messages.wfhRevokeSuccess)
+        setRevokeTarget(null)
+        setRevokeReason("")
+        Promise.all([fetchWfhApprovedRequests(), fetchWfhDeniedRequests(), fetchTeamStats()])
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.error || t.messages.failedToRevoke)
+      }
+    } catch (error) {
+      console.error('Error revoking WFH approval:', error)
+      toast.error(t.messages.failedToRevoke)
+    } finally {
+      setRevoking(false)
     }
   }
 
@@ -2135,6 +2174,21 @@ export default function ManagerDashboard() {
                                   {request?.overallRequestStatus === 'PENDING' && (
                                     <p className="text-xs text-orange-600 mt-1">{t.labels.pendingExecutive}</p>
                                   )}
+                                  {['APPROVED', 'PENDING'].includes(request?.overallRequestStatus) &&
+                                    request?.startDate &&
+                                    new Date(request.startDate).getTime() > new Date().setHours(0, 0, 0, 0) && (
+                                    <div className="mt-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                        onClick={() => { setRevokeReason(""); setRevokeTarget(request) }}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-1" />
+                                        {t.labels.revokeApproval}
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -2476,6 +2530,37 @@ export default function ManagerDashboard() {
           }}
         />
       )}
+
+      {/* Revoke WFH approval dialog */}
+      <Dialog open={!!revokeTarget} onOpenChange={(open) => { if (!open) setRevokeTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.labels.revokeApproval}</DialogTitle>
+            <DialogDescription>
+              {revokeTarget && (
+                <span className="block mb-2 font-medium text-foreground">
+                  {revokeTarget.employee?.name} • {revokeTarget.dates}
+                </span>
+              )}
+              {t.labels.revokeApprovalDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={revokeReason}
+            onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder={t.labels.revokeReasonPlaceholder}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokeTarget(null)} disabled={revoking}>
+              {t.common.cancel}
+            </Button>
+            <Button variant="destructive" onClick={handleRevokeWfh} disabled={revoking}>
+              {revoking ? '...' : t.labels.revokeApproval}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

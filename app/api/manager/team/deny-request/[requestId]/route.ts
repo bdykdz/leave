@@ -271,6 +271,15 @@ async function handleWFHDenial(session: any, requestId: string, comment: string)
       return NextResponse.json({ error: "WFH request not found" }, { status: 404 })
     }
 
+    // Status pre-check: only PENDING requests can be denied (an approved request
+    // must go through the revoke flow instead, which cancels it and notifies)
+    if (wfhRequest.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: "Request is not in pending status" },
+        { status: 400 }
+      )
+    }
+
     // Validate permission (check for self-denial which shouldn't happen but check anyway)
     if (wfhRequest.userId === session.user.id) {
       return NextResponse.json({ error: "Cannot deny your own request" }, { status: 403 })

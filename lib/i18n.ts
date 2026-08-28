@@ -378,6 +378,9 @@ export interface Translations {
     workingDaysThisMonth: string
     pendingExecutive: string
     approvedByYou: string
+    revokeApproval: string
+    revokeApprovalDescription: string
+    revokeReasonPlaceholder: string
     submitted: string
     approvedOn: string
     deniedOn: string
@@ -454,6 +457,8 @@ export interface Translations {
     requestApprovedSuccess: string
     requestDeniedSuccess: string
     requestCancelledSuccess: string
+    wfhRevokeSuccess: string
+    failedToRevoke: string
     failedToApprove: string
     failedToDeny: string
     failedToCancelRequest: string
@@ -1208,6 +1213,9 @@ export const translations: Record<Language, Translations> = {
       workingDaysThisMonth: "working days this month",
       pendingExecutive: "Pending Executive",
       approvedByYou: "Approved by You",
+      revokeApproval: "Revoke approval",
+      revokeApprovalDescription: "The WFH request will be cancelled and the employee will be notified. This cannot be undone.",
+      revokeReasonPlaceholder: "Reason (optional)",
       submitted: "Submitted",
       approvedOn: "Approved on",
       deniedOn: "Denied on",
@@ -1281,6 +1289,8 @@ export const translations: Record<Language, Translations> = {
     messages: {
       requestApprovedSuccess: "Request approved successfully",
       requestDeniedSuccess: "Request denied",
+      wfhRevokeSuccess: "Approval revoked — the WFH request was cancelled",
+      failedToRevoke: "Failed to revoke approval. Please try again.",
       requestCancelledSuccess: "Request cancelled successfully",
       failedToApprove: "Approval failed. Please try again or check the request status.",
       failedToDeny: "Denial failed. Please try again or check the request status.",
@@ -1996,6 +2006,9 @@ export const translations: Record<Language, Translations> = {
       workingDaysThisMonth: "zile lucrătoare luna aceasta",
       pendingExecutive: "În așteptare executiv",
       approvedByYou: "Aprobat de tine",
+      revokeApproval: "Revocă aprobarea",
+      revokeApprovalDescription: "Cererea WFH va fi anulată, iar angajatul va fi notificat. Acțiunea nu poate fi anulată.",
+      revokeReasonPlaceholder: "Motiv (opțional)",
       submitted: "Trimis",
       approvedOn: "Aprobat pe",
       deniedOn: "Respins pe",
@@ -2069,6 +2082,8 @@ export const translations: Record<Language, Translations> = {
     messages: {
       requestApprovedSuccess: "Cererea a fost aprobată cu succes",
       requestDeniedSuccess: "Cererea a fost respinsă",
+      wfhRevokeSuccess: "Aprobarea a fost revocată — cererea WFH a fost anulată",
+      failedToRevoke: "Revocarea aprobării a eșuat. Vă rugăm reîncercați.",
       requestCancelledSuccess: "Cererea a fost anulată cu succes",
       failedToApprove: "Aprobarea a eșuat. Vă rugăm reîncercați sau verificați statusul cererii.",
       failedToDeny: "Respingerea a eșuat. Vă rugăm reîncercați sau verificați statusul cererii.",
