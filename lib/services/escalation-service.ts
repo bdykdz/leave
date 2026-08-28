@@ -363,7 +363,12 @@ export class EscalationService {
   /**
    * Check if an approver is absent (on leave or WFH) during the current period
    */
-  private async isApproverAbsent(approverId: string, checkDate: Date = new Date()): Promise<boolean> {
+  private async isApproverAbsent(
+    approverId: string,
+    checkDate: Date = new Date(),
+    options: { checkOverload?: boolean } = {}
+  ): Promise<boolean> {
+    const { checkOverload = true } = options;
     // Check if approver is on leave TODAY (when approval is needed)
     const today = new Date(checkDate);
     today.setHours(0, 0, 0, 0);
@@ -385,6 +390,8 @@ export class EscalationService {
     }
 
     // Optionally check if approver has too many pending approvals (overloaded)
+    if (!checkOverload) return false;
+
     const pendingCount = await prisma.approval.count({
       where: {
         approverId: approverId,
@@ -533,6 +540,46 @@ export class EscalationService {
   }
 
   /**
+   * Find another active executive who can take over a request stalled with an
+   * executive approver. Excludes the requester and anyone who already has an
+   * approval record on the request — once every executive has had it, the next
+   * escalation falls through to the HR flag instead of ping-ponging.
+   */
+  private async findAvailablePeerExecutive(
+    currentApproverId: string,
+    leaveRequest: { id: string; userId: string }
+  ): Promise<string | null> {
+    const peers = await prisma.user.findMany({
+      where: {
+        role: 'EXECUTIVE',
+        isActive: true,
+        id: { notIn: [currentApproverId, leaveRequest.userId] }
+      },
+      select: { id: true }
+    });
+
+    for (const peer of peers) {
+      const alreadyInvolved = await prisma.approval.findFirst({
+        where: {
+          leaveRequestId: leaveRequest.id,
+          approverId: peer.id
+        },
+        select: { id: true }
+      });
+      if (alreadyInvolved) continue;
+
+      // Only real absence (approved leave) disqualifies a peer executive — the
+      // overload heuristic would routinely skip execs who approve for a whole
+      // department, defeating the handover and falling back to the HR flag.
+      if (await this.isApproverAbsent(peer.id, new Date(), { checkOverload: false })) continue;
+
+      return peer.id;
+    }
+
+    return null;
+  }
+
+  /**
    * Escalate a single approval to the next level
    */
   private async escalateApproval(approval: any): Promise<void> {
@@ -541,20 +588,33 @@ export class EscalationService {
     const config = await this.getEscalationConfig();
     
     // Get the next available approver, skipping absent ones if configured
-    const { approverId: escalateToId, skippedApprovers } = await this.getNextAvailableApprover(
+    const nextInChain = await this.getNextAvailableApprover(
       leaveRequest.userId,
       currentApprover.id,
       leaveRequest.startDate,
       leaveRequest.endDate,
       config
     );
+    let escalateToId = nextInChain.approverId;
+    const skippedApprovers = nextInChain.skippedApprovers;
 
     // Build escalation reason
     let escalationReason = `Auto-escalated after ${config.escalationDaysBeforeAutoApproval} days of inactivity`;
     if (skippedApprovers.length > 0) {
       escalationReason += `. Skipped absent approvers: ${skippedApprovers.length}`;
     }
-    
+
+    // Chain exhausted at an executive: hand the request to a peer executive
+    // before falling back to the HR flag. HR cannot approve and may themselves
+    // be on leave; the other executive can actually decide the request.
+    if (!escalateToId && currentApprover.role === 'EXECUTIVE') {
+      const peerId = await this.findAvailablePeerExecutive(currentApprover.id, leaveRequest);
+      if (peerId) {
+        escalateToId = peerId;
+        escalationReason += `. Handed over to peer executive after ${currentApprover.firstName} ${currentApprover.lastName} did not respond`;
+      }
+    }
+
     // If the approval chain is exhausted (no next approver), flag HR to follow up
     // HR does NOT become an approver — they just nudge the last approver to take action
     if (!escalateToId) {
