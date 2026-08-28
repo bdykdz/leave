@@ -2145,7 +2145,7 @@ export default function ManagerDashboard() {
                           <p className="text-center text-gray-500 py-8">{t.labels.noApprovedRequests}</p>
                         ) : (
                           wfhApprovedRequests.map((request) => (
-                            <div key={request?.id || Math.random()} className="p-4 border rounded-lg bg-green-50 border-green-200">
+                            <div key={request?.id || Math.random()} className={`p-4 border rounded-lg ${['CANCELLED', 'REJECTED'].includes(request?.overallRequestStatus) ? 'bg-gray-50 border-gray-200 opacity-75' : 'bg-green-50 border-green-200'}`}>
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3">
                                   <Avatar className="h-10 w-10">
@@ -2170,7 +2170,18 @@ export default function ManagerDashboard() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <Badge className="bg-green-100 text-green-800">{t.labels.approvedByYou}</Badge>
+                                  {request?.overallRequestStatus === 'CANCELLED' ? (
+                                    <Badge className="bg-gray-200 text-gray-700">
+                                      {request?.cancelledBy === 'employee' ? t.labels.cancelledByEmployee
+                                        : request?.cancelledBy === 'manager' ? t.labels.approvalRevoked
+                                        : request?.cancelledBy === 'admin' ? t.labels.cancelledByHr
+                                        : t.labels.requestCancelled}
+                                    </Badge>
+                                  ) : request?.overallRequestStatus === 'REJECTED' ? (
+                                    <Badge className="bg-red-100 text-red-800">{t.labels.requestRejected}</Badge>
+                                  ) : (
+                                    <Badge className="bg-green-100 text-green-800">{t.labels.approvedByYou}</Badge>
+                                  )}
                                   {request?.overallRequestStatus === 'PENDING' && (
                                     <p className="text-xs text-orange-600 mt-1">{t.labels.pendingExecutive}</p>
                                   )}

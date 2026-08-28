@@ -381,6 +381,11 @@ export interface Translations {
     revokeApproval: string
     revokeApprovalDescription: string
     revokeReasonPlaceholder: string
+    cancelledByEmployee: string
+    approvalRevoked: string
+    cancelledByHr: string
+    requestCancelled: string
+    requestRejected: string
     submitted: string
     approvedOn: string
     deniedOn: string
@@ -1216,6 +1221,11 @@ export const translations: Record<Language, Translations> = {
       revokeApproval: "Revoke approval",
       revokeApprovalDescription: "The WFH request will be cancelled and the employee will be notified. This cannot be undone.",
       revokeReasonPlaceholder: "Reason (optional)",
+      cancelledByEmployee: "Cancelled by employee",
+      approvalRevoked: "Approval revoked",
+      cancelledByHr: "Cancelled by HR/Admin",
+      requestCancelled: "Cancelled",
+      requestRejected: "Rejected",
       submitted: "Submitted",
       approvedOn: "Approved on",
       deniedOn: "Denied on",
@@ -2009,6 +2019,11 @@ export const translations: Record<Language, Translations> = {
       revokeApproval: "Revocă aprobarea",
       revokeApprovalDescription: "Cererea WFH va fi anulată, iar angajatul va fi notificat. Acțiunea nu poate fi anulată.",
       revokeReasonPlaceholder: "Motiv (opțional)",
+      cancelledByEmployee: "Anulată de angajat",
+      approvalRevoked: "Aprobare revocată",
+      cancelledByHr: "Anulată de HR/Admin",
+      requestCancelled: "Anulată",
+      requestRejected: "Respinsă",
       submitted: "Trimis",
       approvedOn: "Aprobat pe",
       deniedOn: "Respins pe",

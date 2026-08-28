@@ -60,6 +60,30 @@ export async function GET(request: Request) {
       prisma.workFromHomeRequest.count({ where })
     ])
 
+    // For requests cancelled after approval, find out who cancelled them so the
+    // manager sees "cancelled by employee" rather than a misleading "approved by you".
+    const cancelledIds = approvedRequests.filter(r => r.status === 'CANCELLED').map(r => r.id)
+    const cancelledBy = new Map<string, 'employee' | 'manager' | 'admin'>()
+    if (cancelledIds.length > 0) {
+      const logs = await prisma.auditLog.findMany({
+        where: {
+          entityId: { in: cancelledIds },
+          action: { in: ['SELF_CANCEL_REQUEST', 'WFH_APPROVAL_REVOKED', 'REQUEST_CANCELLED'] }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { entityId: true, action: true }
+      })
+      for (const log of logs) {
+        if (!log.entityId || cancelledBy.has(log.entityId)) continue
+        cancelledBy.set(
+          log.entityId,
+          log.action === 'SELF_CANCEL_REQUEST' ? 'employee'
+            : log.action === 'WFH_APPROVAL_REVOKED' ? 'manager'
+            : 'admin'
+        )
+      }
+    }
+
     const formattedRequests = approvedRequests.map(request => {
       const approval = request.approvals[0]
       const overallStatus = request.status === 'APPROVED' ? 'approved' : 'approved_pending_others'
@@ -83,7 +107,8 @@ export async function GET(request: Request) {
         approvedDate: approval?.approvedAt?.toISOString() || request.updatedAt.toISOString(),
         substitute: null,
         status: overallStatus,
-        overallRequestStatus: request.status
+        overallRequestStatus: request.status,
+        cancelledBy: cancelledBy.get(request.id) || null
       }
     })
 
