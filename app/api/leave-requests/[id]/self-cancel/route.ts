@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/lib/services/notification-service';
 import { updateLeaveBalanceOnRejection } from '@/lib/leave-balance';
+import { watermarkCancelledLeaveDocument } from '@/lib/cancellation-watermark';
 
 // POST: Cancel own leave request (employee self-cancellation)
 export async function POST(
@@ -162,6 +163,14 @@ export async function POST(
 
       return cancelledRequest;
     });
+
+    // Stamp the generated PDF with the big diagonal "ANULAT" watermark
+    // (non-fatal: the document-export sync sweep re-stamps anything missed here)
+    try {
+      await watermarkCancelledLeaveDocument(params.id);
+    } catch (watermarkError) {
+      console.error('Failed to watermark cancelled leave document:', watermarkError);
+    }
 
     // Send notification to managers/HR about the cancellation
     try {

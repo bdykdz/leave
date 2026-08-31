@@ -1,4 +1,5 @@
 import { minioClient, MINIO_BUCKET, getFromMinio } from './minio'
+import { watermarkAllCancelledLeaveDocuments } from './cancellation-watermark'
 import { prisma } from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
@@ -212,6 +213,23 @@ export async function syncDocumentsToLocal(): Promise<SyncResult> {
     // Ensure base directory exists
     await fs.mkdir(EXPORT_PATH, { recursive: true })
 
+    // Stamp "ANULAT" on generated PDFs whose leave request was cancelled after
+    // the document was produced. The MinIO object is rewritten in place, so its
+    // etag changes and the loop below re-downloads the refreshed file over the
+    // stale local copy.
+    const watermarkErrors: string[] = []
+    try {
+      const watermarkResult = await watermarkAllCancelledLeaveDocuments()
+      watermarkErrors.push(...watermarkResult.errors)
+      if (watermarkResult.stamped > 0) {
+        console.log(`[EXPORT] Watermarked ${watermarkResult.stamped} cancelled document(s) with ANULAT`)
+      }
+    } catch (err) {
+      watermarkErrors.push(
+        `Cancellation watermark sweep failed: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+
     // List all objects from MinIO
     const [draftObjects, generatedObjects, templateObjects] = await Promise.all([
       listMinioDocuments('documents/draft/'),
@@ -225,7 +243,7 @@ export async function syncDocumentsToLocal(): Promise<SyncResult> {
 
     let newFiles = 0
     let skippedFiles = 0
-    const errors: string[] = []
+    const errors: string[] = [...watermarkErrors]
 
     for (const obj of allObjects) {
       const existingEntry = manifest.entries[obj.name]

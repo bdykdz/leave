@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
+import { watermarkCancelledLeaveDocument } from '@/lib/cancellation-watermark';
 
 // POST: Cancel a leave request (admin only)
 export async function POST(
@@ -125,6 +126,14 @@ export async function POST(
         }
       }
     });
+
+    // Stamp the generated PDF with the big diagonal "ANULAT" watermark
+    // (non-fatal: the document-export sync sweep re-stamps anything missed here)
+    try {
+      await watermarkCancelledLeaveDocument(params.id);
+    } catch (watermarkError) {
+      console.error('Failed to watermark cancelled leave document:', watermarkError);
+    }
 
     return NextResponse.json({ 
       message: 'Leave request cancelled successfully',
