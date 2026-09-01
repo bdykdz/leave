@@ -104,6 +104,31 @@ function isOverdue(request: { status: string; endDate: string }): boolean {
   return request.status === "PENDING" && new Date(request.endDate) < todayStart
 }
 
+// Mon–Fri days between two dates, inclusive. Ignores public holidays, so it can
+// slightly overcount — only used to decide whether a request skips days in its range.
+function weekdayCount(start: Date, end: Date): number {
+  let count = 0
+  const d = new Date(start)
+  d.setHours(0, 0, 0, 0)
+  const last = new Date(end)
+  last.setHours(0, 0, 0, 0)
+  while (d <= last) {
+    const day = d.getDay()
+    if (day !== 0 && day !== 6) count++
+    d.setDate(d.getDate() + 1)
+  }
+  return count
+}
+
+// A request whose selected dates don't cover every working day between its
+// start and end (e.g. only Monday and Friday of a week).
+function hasNonContiguousDates(request: LeaveRequestItem): boolean {
+  return (
+    request.selectedDates.length > 0 &&
+    request.selectedDates.length < weekdayCount(new Date(request.startDate), new Date(request.endDate))
+  )
+}
+
 const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   APPROVED: "bg-green-100 text-green-800",
@@ -140,6 +165,9 @@ export function LeaveRequestsManager() {
   })
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [calculatingDays, setCalculatingDays] = useState(false)
+  // Only recalculate totalDays after HR actually changes a date — the stored
+  // totalDays can legitimately differ from the range (non-contiguous requests).
+  const [datesEdited, setDatesEdited] = useState(false)
 
   // Cancel dialog state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -209,14 +237,18 @@ export function LeaveRequestsManager() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  // Auto-calculate working days when dates change in edit form
+  // Auto-calculate working days when HR changes the dates in the edit form.
+  // Skipped until a date is actually edited: on open the stored totalDays must
+  // stand, since non-contiguous requests have fewer days than their range.
   useEffect(() => {
+    if (!datesEdited) return
     if (!editForm.startDate || !editForm.endDate) return
 
     const start = new Date(editForm.startDate)
     const end = new Date(editForm.endDate)
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return
 
+    let stale = false
     setCalculatingDays(true)
     const params = new URLSearchParams({
       startDate: editForm.startDate,
@@ -225,13 +257,14 @@ export function LeaveRequestsManager() {
     fetch(`/api/working-days?${params}`)
       .then(r => r.json())
       .then(data => {
-        if (data.workingDays !== undefined) {
+        if (!stale && data.workingDays !== undefined) {
           setEditForm(prev => ({ ...prev, totalDays: String(data.workingDays) }))
         }
       })
       .catch(() => {})
-      .finally(() => setCalculatingDays(false))
-  }, [editForm.startDate, editForm.endDate])
+      .finally(() => { if (!stale) setCalculatingDays(false) })
+    return () => { stale = true }
+  }, [datesEdited, editForm.startDate, editForm.endDate])
 
   // Fetch balance when leave type or user changes in edit
   useEffect(() => {
@@ -263,6 +296,7 @@ export function LeaveRequestsManager() {
       editReason: "",
       notifyManager: false,
     })
+    setDatesEdited(false)
     setBalancePreview(null)
     setEditDialogOpen(true)
   }
@@ -290,6 +324,12 @@ export function LeaveRequestsManager() {
           startDate: editForm.startDate,
           endDate: editForm.endDate,
           totalDays: parseFloat(editForm.totalDays),
+          // Keep the originally selected days when neither the dates nor the
+          // day count changed; otherwise let the API rebuild them from the
+          // range, so days and count can't drift apart.
+          ...(datesEdited || parseFloat(editForm.totalDays) !== editingRequest.totalDays
+            ? {}
+            : { selectedDates: editingRequest.selectedDates }),
           reason: editForm.reason,
           editReason: editForm.editReason,
           notifyManager: editForm.notifyManager,
@@ -567,6 +607,27 @@ export function LeaveRequestsManager() {
                   </p>
                 </div>
 
+                {/* Non-contiguous request: the range alone is misleading */}
+                {hasNonContiguousDates(editingRequest) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="text-sm text-amber-800">
+                      <p>
+                        This request covers only <strong>{editingRequest.selectedDates.length} specific day{editingRequest.selectedDates.length === 1 ? "" : "s"}</strong>,
+                        not the full range:{" "}
+                        <strong>
+                          {editingRequest.selectedDates
+                            .map(d => format(new Date(d), "MMM d"))
+                            .join(", ")}
+                        </strong>
+                      </p>
+                      <p className="mt-1">
+                        Changing the dates or the day count below will replace them with <em>all</em> working days in the range.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3">
                   <div>
                     <Label>Leave Type</Label>
@@ -591,7 +652,10 @@ export function LeaveRequestsManager() {
                       <Input
                         type="date"
                         value={editForm.startDate}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        onChange={(e) => {
+                          setDatesEdited(true)
+                          setEditForm(prev => ({ ...prev, startDate: e.target.value }))
+                        }}
                       />
                     </div>
                     <div>
@@ -599,7 +663,10 @@ export function LeaveRequestsManager() {
                       <Input
                         type="date"
                         value={editForm.endDate}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        onChange={(e) => {
+                          setDatesEdited(true)
+                          setEditForm(prev => ({ ...prev, endDate: e.target.value }))
+                        }}
                       />
                     </div>
                   </div>
@@ -613,7 +680,7 @@ export function LeaveRequestsManager() {
                       value={editForm.totalDays}
                       onChange={(e) => setEditForm(prev => ({ ...prev, totalDays: e.target.value }))}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Auto-calculated from dates. Override if needed.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Recalculated when you change the dates. Override if needed.</p>
                   </div>
 
                   <div>

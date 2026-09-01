@@ -212,6 +212,10 @@ export interface Translations {
     selectDatesCalendar: string
     selectDatesDescription: string
     noDaysSelected: string
+    gapWarningTitle: string
+    gapWarningBody: string
+    gapWarningHint: string
+    addMissingDays: string
     details: string
     level: string
     manager: string
@@ -1069,6 +1073,10 @@ export const translations: Record<Language, Translations> = {
       selectDatesCalendar: "Select dates on the calendar",
       selectDatesDescription: "You can select multiple individual days or consecutive periods.",
       noDaysSelected: "No days selected",
+      gapWarningTitle: "Your selection has gaps",
+      gapWarningBody: "These working days are between your first and last selected day but are NOT included in the request:",
+      gapWarningHint: "If you want leave for the whole period, add them too.",
+      addMissingDays: "Add these days",
       details: "Details",
       level: "Level",
       manager: "Manager",
@@ -1867,6 +1875,10 @@ export const translations: Record<Language, Translations> = {
       selectDatesCalendar: "Selectează datele pe calendar",
       selectDatesDescription: "Puteți selecta mai multe zile individuale sau perioade consecutive.",
       noDaysSelected: "Nicio zi selectată",
+      gapWarningTitle: "Selecția are zile lipsă",
+      gapWarningBody: "Zilele lucrătoare de mai jos sunt între prima și ultima zi selectată, dar NU sunt incluse în cerere:",
+      gapWarningHint: "Dacă doriți concediu pe toată perioada, adăugați-le și pe ele.",
+      addMissingDays: "Adaugă aceste zile",
       details: "Detalii",
       level: "Nivel",
       manager: "Manager",

@@ -82,6 +82,7 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const [blockedDateDetails, setBlockedDateDetails] = useState<Record<string, { status: string; leaveType: string }>>({})
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true)
   const [showConflictWizard, setShowConflictWizard] = useState(false)
+  const [holidayDates, setHolidayDates] = useState<Record<number, Date[]>>({})
 
   // Handle conflict check button click
   const handleCheckConflicts = () => {
@@ -116,6 +117,31 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
   const endDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : undefined
 
   const selectedLeaveType = leaveTypes.find(lt => lt.id === leaveType)
+
+  // Working days between the first and last selected day that were NOT selected.
+  // Employees expecting start/end range selection often click only the two
+  // endpoints and submit a 2-day request instead of the full period.
+  const gapDates: Date[] = []
+  if (sortedDates.length >= 2 && startDate && endDate) {
+    const holidays = Object.values(holidayDates).flat()
+    const cursor = new Date(startDate)
+    cursor.setHours(0, 0, 0, 0)
+    const last = new Date(endDate)
+    last.setHours(0, 0, 0, 0)
+    for (cursor.setDate(cursor.getDate() + 1); cursor < last; cursor.setDate(cursor.getDate() + 1)) {
+      const day = cursor.getDay()
+      if (day === 0 || day === 6) continue
+      const date = new Date(cursor)
+      if (selectedDates.some(s => isSameDay(s, date))) continue
+      if (holidays.some(h => isSameDay(h, date))) continue
+      if (blockedDates.includes(toLocalDateString(date))) continue
+      gapDates.push(date)
+    }
+  }
+
+  const handleAddGapDates = () => {
+    setSelectedDates(prev => [...prev, ...gapDates].sort((a, b) => a.getTime() - b.getTime()))
+  }
 
   // Fetch leave types on component mount
   useEffect(() => {
@@ -166,6 +192,25 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
     
     fetchBlockedDates()
   }, [])
+
+  // Fetch public holidays for the years touched by the selection, so gap
+  // detection doesn't flag holidays as missing working days
+  useEffect(() => {
+    const years = Array.from(new Set(selectedDates.map(d => d.getFullYear())))
+    for (const year of years) {
+      if (holidayDates[year]) continue
+      fetch(`/api/holidays?year=${year}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          const dates = (data?.holidays || []).map((h: { date: string }) => new Date(h.date))
+          setHolidayDates(prev => (prev[year] ? prev : { ...prev, [year]: dates }))
+        })
+        .catch(() => {
+          // Mark the year as attempted so we don't refetch on every selection change
+          setHolidayDates(prev => (prev[year] ? prev : { ...prev, [year]: [] }))
+        })
+    }
+  }, [selectedDates, holidayDates])
 
   // Fetch approvers when user session is available
   useEffect(() => {
@@ -455,6 +500,35 @@ export function LeaveRequestForm({ onBack }: LeaveRequestFormProps) {
                       <span className="text-sm font-medium">{t.labels.dates}:</span>
                       <p className="text-sm text-gray-600">{formatDateGroups(groupConsecutiveDates(selectedDates))}</p>
                     </div>
+
+                    {gapDates.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                          <div className="text-sm text-amber-800">
+                            <p className="font-medium">{t.leaveForm.gapWarningTitle}</p>
+                            <p className="mt-1">{t.leaveForm.gapWarningBody}</p>
+                            <p className="font-medium mt-1">
+                              {gapDates
+                                .slice(0, 12)
+                                .map((d) => format(d, "MMM d", { locale: dateLocale }))
+                                .join(", ")}
+                              {gapDates.length > 12 && ` +${gapDates.length - 12}`}
+                            </p>
+                            <p className="mt-1">{t.leaveForm.gapWarningHint}</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-amber-300 text-amber-800 hover:bg-amber-100"
+                          onClick={handleAddGapDates}
+                        >
+                          {t.leaveForm.addMissingDays}
+                        </Button>
+                      </div>
+                    )}
 
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       <span className="text-sm font-medium">{t.labels.individualDays}:</span>
