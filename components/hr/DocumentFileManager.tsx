@@ -330,6 +330,8 @@ export function DocumentFileManager() {
         return <Badge variant="destructive">Rejected</Badge>
       case 'PENDING':
         return <Badge variant="secondary">Pending</Badge>
+      case 'CANCELLED':
+        return <Badge variant="outline" className="bg-gray-100 text-gray-800">Cancelled</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -390,6 +392,7 @@ export function DocumentFileManager() {
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
           </Select>
 
