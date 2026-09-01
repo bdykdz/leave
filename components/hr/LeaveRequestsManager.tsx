@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -104,6 +105,12 @@ function isOverdue(request: { status: string; endDate: string }): boolean {
   return request.status === "PENDING" && new Date(request.endDate) < todayStart
 }
 
+// Parse a date or datetime string as a local calendar day, ignoring time/zone
+function parseDateOnly(value: string): Date {
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
+
 // Mon–Fri days between two dates, inclusive. Ignores public holidays, so it can
 // slightly overcount — only used to decide whether a request skips days in its range.
 function weekdayCount(start: Date, end: Date): number {
@@ -168,6 +175,23 @@ export function LeaveRequestsManager() {
   // Only recalculate totalDays after HR actually changes a date — the stored
   // totalDays can legitimately differ from the range (non-contiguous requests).
   const [datesEdited, setDatesEdited] = useState(false)
+  // "range": start/end inputs; "days": multi-select calendar for arbitrary days
+  const [dateMode, setDateMode] = useState<"range" | "days">("range")
+  const [pickedDates, setPickedDates] = useState<Date[]>([])
+  const [editHolidays, setEditHolidays] = useState<Record<number, Date[]>>({})
+  const holidayYearsRequested = useRef<Set<number>>(new Set())
+
+  const ensureHolidays = (year: number) => {
+    if (holidayYearsRequested.current.has(year)) return
+    holidayYearsRequested.current.add(year)
+    fetch(`/api/holidays?year=${year}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        const dates = (data?.holidays || []).map((h: { date: string }) => parseDateOnly(h.date))
+        setEditHolidays(prev => ({ ...prev, [year]: dates }))
+      })
+      .catch(() => holidayYearsRequested.current.delete(year))
+  }
 
   // Cancel dialog state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -241,7 +265,7 @@ export function LeaveRequestsManager() {
   // Skipped until a date is actually edited: on open the stored totalDays must
   // stand, since non-contiguous requests have fewer days than their range.
   useEffect(() => {
-    if (!datesEdited) return
+    if (!datesEdited || dateMode !== "range") return
     if (!editForm.startDate || !editForm.endDate) return
 
     const start = new Date(editForm.startDate)
@@ -264,7 +288,7 @@ export function LeaveRequestsManager() {
       .catch(() => {})
       .finally(() => { if (!stale) setCalculatingDays(false) })
     return () => { stale = true }
-  }, [datesEdited, editForm.startDate, editForm.endDate])
+  }, [datesEdited, dateMode, editForm.startDate, editForm.endDate])
 
   // Fetch balance when leave type or user changes in edit
   useEffect(() => {
@@ -297,8 +321,28 @@ export function LeaveRequestsManager() {
       notifyManager: false,
     })
     setDatesEdited(false)
+    // Open non-contiguous requests directly in the day picker — the range
+    // inputs alone would misrepresent what the request covers
+    setDateMode(hasNonContiguousDates(request) ? "days" : "range")
+    setPickedDates(request.selectedDates.map(parseDateOnly).sort((a, b) => a.getTime() - b.getTime()))
+    ensureHolidays(new Date(request.startDate).getFullYear())
+    ensureHolidays(new Date(request.endDate).getFullYear())
     setBalancePreview(null)
     setEditDialogOpen(true)
+  }
+
+  const handlePickDates = (days: Date[] | undefined) => {
+    const sorted = [...(days ?? [])].sort((a, b) => a.getTime() - b.getTime())
+    // Any pick counts as a date change — if HR later switches back to range
+    // mode, the stale original selectedDates must not be sent along
+    setDatesEdited(true)
+    setPickedDates(sorted)
+    setEditForm(prev => ({
+      ...prev,
+      totalDays: String(sorted.length),
+      startDate: sorted.length ? format(sorted[0], "yyyy-MM-dd") : prev.startDate,
+      endDate: sorted.length ? format(sorted[sorted.length - 1], "yyyy-MM-dd") : prev.endDate,
+    }))
   }
 
   const openCancelDialog = (request: LeaveRequestItem) => {
@@ -313,6 +357,10 @@ export function LeaveRequestsManager() {
       toast.error("Please provide a reason for this edit")
       return
     }
+    if (dateMode === "days" && pickedDates.length === 0) {
+      toast.error("Pick at least one day")
+      return
+    }
 
     setEditSubmitting(true)
     try {
@@ -321,15 +369,24 @@ export function LeaveRequestsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           leaveTypeId: editForm.leaveTypeId,
-          startDate: editForm.startDate,
-          endDate: editForm.endDate,
           totalDays: parseFloat(editForm.totalDays),
-          // Keep the originally selected days when neither the dates nor the
-          // day count changed; otherwise let the API rebuild them from the
-          // range, so days and count can't drift apart.
-          ...(datesEdited || parseFloat(editForm.totalDays) !== editingRequest.totalDays
-            ? {}
-            : { selectedDates: editingRequest.selectedDates }),
+          ...(dateMode === "days"
+            ? {
+                // Day-picker mode: send the exact days; range is derived from them
+                startDate: format(pickedDates[0], "yyyy-MM-dd"),
+                endDate: format(pickedDates[pickedDates.length - 1], "yyyy-MM-dd"),
+                selectedDates: pickedDates.map(d => format(d, "yyyy-MM-dd")),
+              }
+            : {
+                startDate: editForm.startDate,
+                endDate: editForm.endDate,
+                // Keep the originally selected days when neither the dates nor
+                // the day count changed; otherwise let the API rebuild them
+                // from the range, so days and count can't drift apart.
+                ...(datesEdited || parseFloat(editForm.totalDays) !== editingRequest.totalDays
+                  ? {}
+                  : { selectedDates: editingRequest.selectedDates }),
+              }),
           reason: editForm.reason,
           editReason: editForm.editReason,
           notifyManager: editForm.notifyManager,
@@ -608,7 +665,7 @@ export function LeaveRequestsManager() {
                 </div>
 
                 {/* Non-contiguous request: the range alone is misleading */}
-                {hasNonContiguousDates(editingRequest) && (
+                {dateMode === "range" && hasNonContiguousDates(editingRequest) && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                     <div className="text-sm text-amber-800">
@@ -623,6 +680,7 @@ export function LeaveRequestsManager() {
                       </p>
                       <p className="mt-1">
                         Changing the dates or the day count below will replace them with <em>all</em> working days in the range.
+                        Switch to &quot;Pick days&quot; to edit the individual days instead.
                       </p>
                     </div>
                   </div>
@@ -646,29 +704,72 @@ export function LeaveRequestsManager() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Start Date</Label>
-                      <Input
-                        type="date"
-                        value={editForm.startDate}
-                        onChange={(e) => {
-                          setDatesEdited(true)
-                          setEditForm(prev => ({ ...prev, startDate: e.target.value }))
-                        }}
-                      />
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Dates</Label>
+                      <div className="inline-flex rounded-md border overflow-hidden text-xs">
+                        <button
+                          type="button"
+                          className={`px-2 py-1 ${dateMode === "range" ? "bg-primary text-primary-foreground" : "bg-transparent hover:bg-muted"}`}
+                          onClick={() => setDateMode("range")}
+                        >
+                          Date range
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-2 py-1 border-l ${dateMode === "days" ? "bg-primary text-primary-foreground" : "bg-transparent hover:bg-muted"}`}
+                          onClick={() => setDateMode("days")}
+                        >
+                          Pick days
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <Label>End Date</Label>
-                      <Input
-                        type="date"
-                        value={editForm.endDate}
-                        onChange={(e) => {
-                          setDatesEdited(true)
-                          setEditForm(prev => ({ ...prev, endDate: e.target.value }))
-                        }}
-                      />
-                    </div>
+
+                    {dateMode === "range" ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Start Date</Label>
+                          <Input
+                            type="date"
+                            value={editForm.startDate}
+                            onChange={(e) => {
+                              setDatesEdited(true)
+                              setEditForm(prev => ({ ...prev, startDate: e.target.value }))
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">End Date</Label>
+                          <Input
+                            type="date"
+                            value={editForm.endDate}
+                            onChange={(e) => {
+                              setDatesEdited(true)
+                              setEditForm(prev => ({ ...prev, endDate: e.target.value }))
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center border rounded-md p-2">
+                        <Calendar
+                          mode="multiple"
+                          selected={pickedDates}
+                          onSelect={handlePickDates}
+                          defaultMonth={pickedDates[0] ?? (editForm.startDate ? parseDateOnly(editForm.startDate) : undefined)}
+                          onMonthChange={(month) => ensureHolidays(month.getFullYear())}
+                          disabled={[{ dayOfWeek: [0, 6] }, ...Object.values(editHolidays).flat()]}
+                        />
+                        <p className="text-xs text-muted-foreground self-start px-1">
+                          {pickedDates.length === 0
+                            ? "No days selected"
+                            : `${pickedDates.length} day${pickedDates.length === 1 ? "" : "s"}: ${pickedDates
+                                .slice(0, 10)
+                                .map(d => format(d, "MMM d"))
+                                .join(", ")}${pickedDates.length > 10 ? ` +${pickedDates.length - 10}` : ""}`}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -680,7 +781,11 @@ export function LeaveRequestsManager() {
                       value={editForm.totalDays}
                       onChange={(e) => setEditForm(prev => ({ ...prev, totalDays: e.target.value }))}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Recalculated when you change the dates. Override if needed.</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {dateMode === "days"
+                        ? "Set from the picked days. Override if needed."
+                        : "Recalculated when you change the dates. Override if needed."}
+                    </p>
                   </div>
 
                   <div>
